@@ -134,7 +134,10 @@ class WalletFlowTests(APITestCase):
         )
         self.assertEqual(ok.status_code, status.HTTP_200_OK)
 
-    @override_settings(NOTCHPAY_WEBHOOK_TOKEN="test-webhook-token")
+    @override_settings(
+        NOTCHPAY_WEBHOOK_TOKEN="test-webhook-token",
+        NOTCHPAY_DISBURSE_WEBHOOK_SECRET="test-disburse-secret",
+    )
     def test_disburse_webhook_idempotence(self):
         wallet, _ = Wallet.objects.get_or_create(owner=self.user)
         tx = wallet.transactions.create(
@@ -150,16 +153,21 @@ class WalletFlowTests(APITestCase):
             "disburse_id": tx.external_transaction_id,
             "response_code": "00",
         }
+        body = json.dumps(payload, separators=(",", ":")).encode()
+        sig = hmac.new(b"test-disburse-secret", body, hashlib.sha256).hexdigest()
+
         first = self.client.post(
             reverse("wallet-notchpay-disburse-webhook"),
-            payload,
-            format="json",
+            data=body,
+            content_type="application/json",
+            HTTP_X_NOTCH_SIGNATURE=sig,
             HTTP_X_NOTCHPAY_TOKEN="test-webhook-token",
         )
         second = self.client.post(
             reverse("wallet-notchpay-disburse-webhook"),
-            payload,
-            format="json",
+            data=body,
+            content_type="application/json",
+            HTTP_X_NOTCH_SIGNATURE=sig,
             HTTP_X_NOTCHPAY_TOKEN="test-webhook-token",
         )
 
@@ -168,7 +176,10 @@ class WalletFlowTests(APITestCase):
         tx.refresh_from_db()
         self.assertEqual(tx.status, TransactionStatus.SUCCESS)
 
-    @override_settings(NOTCHPAY_WEBHOOK_TOKEN="test-webhook-token")
+    @override_settings(
+        NOTCHPAY_WEBHOOK_TOKEN="test-webhook-token",
+        NOTCHPAY_CHECKOUT_WEBHOOK_SECRET="test-checkout-secret",
+    )
     def test_checkout_webhook_does_not_downgrade_success_transaction(self):
         wallet, _ = Wallet.objects.get_or_create(owner=self.user)
         tx = wallet.transactions.create(
@@ -179,16 +190,22 @@ class WalletFlowTests(APITestCase):
             external_transaction_id="WALLET-CHECKOUT-ALREADY-SUCCESS",
         )
         payload = {
+            "type": "payment.failed",
             "data": {
                 "event_id": "evt-checkout-failed-after-success",
                 "status": "failed",
+                "amount": "1200",
+                "reference": tx.external_transaction_id,
                 "invoice": {"token": tx.external_transaction_id},
-            }
+            },
         }
+        body = json.dumps(payload, separators=(",", ":")).encode()
+        sig = hmac.new(b"test-checkout-secret", body, hashlib.sha256).hexdigest()
         res = self.client.post(
             reverse("wallet-notchpay-checkout-webhook"),
-            payload,
-            format="json",
+            data=body,
+            content_type="application/json",
+            HTTP_X_NOTCH_SIGNATURE=sig,
             HTTP_X_NOTCHPAY_TOKEN="test-webhook-token",
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK)

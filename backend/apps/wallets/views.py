@@ -28,13 +28,39 @@ from .models import (
     TransactionStatus,
     Wallet,
     WalletTransaction,
+    WalletTransactionStateLog,
     WalletWebhookEvent,
 )
 from .payout_retry import enqueue_payout_retry, mark_payout_retry_success
 from .services import WalletAccountingService
 from .serializers import WalletSerializer, WalletTransactionSerializer
+from .fraud import FraudEngine, RiskContext
+from .idempotency_service import IdempotencyConflict, IdempotencyService
 
 logger = logging.getLogger(__name__)
+security_event_logger = logging.getLogger("security.events")
+
+
+def _client_ip(request) -> str:
+    """Extract real client IP honoring X-Forwarded-For from trusted proxies."""
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "").strip()
+    if xff:
+        candidate = xff.split(",")[0].strip()
+        import ipaddress
+        try:
+            ipaddress.ip_address(candidate)
+            return candidate
+        except ValueError:
+            pass
+    real_ip = request.META.get("HTTP_X_REAL_IP", "").strip()
+    if real_ip:
+        import ipaddress
+        try:
+            ipaddress.ip_address(real_ip)
+            return real_ip
+        except ValueError:
+            pass
+    return request.META.get("REMOTE_ADDR", "0.0.0.0")
 
 
 class WalletViewSet(viewsets.ReadOnlyModelViewSet):
@@ -46,12 +72,19 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         Wallet.objects.get_or_create(owner=self.request.user)
         return Wallet.objects.filter(owner=self.request.user).select_related("owner")
 
+    # M5 — Minimum transaction amount (100 XAF). Prevents micro-flood attacks
+    # and aligns with NotchPay's practical minimums for Mobile Money.
+    _MIN_TX_AMOUNT = Decimal("100")
+    _MAX_TX_AMOUNT = Decimal("100000000")  # 100M XAF hard cap
+
     def _parse_amount(self, raw):
         try:
             amount = Decimal(str(raw))
         except (InvalidOperation, TypeError):
             return None
-        if amount <= 0:
+        if amount < self._MIN_TX_AMOUNT:
+            return None
+        if amount > self._MAX_TX_AMOUNT:
             return None
         return amount.quantize(Decimal("0.01"))
 
@@ -130,15 +163,29 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         return "Identifiant de compte invalide."
 
     def _extract_checkout_url(self, reference: str) -> str | None:
+        """
+        Extract a checkout URL from the reference field.
+
+        M9 — Only returns HTTPS URLs.  Internal metadata embedded in the
+        reference string (tx_ref, provider keys) is stripped before returning.
+        Never returns non-HTTP values that could leak internal state.
+        """
         if not reference:
             return None
-        if reference.startswith("http"):
-            return reference.strip() or None
-        if reference.startswith("checkout_url:"):
-            raw = reference[len("checkout_url:") :]
+        candidate: str | None = None
+        if reference.startswith("https://") or reference.startswith("http://"):
+            candidate = reference.strip() or None
+        elif reference.startswith("checkout_url:"):
+            raw = reference[len("checkout_url:"):]
             if ";tx_ref:" in raw:
                 raw = raw.split(";tx_ref:", 1)[0]
-            return raw.strip() or None
+            candidate = raw.strip() or None
+        # Strip any query-string parameters that may carry internal metadata.
+        if candidate and ("://" in candidate):
+            # Enforce HTTPS in production; allow HTTP only in DEBUG for local dev.
+            if not candidate.startswith("https://") and not getattr(settings, "DEBUG", False):
+                return None
+            return candidate
         return None
 
     def _parse_notchpay_event(self, payload) -> dict:
@@ -182,76 +229,170 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             "data": parsed,
         }
 
+    # -------------------------------------------------------------------------
+    # Webhook signature verification — OWASP ASVS V9.2 / PCI-DSS Req. 6.4
+    #
+    # Design rules (fintech-grade):
+    #   1. HMAC-SHA256 is ALWAYS required — no debug bypass, no token-only fallback.
+    #   2. If the secret is absent the webhook is rejected unconditionally.
+    #      This prevents forged payments when the server is misconfigured.
+    #   3. Token header is an optional second factor (defense-in-depth).
+    #      It is validated from HTTP headers ONLY — never from request body.
+    #   4. Both comparisons use hmac.compare_digest to prevent timing attacks.
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_hmac(secret: str, body: bytes) -> str:
+        return hmac.new(secret.encode("utf-8"), body or b"", hashlib.sha256).hexdigest()
+
     def _verify_checkout_webhook_auth(self, request) -> tuple[bool, str]:
-        expected_token = str(getattr(settings, "NOTCHPAY_WEBHOOK_TOKEN", "") or "").strip()
-        incoming_token = (
-            request.headers.get("X-NotchPay-Token")
-            or request.headers.get("X-Notch-Token")
-            or request.headers.get("X-Paydunya-Token")
-            or request.query_params.get("token")
-            or (request.data.get("token") if isinstance(request.data, dict) else "")
+        shared_secret = str(getattr(settings, "NOTCHPAY_CHECKOUT_WEBHOOK_SECRET", "") or "").strip()
+        if not shared_secret:
+            security_event_logger.error(
+                "webhook_auth_misconfigured endpoint=checkout ip=%s — "
+                "NOTCHPAY_CHECKOUT_WEBHOOK_SECRET not set, request rejected",
+                _client_ip(request),
+            )
+            return False, "Signature HMAC webhook non configuree. Contactez l'administrateur."
+
+        incoming_sig = (
+            request.headers.get("X-Notch-Signature")
+            or request.headers.get("X-NotchPay-Signature")
+            or request.headers.get("X-Paydunya-Signature")
             or ""
         ).strip()
-        if expected_token and not hmac.compare_digest(incoming_token, expected_token):
-            return False, "Webhook token invalide."
+        if not incoming_sig:
+            security_event_logger.warning(
+                "webhook_missing_signature endpoint=checkout ip=%s", _client_ip(request)
+            )
+            return False, "Signature HMAC manquante."
 
-        shared_secret = str(getattr(settings, "NOTCHPAY_CHECKOUT_WEBHOOK_SECRET", "") or "").strip()
-        if shared_secret:
-            incoming_signature = (
-                request.headers.get("X-Notch-Signature")
-                or request.headers.get("X-NotchPay-Signature")
-                or request.headers.get("X-Paydunya-Signature")
+        computed = self._compute_hmac(shared_secret, request.body)
+        if not hmac.compare_digest(incoming_sig.lower(), computed.lower()):
+            security_event_logger.warning(
+                "webhook_invalid_signature endpoint=checkout ip=%s", _client_ip(request)
+            )
+            return False, "Signature HMAC invalide."
+
+        # Optional token — second factor, headers only (never body/query-string).
+        expected_token = str(getattr(settings, "NOTCHPAY_WEBHOOK_TOKEN", "") or "").strip()
+        if expected_token:
+            incoming_token = (
+                request.headers.get("X-NotchPay-Token")
+                or request.headers.get("X-Notch-Token")
                 or ""
             ).strip()
-            computed = hmac.new(shared_secret.encode("utf-8"), request.body or b"", hashlib.sha256).hexdigest()
-            if not incoming_signature or not hmac.compare_digest(incoming_signature.lower(), computed.lower()):
-                return False, "Signature webhook invalide."
-            return True, ""
+            if not hmac.compare_digest(incoming_token, expected_token):
+                security_event_logger.warning(
+                    "webhook_invalid_token endpoint=checkout ip=%s", _client_ip(request)
+                )
+                return False, "Webhook token invalide."
 
-        if not expected_token:
-            return False, "Aucun mecanisme de signature webhook configure."
-        # Mode token-only: tolere uniquement hors production pour faciliter
-        # le developpement local. En prod, exiger NOTCHPAY_CHECKOUT_WEBHOOK_SECRET.
-        if not getattr(settings, "DEBUG", False):
-            return False, "La signature HMAC est obligatoire en production (NOTCHPAY_CHECKOUT_WEBHOOK_SECRET)."
         return True, ""
 
     def _verify_disburse_webhook_auth(self, request) -> tuple[bool, str]:
-        expected_token = str(getattr(settings, "NOTCHPAY_WEBHOOK_TOKEN", "") or "").strip()
-        incoming_token = (
-            request.headers.get("X-NotchPay-Token")
-            or request.headers.get("X-Notch-Token")
-            or request.headers.get("X-Paydunya-Token")
-            or request.query_params.get("token")
-            or (request.data.get("token") if isinstance(request.data, dict) else "")
+        shared_secret = str(getattr(settings, "NOTCHPAY_DISBURSE_WEBHOOK_SECRET", "") or "").strip()
+        if not shared_secret:
+            security_event_logger.error(
+                "webhook_auth_misconfigured endpoint=disburse ip=%s — "
+                "NOTCHPAY_DISBURSE_WEBHOOK_SECRET not set, request rejected",
+                _client_ip(request),
+            )
+            return False, "Signature HMAC webhook non configuree. Contactez l'administrateur."
+
+        incoming_sig = (
+            request.headers.get("X-Notch-Signature")
+            or request.headers.get("X-NotchPay-Signature")
+            or request.headers.get("X-Paydunya-Signature")
             or ""
         ).strip()
-        if expected_token and not hmac.compare_digest(incoming_token, expected_token):
-            return False, "Webhook token invalide."
+        if not incoming_sig:
+            security_event_logger.warning(
+                "webhook_missing_signature endpoint=disburse ip=%s", _client_ip(request)
+            )
+            return False, "Signature HMAC manquante."
 
-        shared_secret = str(getattr(settings, "NOTCHPAY_DISBURSE_WEBHOOK_SECRET", "") or "").strip()
-        if shared_secret:
-            incoming_signature = (
-                request.headers.get("X-Notch-Signature")
-                or request.headers.get("X-NotchPay-Signature")
-                or request.headers.get("X-Paydunya-Signature")
+        computed = self._compute_hmac(shared_secret, request.body)
+        if not hmac.compare_digest(incoming_sig.lower(), computed.lower()):
+            security_event_logger.warning(
+                "webhook_invalid_signature endpoint=disburse ip=%s", _client_ip(request)
+            )
+            return False, "Signature HMAC invalide."
+
+        expected_token = str(getattr(settings, "NOTCHPAY_WEBHOOK_TOKEN", "") or "").strip()
+        if expected_token:
+            incoming_token = (
+                request.headers.get("X-NotchPay-Token")
+                or request.headers.get("X-Notch-Token")
                 or ""
             ).strip()
-            computed = hmac.new(shared_secret.encode("utf-8"), request.body or b"", hashlib.sha256).hexdigest()
-            if not incoming_signature or not hmac.compare_digest(incoming_signature.lower(), computed.lower()):
-                return False, "Signature webhook invalide."
-            return True, ""
+            if not hmac.compare_digest(incoming_token, expected_token):
+                security_event_logger.warning(
+                    "webhook_invalid_token endpoint=disburse ip=%s", _client_ip(request)
+                )
+                return False, "Webhook token invalide."
 
-        if not expected_token:
-            return False, "Aucun mecanisme d'auth webhook configure."
-        if not getattr(settings, "DEBUG", False):
-            return False, "La signature HMAC est obligatoire en production (NOTCHPAY_DISBURSE_WEBHOOK_SECRET)."
         return True, ""
 
     def _require_wallet_action(self, request, action_key):
         if not has_action_permission(request.user, action_key):
             return response.Response({"detail": "Action non autorisee."}, status=status.HTTP_403_FORBIDDEN)
         return None
+
+    def _check_fraud(self, request, amount, action: str):
+        """Evaluate fraud risk. Returns a 403 Response if blocked, None to proceed."""
+        ctx = RiskContext(
+            user_id=request.user.id,
+            amount=amount,
+            action=action,
+            ip=request.META.get("REMOTE_ADDR", ""),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            device_id=request.headers.get("X-Device-Id", ""),
+        )
+        try:
+            decision = FraudEngine.evaluate(ctx, request.user)
+        except Exception:
+            # Fail open — never block a legitimate transaction because the fraud
+            # engine is temporarily unavailable.
+            logger.exception("fraud_engine_error user=%d action=%s", request.user.id, action)
+            return None
+        if decision.is_blocked:
+            logger.warning(
+                "fraud_block user=%d action=%s score=%d reasons=%s",
+                request.user.id,
+                action,
+                decision.score,
+                ",".join(decision.reasons),
+            )
+            return response.Response(
+                {"detail": "Transaction bloquee pour raisons de securite. Contactez le support."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return None
+
+    @staticmethod
+    def _log_state_transition(
+        tx,
+        *,
+        from_status: str,
+        to_status: str,
+        extended_status: str = "",
+        reason: str = "",
+        actor_id: int | None = None,
+    ) -> None:
+        """Append an immutable state transition log entry. Never raises."""
+        try:
+            WalletTransactionStateLog.objects.create(
+                transaction=tx,
+                from_status=from_status,
+                to_status=to_status,
+                extended_status=extended_status,
+                reason=reason[:240],
+                actor_id=actor_id,
+                metadata={"kind": tx.kind, "amount": str(tx.amount)},
+            )
+        except Exception:
+            logger.exception("state_log_failed tx_id=%s", getattr(tx, "id", None))
 
     def _enforce_kyc_limits(self, request, amount):
         profile = settings.KYC_LIMITS.get(getattr(request.user, "kyc_level", 0), settings.KYC_LIMITS[0])
@@ -262,9 +403,12 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             )
         day_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
         wallet, _ = Wallet.objects.get_or_create(owner=request.user)
+        # M4 — Include PENDING and SUCCESS to prevent parallel-request KYC bypass.
+        # A user cannot initiate N concurrent requests each under the limit and
+        # get them all confirmed — the PENDING sum closes the window.
         day_total = (
             wallet.transactions.filter(
-                status=TransactionStatus.SUCCESS,
+                status__in=[TransactionStatus.SUCCESS, TransactionStatus.PENDING],
                 kind__in=["TOPUP", "WITHDRAWAL"],
                 created_at__gte=day_start,
             ).aggregate(value=Sum("amount"))["value"]
@@ -365,11 +509,29 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         limit_error = self._enforce_kyc_limits(request, amount)
         if limit_error:
             return limit_error
+        fraud_error = self._check_fraud(request, amount, "topup")
+        if fraud_error:
+            return fraud_error
         security_error = self._validate_wallet_security(request, amount, "TOPUP")
         if security_error:
             return security_error
 
         idempotency_key = request.headers.get("Idempotency-Key") or str(request.data.get("idempotency_key") or "").strip()
+        # Phase 1 — enhanced idempotency: request-body hash + response snapshot.
+        idem_record = None
+        if idempotency_key:
+            try:
+                idem_record, cached = IdempotencyService.acquire(
+                    key=idempotency_key,
+                    user_id=request.user.id,
+                    endpoint="wallet.topup",
+                    payload=dict(request.data),
+                )
+            except IdempotencyConflict as exc:
+                return response.Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+            if cached is not None:
+                return response.Response(cached, status=status.HTTP_200_OK)
+
         external_tx = f"WALLET-{secrets.token_hex(8)}"
         with transaction.atomic():
             wallet, _ = Wallet.objects.select_for_update().get_or_create(owner=request.user)
@@ -386,15 +548,37 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                         },
                         status=status.HTTP_200_OK,
                     )
-            tx = wallet.transactions.create(
-                amount=amount,
-                kind="TOPUP",
-                provider=provider,
-                status=TransactionStatus.PENDING,
-                idempotency_key=idempotency_key,
-                external_transaction_id=external_tx,
-                reference=f"topup:{provider}:{source_account}:tx:{external_tx}",
-            )
+            # H5 — Use a savepoint so that an IntegrityError on the unique
+            # idempotency_key constraint doesn't invalidate the outer wallet lock
+            # transaction. Lost races return the already-created transaction.
+            try:
+                with transaction.atomic():
+                    tx = wallet.transactions.create(
+                        amount=amount,
+                        kind="TOPUP",
+                        provider=provider,
+                        status=TransactionStatus.PENDING,
+                        idempotency_key=idempotency_key,
+                        external_transaction_id=external_tx,
+                        reference=f"topup:{provider}:{source_account}:tx:{external_tx}",
+                    )
+            except IntegrityError:
+                existing = (
+                    wallet.transactions.filter(idempotency_key=idempotency_key).first()
+                    if idempotency_key else None
+                )
+                if existing:
+                    checkout_url = self._extract_checkout_url(existing.reference)
+                    return response.Response(
+                        {
+                            "detail": "Requete idempotente deja traitee.",
+                            "transaction_id": existing.external_transaction_id,
+                            "status": existing.status,
+                            "checkout_url": checkout_url,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                raise
         checkout = NotchPayCheckoutService.create_invoice(
             amount=amount,
             description=f"Recharge wallet {request.user.username}",
@@ -404,9 +588,17 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
         if checkout.get("error"):
-            self._mark_transaction_failed(tx=tx, reason=str(checkout["error"]))
+            # H1 — Log full provider error internally, never expose to client.
+            _raw_error = str(checkout["error"])
+            logger.error(
+                "notchpay_checkout_error tx=%s provider_error=%.500s",
+                external_tx,
+                _raw_error,
+            )
+            self._mark_transaction_failed(tx=tx, reason=_raw_error[:240])
+            IdempotencyService.fail(idem_record)
             return response.Response(
-                {"detail": "Echec NotchPay.", "error": checkout["error"]},
+                {"detail": "Echec initialisation paiement. Reessayez ou contactez le support."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -439,15 +631,15 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             action_key="wallet.topup",
             metadata={"tx": tx.external_transaction_id, "amount": str(amount), "provider": provider},
         )
-        return response.Response(
-            {
-                "detail": "Paiement initie.",
-                "transaction_id": tx.external_transaction_id,
-                "mode": checkout.get("mode", "LIVE"),
-                "checkout_url": checkout.get("checkout_url"),
-                "status": tx.status,
-            }
-        )
+        response_data = {
+            "detail": "Paiement initie.",
+            "transaction_id": tx.external_transaction_id,
+            "mode": checkout.get("mode", "LIVE"),
+            "checkout_url": checkout.get("checkout_url"),
+            "status": tx.status,
+        }
+        IdempotencyService.complete(idem_record, response_data)
+        return response.Response(response_data)
 
     @decorators.action(detail=False, methods=["post"])
     def withdraw(self, request):
@@ -476,11 +668,28 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         limit_error = self._enforce_kyc_limits(request, amount)
         if limit_error:
             return limit_error
+        fraud_error = self._check_fraud(request, amount, "withdraw")
+        if fraud_error:
+            return fraud_error
         security_error = self._validate_wallet_security(request, amount, "WITHDRAW")
         if security_error:
             return security_error
 
         idempotency_key = request.headers.get("Idempotency-Key") or str(request.data.get("idempotency_key") or "").strip()
+        idem_record = None
+        if idempotency_key:
+            try:
+                idem_record, cached = IdempotencyService.acquire(
+                    key=idempotency_key,
+                    user_id=request.user.id,
+                    endpoint="wallet.withdraw",
+                    payload=dict(request.data),
+                )
+            except IdempotencyConflict as exc:
+                return response.Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+            if cached is not None:
+                return response.Response(cached, status=status.HTTP_200_OK)
+
         external_tx = f"WALLET-{secrets.token_hex(8)}"
 
         with transaction.atomic():
@@ -510,15 +719,34 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 created_by=request.user,
                 metadata={"provider": provider},
             )
-            tx = wallet.transactions.create(
-                amount=-amount,
-                kind="WITHDRAWAL",
-                provider=provider,
-                status=TransactionStatus.PENDING,
-                idempotency_key=idempotency_key,
-                external_transaction_id=external_tx,
-                reference=f"withdraw:{provider}:{destination_account}:tx:{external_tx}",
-            )
+            # H5 — Savepoint guards against IntegrityError on the unique
+            # idempotency_key constraint without rolling back the wallet debit.
+            try:
+                with transaction.atomic():
+                    tx = wallet.transactions.create(
+                        amount=-amount,
+                        kind="WITHDRAWAL",
+                        provider=provider,
+                        status=TransactionStatus.PENDING,
+                        idempotency_key=idempotency_key,
+                        external_transaction_id=external_tx,
+                        reference=f"withdraw:{provider}:{destination_account}:tx:{external_tx}",
+                    )
+            except IntegrityError:
+                existing = (
+                    wallet.transactions.filter(idempotency_key=idempotency_key).first()
+                    if idempotency_key else None
+                )
+                if existing:
+                    return response.Response(
+                        {
+                            "detail": "Requete idempotente deja traitee.",
+                            "transaction_id": existing.external_transaction_id,
+                            "status": existing.status,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                raise
 
         disburse_id = f"WITHDRAW-{tx.id}"
         transfer = NotchPayDisbursementService.send_money(
@@ -529,9 +757,17 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             account_name=request.user.get_full_name() or request.user.username,
         )
         if transfer.get("error"):
-            self._mark_transaction_failed(tx=tx, reason=str(transfer["error"]))
+            # H1 — Log full provider error internally, never expose to client.
+            _raw_error = str(transfer["error"])
+            logger.error(
+                "notchpay_disburse_error tx=%s provider_error=%.500s",
+                external_tx,
+                _raw_error,
+            )
+            self._mark_transaction_failed(tx=tx, reason=_raw_error[:240])
+            IdempotencyService.fail(idem_record)
             return response.Response(
-                {"detail": "Echec NotchPay.", "error": transfer["error"]},
+                {"detail": "Echec initialisation retrait. Reessayez ou contactez le support."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         if transfer["mode"] == "SIMULATED":
@@ -542,14 +778,14 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             action_key="wallet.withdraw",
             metadata={"tx": tx.external_transaction_id, "amount": str(amount), "provider": provider},
         )
-        return response.Response(
-            {
-                "detail": "Retrait initie.",
-                "transaction_id": transfer["transaction_id"],
-                "mode": transfer["mode"],
-                "status": tx.status,
-            }
-        )
+        response_data = {
+            "detail": "Retrait initie.",
+            "transaction_id": transfer["transaction_id"],
+            "mode": transfer["mode"],
+            "status": tx.status,
+        }
+        IdempotencyService.complete(idem_record, response_data)
+        return response.Response(response_data)
 
     def _mark_transaction_success(self, *, tx: WalletTransaction, payload: dict, mark_payout: bool | None = None):
         with transaction.atomic():
@@ -605,6 +841,14 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 tx.cinetpay_transfered = mark_payout
                 update_fields.append("cinetpay_transfered")
             tx.save(update_fields=update_fields)
+            # Phase 2 — immutable state transition audit log.
+            self._log_state_transition(
+                tx,
+                from_status=TransactionStatus.PENDING,
+                to_status=TransactionStatus.SUCCESS,
+                extended_status="settled",
+                reason="provider_confirmed",
+            )
         broadcast_event("wallets", "transaction_success", {"transaction_id": tx.external_transaction_id, "kind": tx.kind})
         write_audit_log(
             actor=tx.wallet.owner,
@@ -674,6 +918,18 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 tx.reconciled_at = timezone.now()
                 update_fields.append("reconciled_at")
             tx.save(update_fields=update_fields)
+            # Phase 2 — immutable state transition audit log.
+            self._log_state_transition(
+                tx,
+                from_status=TransactionStatus.PENDING,
+                to_status=tx.status,
+                extended_status=(
+                    "failed_retryable"
+                    if tx.status == TransactionStatus.PENDING
+                    else "failed_final"
+                ),
+                reason=reason[:240],
+            )
 
         if tx.kind.startswith("PAYOUT_") and should_rollback_failed_payout:
             try:
@@ -746,15 +1002,17 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
     @decorators.action(detail=False, methods=["post"], permission_classes=[permissions.AllowAny], url_path="notchpay/checkout/webhook")
     def notchpay_checkout_webhook(self, request):
+        # Auth MUST happen before request.data is accessed: reading request.data
+        # consumes the raw body stream, making request.body unavailable for HMAC.
+        is_valid, auth_error = self._verify_checkout_webhook_auth(request)
+        if not is_valid:
+            return response.Response({"detail": auth_error}, status=status.HTTP_403_FORBIDDEN)
+
         payload = request.data if isinstance(request.data, dict) else {}
         event_payload = self._parse_notchpay_event(payload)
         event_data = event_payload.get("data") if isinstance(event_payload.get("data"), dict) else {}
         if not event_data:
             return response.Response({"detail": "Payload NotchPay invalide."}, status=status.HTTP_400_BAD_REQUEST)
-
-        is_valid, auth_error = self._verify_checkout_webhook_auth(request)
-        if not is_valid:
-            return response.Response({"detail": auth_error}, status=status.HTTP_403_FORBIDDEN)
 
         event_type = str(event_payload.get("type") or "").strip().lower()
         invoice_data = event_data.get("invoice") if isinstance(event_data.get("invoice"), dict) else {}
@@ -942,6 +1200,51 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         is_failure = event_type == "transfer.failed" or raw_status in {"failed", "error", "canceled", "cancelled"}
         if external_tx.startswith("WITHDRAW-"):
             if is_success:
+                # H2 — Validate disbursed amount matches the transaction record
+                # before crediting/debiting. A forged or misrouted webhook with a
+                # wrong amount must never trigger a state transition.
+                raw_amount = data.get("amount") or payload.get("amount")
+                if raw_amount in {None, ""}:
+                    event.processed = True
+                    event.processed_at = timezone.now()
+                    event.processing_error = "montant_manquant"
+                    event.save(update_fields=["processed", "processed_at", "processing_error"])
+                    security_event_logger.warning(
+                        "webhook_disburse_missing_amount tx=%s ip=%s",
+                        external_tx,
+                        _client_ip(request),
+                    )
+                    return response.Response(
+                        {"detail": "Montant manquant dans le webhook."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                try:
+                    if Decimal(str(raw_amount)) != abs(tx.amount):
+                        event.processed = True
+                        event.processed_at = timezone.now()
+                        event.processing_error = "montant_non_conforme"
+                        event.save(update_fields=["processed", "processed_at", "processing_error"])
+                        security_event_logger.warning(
+                            "webhook_disburse_amount_mismatch tx=%s "
+                            "expected=%s received=%s ip=%s",
+                            external_tx,
+                            abs(tx.amount),
+                            raw_amount,
+                            _client_ip(request),
+                        )
+                        return response.Response(
+                            {"detail": "Montant non conforme."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                except (InvalidOperation, TypeError):
+                    event.processed = True
+                    event.processed_at = timezone.now()
+                    event.processing_error = "montant_invalide"
+                    event.save(update_fields=["processed", "processed_at", "processing_error"])
+                    return response.Response(
+                        {"detail": "Montant invalide."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 self._mark_transaction_success(tx=tx, payload=request.data, mark_payout=True)
             elif is_failure:
                 reason = str(
@@ -991,6 +1294,28 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     def reconcile(self, request):
         if not has_action_permission(request.user, "wallet.reconcile"):
             return response.Response({"detail": "Action reservee aux administrateurs."}, status=status.HTTP_403_FORBIDDEN)
+
+        # M7 — Step-up authentication: reconciliation directly credits/debits wallets.
+        # A compromised admin JWT must not allow immediate financial fraud.
+        # Requires a valid TOTP code (or OTP challenge) before any state change.
+        verified, step_up_message = verify_sensitive_action_challenge(
+            user=request.user,
+            action_key="wallet.reconcile",
+            challenge_token=str(request.data.get("challenge_token") or ""),
+            verification_code=str(request.data.get("verification_code") or ""),
+        )
+        if not verified:
+            security_event_logger.warning(
+                "reconcile_stepup_failed user=%d reason=%s ip=%s",
+                request.user.id,
+                step_up_message,
+                _client_ip(request),
+            )
+            return response.Response(
+                {"detail": step_up_message},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         tx_id = str(request.data.get("transaction_id") or "").strip()
         target_status = str(request.data.get("status") or "").strip().upper()
         reason = str(request.data.get("reason") or "Reconciliation manuelle").strip()
@@ -1019,13 +1344,109 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     @decorators.action(detail=False, methods=["get"])
     def transactions(self, request):
         wallet, _ = Wallet.objects.get_or_create(owner=request.user)
-        queryset = wallet.transactions.all()
+        queryset = wallet.transactions.all().order_by("-created_at")
+
         status_filter = str(request.query_params.get("status") or "").strip().upper()
         if status_filter in {TransactionStatus.PENDING, TransactionStatus.SUCCESS, TransactionStatus.FAILED}:
             queryset = queryset.filter(status=status_filter)
+
+        kind_filter = str(request.query_params.get("kind") or "").strip().upper()
+        if kind_filter:
+            queryset = queryset.filter(kind=kind_filter)
+
+        # Cursor pagination — `before` is a created_at ISO timestamp.
+        # Enables efficient infinite-scroll on mobile without COUNT(*) cost.
+        # M6 — Strict cursor validation: bounds check + timezone-aware only +
+        # log-injection prevention (strip control characters before logging).
+        before_raw = str(request.query_params.get("before") or "").strip()
+        if before_raw:
+            # Reject strings containing control characters (log injection guard).
+            if any(ord(c) < 0x20 for c in before_raw):
+                return response.Response(
+                    {"detail": "Curseur invalide."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            from django.utils.dateparse import parse_datetime
+            before_dt = parse_datetime(before_raw)
+            # Only accept timezone-aware datetimes within a sane range.
+            if before_dt is None or not timezone.is_aware(before_dt):
+                return response.Response(
+                    {"detail": "Curseur invalide: format ISO-8601 avec fuseau requis."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            _now = timezone.now()
+            _lower_bound = _now.replace(year=2020, month=1, day=1)
+            if before_dt < _lower_bound or before_dt > _now:
+                return response.Response(
+                    {"detail": "Curseur hors limites."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            queryset = queryset.filter(created_at__lt=before_dt)
+
         try:
             page_size = min(max(int(request.query_params.get("limit", 40)), 1), 100)
         except (TypeError, ValueError):
             page_size = 40
-        rows = queryset[:page_size]
-        return response.Response(WalletTransactionSerializer(rows, many=True).data)
+
+        rows = list(queryset[:page_size + 1])
+        has_more = len(rows) > page_size
+        rows = rows[:page_size]
+
+        resp = response.Response(WalletTransactionSerializer(rows, many=True).data)
+        # Phase 4 — pagination headers (backward-compatible: body unchanged).
+        resp["X-Has-More"] = "true" if has_more else "false"
+        resp["X-Page-Size"] = str(page_size)
+        if rows:
+            resp["X-Next-Cursor"] = rows[-1].created_at.isoformat()
+        return resp
+
+    @decorators.action(
+        detail=False,
+        methods=["get"],
+        url_path=r"transactions/(?P<external_id>[^/.]+)/status",
+    )
+    def transaction_status(self, request, external_id=None):
+        """
+        GET /api/wallets/transactions/{external_id}/status/
+
+        Phase 3 — lightweight polling endpoint for pending payment screens.
+        Used by NotchPayPendingSheet to check confirmation without downloading
+        the full transaction list.  Returns a minimal payload optimised for
+        low-bandwidth Africa mobile networks.
+        """
+        if not external_id:
+            return response.Response({"detail": "external_id requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+        wallet, _ = Wallet.objects.get_or_create(owner=request.user)
+        tx = (
+            WalletTransaction.objects
+            .filter(wallet=wallet, external_transaction_id=external_id)
+            .first()
+        )
+        if not tx:
+            # Also try idempotency_key lookup (frontend may not have the external_id yet).
+            tx = (
+                WalletTransaction.objects
+                .filter(wallet=wallet, idempotency_key=external_id)
+                .first()
+            )
+        if not tx:
+            return response.Response({"detail": "Transaction introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        latest_log = tx.state_logs.order_by("-created_at").first()
+        return response.Response({
+            "id": tx.id,
+            "external_transaction_id": tx.external_transaction_id,
+            "status": tx.status,
+            "extended_status": latest_log.extended_status if latest_log else "",
+            "kind": tx.kind,
+            "provider": tx.provider,
+            "amount": str(tx.amount),
+            "created_at": tx.created_at.isoformat(),
+            "updated_at": tx.updated_at.isoformat(),
+            "reconciled_at": tx.reconciled_at.isoformat() if tx.reconciled_at else None,
+            "failure_reason": tx.failure_reason,
+            "can_retry": (
+                tx.status == TransactionStatus.FAILED and tx.kind == "TOPUP"
+            ),
+        })

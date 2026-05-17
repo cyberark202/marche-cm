@@ -5,6 +5,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.test.utils import override_settings
 
+from apps.accounts import field_crypto
+
 from apps.catalog.models import Product
 from apps.logistics.models import Shipment, TransportMode
 from apps.orders.models import EscrowType, Order, OrderType
@@ -12,8 +14,23 @@ from apps.orders.services import FraudRiskError, OrderFinanceService
 from apps.wallets.models import Wallet
 
 
-@override_settings(NOTCHPAY_ENABLED=False)
 class SplitEscrowServiceTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._enc_override = override_settings(
+            NOTCHPAY_ENABLED=False,
+            DATA_ENCRYPTION_KEY="test-data-encryption-key-ci",
+        )
+        cls._enc_override.enable()
+        field_crypto.clear_crypto_cache()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._enc_override.disable()
+        field_crypto.clear_crypto_cache()
+        super().tearDownClass()
+
     def setUp(self):
         user_model = get_user_model()
         self.admin = user_model.objects.create_user(
@@ -115,12 +132,17 @@ class SplitEscrowServiceTests(TestCase):
         self.assertEqual(buyer_wallet.locked_balance, Decimal("600000.00"))
 
         OrderFinanceService.register_supplier_confirmation(order=self.order, actor=self.transit)
-        proof = SimpleUploadedFile("invoice.pdf", b"proof-invoice-bytes", content_type="application/pdf")
+        proof = SimpleUploadedFile("invoice.pdf", b"%PDF-1.4 fake-content", content_type="application/pdf")
         OrderFinanceService.register_supplier_purchase_proof(order=self.order, actor=self.transit, proof_file=proof)
         OrderFinanceService.admin_validate_supplier(order=self.order, actor=self.admin, approve=True, note="OK")
 
         supplier_wallet = Wallet.objects.get(owner=self.seller)
-        self.assertEqual(supplier_wallet.available_balance, Decimal("475000.00"))
+        # Payout exits the platform via mobile money (SIMULATED) so pending_balance
+        # is consumed; verify the payout transaction succeeded with the correct amount.
+        supplier_payout = supplier_wallet.transactions.filter(kind="PAYOUT_SUPPLIER").first()
+        self.assertIsNotNone(supplier_payout)
+        self.assertEqual(supplier_payout.status, "SUCCESS")
+        self.assertEqual(abs(supplier_payout.amount), Decimal("475000.00"))
         self.order.refresh_from_db()
         supplier_escrow = self.order.escrows.get(escrow_type=EscrowType.SUPPLIER)
         self.assertEqual(supplier_escrow.status, "RELEASED")
@@ -128,7 +150,10 @@ class SplitEscrowServiceTests(TestCase):
 
         OrderFinanceService.release_logistics_escrow_after_buyer_confirmation(order=self.order, actor=self.buyer)
         transit_wallet = Wallet.objects.get(owner=self.transit)
-        self.assertEqual(transit_wallet.available_balance, Decimal("100000.00"))
+        transit_payout = transit_wallet.transactions.filter(kind="PAYOUT_LOGISTICS").first()
+        self.assertIsNotNone(transit_payout)
+        self.assertEqual(transit_payout.status, "SUCCESS")
+        self.assertEqual(abs(transit_payout.amount), Decimal("100000.00"))
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, "COMPLETED")
         self.assertEqual(self.order.escrow_status, "RELEASED")
@@ -142,7 +167,7 @@ class SplitEscrowServiceTests(TestCase):
             idempotency_key="order-split-2",
         )
         OrderFinanceService.register_supplier_confirmation(order=self.order, actor=self.transit)
-        proof = SimpleUploadedFile("invoice.pdf", b"same-proof", content_type="application/pdf")
+        proof = SimpleUploadedFile("invoice.pdf", b"%PDF-1.4 same-proof", content_type="application/pdf")
         OrderFinanceService.register_supplier_purchase_proof(order=self.order, actor=self.transit, proof_file=proof)
 
         second_order = Order.objects.create(
@@ -180,7 +205,7 @@ class SplitEscrowServiceTests(TestCase):
             idempotency_key="order-split-3",
         )
         OrderFinanceService.register_supplier_confirmation(order=second_order, actor=self.transit)
-        duplicate_proof = SimpleUploadedFile("duplicate.pdf", b"same-proof", content_type="application/pdf")
+        duplicate_proof = SimpleUploadedFile("duplicate.pdf", b"%PDF-1.4 same-proof", content_type="application/pdf")
         with self.assertRaises(FraudRiskError):
             OrderFinanceService.register_supplier_purchase_proof(
                 order=second_order,

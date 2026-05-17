@@ -1,4 +1,6 @@
+import urllib.error
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -305,6 +307,104 @@ class InnovationHardeningTests(APITestCase):
             format="json",
         )
         self.assertEqual(res.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    # -----------------------------------------------------------------------
+    # H4 — SSRF Protection: webhook URL validation + redirect blocking
+    # -----------------------------------------------------------------------
+
+    def test_webhook_rejects_private_ip_rfc1918(self):
+        """RFC 1918 private IPs must be rejected at webhook creation (SSRF)."""
+        self._auth_as(self.supplier)
+        for private_url in (
+            "https://192.168.1.100/hook",
+            "https://10.0.0.1/hook",
+            "https://172.16.0.1/hook",
+        ):
+            with self.subTest(url=private_url):
+                res = self.client.post(
+                    reverse("webhook-subscription-list"),
+                    {"topic": "orders", "endpoint_url": private_url, "secret": "x", "is_active": True},
+                    format="json",
+                )
+                self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST, private_url)
+
+    def test_webhook_rejects_cloud_metadata_ip(self):
+        """AWS/GCP metadata IP 169.254.169.254 must be rejected (SSRF)."""
+        self._auth_as(self.supplier)
+        res = self.client.post(
+            reverse("webhook-subscription-list"),
+            {
+                "topic": "orders",
+                "endpoint_url": "https://169.254.169.254/latest/meta-data/",
+                "secret": "x",
+                "is_active": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_webhook_rejects_loopback(self):
+        """Loopback addresses must be rejected even on non-standard ports."""
+        self._auth_as(self.supplier)
+        for url in ("https://127.0.0.1/hook", "https://[::1]/hook"):
+            with self.subTest(url=url):
+                res = self.client.post(
+                    reverse("webhook-subscription-list"),
+                    {"topic": "orders", "endpoint_url": url, "secret": "x", "is_active": True},
+                    format="json",
+                )
+                self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST, url)
+
+    def test_webhook_rejects_non_standard_port(self):
+        """Non-standard ports (neither 80 nor 443) must be rejected."""
+        self._auth_as(self.supplier)
+        res = self.client.post(
+            reverse("webhook-subscription-list"),
+            {
+                "topic": "orders",
+                "endpoint_url": "https://example.com:8080/hook",
+                "secret": "x",
+                "is_active": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_send_test_redirect_is_blocked(self):
+        """
+        H4 — SSRF redirect blocking: send_test must reject any response that
+        redirects (even to an allowed hostname), to prevent redirect-chain
+        attacks that bypass _is_safe_webhook_url URL validation.
+        """
+        sub = WebhookSubscription.objects.create(
+            owner=self.supplier,
+            topic="orders",
+            endpoint_url="https://example.com/hook",
+            secret="demo_secret",
+            is_active=True,
+        )
+        self._auth_as(self.supplier)
+
+        # Simulate urllib raising HTTPError (redirect blocked by _NoRedirectHandler).
+        redirect_error = urllib.error.HTTPError(
+            url="https://example.com/hook",
+            code=301,
+            msg="Moved Permanently",
+            hdrs={},
+            fp=None,
+        )
+        with patch("urllib.request.OpenerDirector.open", side_effect=redirect_error):
+            res = self.client.post(
+                reverse("webhook-subscription-send-test", args=[sub.id]),
+                {},
+                format="json",
+            )
+        # The redirect must be caught gracefully — never a 500.
+        self.assertNotEqual(res.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Caught by except → 502 (delivery failure), not a silent 200 success.
+        self.assertEqual(res.status_code, status.HTTP_502_BAD_GATEWAY)
+        # Must indicate the redirect was the cause, not a provider success.
+        self.assertIn("error", res.data)
 
     def test_dispute_escalation_rejects_resolved_disputes(self):
         self.dispute.status = DisputeStatus.RESOLVED

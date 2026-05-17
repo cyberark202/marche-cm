@@ -624,3 +624,62 @@ def _validate_autopayout_config() -> None:
 
 
 _validate_autopayout_config()
+
+
+# ---------------------------------------------------------------------------
+# Startup webhook secret validator — H3 / PCI-DSS Req. 6.4
+# ---------------------------------------------------------------------------
+# In production (DEBUG=False), both webhook HMAC secrets MUST be configured.
+# Without them the webhook verification layer rejects every incoming call,
+# meaning no topup or withdrawal will ever be confirmed.  Fail at startup
+# rather than silently dropping all payments in production.
+# ---------------------------------------------------------------------------
+
+def _validate_webhook_secrets() -> None:
+    if DEBUG:
+        return  # Local dev: verification layer still enforces auth on each call.
+    if not NOTCHPAY_ENABLED:
+        return  # NotchPay disabled — webhooks not in use.
+    missing: list[str] = []
+    if not NOTCHPAY_CHECKOUT_WEBHOOK_SECRET:
+        missing.append("NOTCHPAY_CHECKOUT_WEBHOOK_SECRET")
+    if not NOTCHPAY_DISBURSE_WEBHOOK_SECRET:
+        missing.append("NOTCHPAY_DISBURSE_WEBHOOK_SECRET")
+    if missing:
+        raise ImproperlyConfigured(
+            "Webhook HMAC secrets manquants — refus de demarrer en production:\n"
+            + "\n".join(f"  • {s} doit etre defini" for s in missing)
+            + "\nSans ces secrets, aucun paiement ne peut etre confirme via webhook."
+        )
+
+
+_validate_webhook_secrets()
+
+
+# ---------------------------------------------------------------------------
+# JWT algorithm check — M3 / OWASP ASVS V3.5.3
+# ---------------------------------------------------------------------------
+# Migration to RS256:
+#   openssl genrsa -out jwt_private.pem 2048
+#   openssl rsa -in jwt_private.pem -pubout -out jwt_public.pem
+#   Set: JWT_ALGORITHM=RS256  JWT_SIGNING_KEY=<private>  JWT_VERIFYING_KEY=<public>
+# ---------------------------------------------------------------------------
+
+_jwt_verifying_key = os.getenv("JWT_VERIFYING_KEY", "").strip() or None
+if _jwt_verifying_key:
+    SIMPLE_JWT["VERIFYING_KEY"] = _jwt_verifying_key
+
+if not DEBUG and SIMPLE_JWT.get("ALGORITHM", "HS256") == "HS256":
+    import warnings as _warnings
+    _warnings.warn(
+        "JWT_ALGORITHM=HS256 detected in production. "
+        "Migrate to RS256 (JWT_ALGORITHM, JWT_SIGNING_KEY, JWT_VERIFYING_KEY) "
+        "to limit blast radius if SECRET_KEY is ever compromised.",
+        stacklevel=1,
+    )
+
+# ---------------------------------------------------------------------------
+# Wallet PIN tuning — M8
+# ---------------------------------------------------------------------------
+# Configurable exponential backoff for PIN lockout to counter parallel brute-force.
+WALLET_PIN_LOCK_MINUTES_EXTENDED = _env_int("WALLET_PIN_LOCK_MINUTES_EXTENDED", 60)

@@ -16,6 +16,15 @@ from django.db import migrations, models
 from django.utils import timezone
 
 
+def _expire_plaintext_challenges(apps, schema_editor):
+    SensitiveActionChallenge = apps.get_model("accounts", "SensitiveActionChallenge")
+    now = timezone.now()
+    SensitiveActionChallenge.objects.filter(
+        used_at__isnull=True,
+        expires_at__gt=now,
+    ).update(expires_at=now)
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("accounts", "0010_sensitiveactionchallenge"),
@@ -47,13 +56,8 @@ class Migration(migrations.Migration):
         #           now contains the old 6-char plaintext value which is NOT a valid
         #           PBKDF2 hash, so check_password() would reject it anyway — but we
         #           also expire them explicitly for defense-in-depth.
-        migrations.RunSQL(
-            sql="""
-                UPDATE accounts_sensitiveactionchallenge
-                SET expires_at = NOW()
-                WHERE used_at IS NULL
-                  AND expires_at > NOW();
-            """,
-            reverse_sql=migrations.RunSQL.noop,
+        migrations.RunPython(
+            _expire_plaintext_challenges,
+            reverse_code=migrations.RunPython.noop,
         ),
     ]

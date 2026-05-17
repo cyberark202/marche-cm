@@ -1,7 +1,9 @@
 from rest_framework import serializers
 
 from .models import (
+    CustodyEvent,
     DeliveryProof,
+    DisputeEvidence,
     Shipment,
     ShipmentDispute,
     ShipmentEvent,
@@ -51,6 +53,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
             "transport_mode",
             "shipping_fee",
             "status",
+            "contest_deadline",
             "created_at",
             "updated_at",
         )
@@ -103,7 +106,71 @@ class DeliveryProofSerializer(serializers.ModelSerializer):
         read_only_fields = ("validated", "created_at")
 
 
+class CustodyEventSerializer(serializers.ModelSerializer):
+    actor_display = serializers.SerializerMethodField()
+
+    def get_actor_display(self, obj):
+        if obj.actor:
+            return {"id": obj.actor_id, "username": obj.actor.username, "role": obj.actor.role}
+        return None
+
+    class Meta:
+        model = CustodyEvent
+        fields = "__all__"
+        read_only_fields = ("actor", "integrity_hash", "scanned_at")
+
+
+class DisputeEvidenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DisputeEvidence
+        fields = "__all__"
+        read_only_fields = (
+            "dispute",
+            "uploaded_by",
+            "file_integrity_hash",
+            "file_size_bytes",
+            "uploaded_at",
+        )
+
+    def validate_description(self, value):
+        return value.strip()
+
+
 class ShipmentDisputeSerializer(serializers.ModelSerializer):
+    evidences = DisputeEvidenceSerializer(many=True, read_only=True)
+    opened_by_display = serializers.SerializerMethodField()
+    accused_party_display = serializers.SerializerMethodField()
+    decided_by_display = serializers.SerializerMethodField()
+    last_custody_holder_display = serializers.SerializerMethodField()
+
+    def get_opened_by_display(self, obj):
+        if obj.opened_by_id:
+            return {"id": obj.opened_by_id, "username": obj.opened_by.username}
+        return None
+
+    def get_accused_party_display(self, obj):
+        if obj.accused_party_id:
+            return {
+                "id": obj.accused_party_id,
+                "username": obj.accused_party.username,
+                "role": obj.accused_party.role,
+            }
+        return None
+
+    def get_decided_by_display(self, obj):
+        if obj.decided_by_id:
+            return {"id": obj.decided_by_id, "username": obj.decided_by.username}
+        return None
+
+    def get_last_custody_holder_display(self, obj):
+        if obj.last_custody_holder_id:
+            return {
+                "id": obj.last_custody_holder_id,
+                "username": obj.last_custody_holder.username,
+                "role": obj.last_custody_holder.role,
+            }
+        return None
+
     def validate_reason(self, value):
         value = value.strip()
         if len(value) < 3:
@@ -119,7 +186,32 @@ class ShipmentDisputeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentDispute
         fields = "__all__"
-        read_only_fields = ("opened_by", "created_at", "updated_at", "decided_by", "decided_at")
+        read_only_fields = (
+            "opened_by",
+            "accused_party",
+            "dispute_type",
+            "chat_integrity_hash",
+            "inspection_required",
+            "inspection_requested_at",
+            "inspector_report",
+            "inspector_report_uploaded_at",
+            "guarantee_fund_activated",
+            "guarantee_fund_amount",
+            "guarantee_fund_activated_at",
+            "last_custody_holder",
+            "appeal_requested",
+            "appeal_requested_by",
+            "appeal_requested_at",
+            "appeal_reviewed_by",
+            "appeal_decision",
+            "appeal_resolved_at",
+            "escalation_count",
+            "is_multi_actor",
+            "decided_by",
+            "decided_at",
+            "created_at",
+            "updated_at",
+        )
         extra_kwargs = {
             "shipment": {"required": False},
         }

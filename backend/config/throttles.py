@@ -9,16 +9,20 @@ Architecture: sliding window counter in Redis.
 OWASP ASVS V11.1 — Rate limiting / anti-automation
 """
 
+from __future__ import annotations
+
 import hashlib
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.core.cache import cache
-from rest_framework.throttling import SimpleRateThrottle, BaseThrottle
+from rest_framework.throttling import BaseThrottle
 from rest_framework.request import Request
-from rest_framework.views import APIView
+
+if TYPE_CHECKING:
+    from rest_framework.views import APIView
 
 logger = logging.getLogger("security.throttle")
 

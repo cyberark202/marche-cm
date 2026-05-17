@@ -59,9 +59,29 @@ class CorrelationIDMiddleware:
             correlation_id = secrets.token_hex(16)
 
         setattr(request, CORRELATION_REQUEST_ATTR, correlation_id)
-        response = self.get_response(request)
-        response[CORRELATION_HEADER] = correlation_id
-        return response
+        t_start = time.monotonic()
+        resp = self.get_response(request)
+        elapsed_ms = int((time.monotonic() - t_start) * 1000)
+
+        resp[CORRELATION_HEADER] = correlation_id
+        # Phase 6 — observability: response time visible to mobile clients and
+        # reverse proxies so they can surface latency without server-side APM.
+        resp["X-Response-Time"] = f"{elapsed_ms}ms"
+
+        # Slow-request detection: log any API call exceeding the threshold.
+        _slow_ms = getattr(settings, "SLOW_REQUEST_THRESHOLD_MS", 3000)
+        if elapsed_ms >= _slow_ms:
+            path = request.path
+            method = request.method
+            logger.warning(
+                "slow_request method=%s path=%s elapsed_ms=%d correlation_id=%s",
+                method,
+                path,
+                elapsed_ms,
+                correlation_id,
+            )
+
+        return resp
 
 
 def get_correlation_id(request: HttpRequest) -> str:
@@ -139,8 +159,9 @@ class SecurityHeadersMiddleware:
         if "Content-Security-Policy" not in response:
             response["Content-Security-Policy"] = self._csp
         # Remove server fingerprinting headers added by some middleware/servers.
-        response.pop("Server", None)
-        response.pop("X-Powered-By", None)
+        for _hdr in ("Server", "X-Powered-By"):
+            if _hdr in response:
+                del response[_hdr]
 
 
 # ---------------------------------------------------------------------------

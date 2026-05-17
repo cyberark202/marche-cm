@@ -566,8 +566,26 @@ class WebhookSubscriptionViewSet(viewsets.ModelViewSet):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=6) as resp:
+            # H4 — SSRF redirect blocking: never follow HTTP redirects.
+            # A legitimate endpoint that redirects to 169.254.169.254 or a
+            # private address would bypass _is_safe_webhook_url() validation.
+            # Use a no-redirect opener so the caller's URL is the final destination.
+            class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+                def redirect_request(self, *args, **kwargs):
+                    raise urllib.error.HTTPError(
+                        args[0] if args else "",
+                        0,
+                        "Redirects interdits pour les webhooks (SSRF protection)",
+                        {},
+                        None,
+                    )
+
+            _opener = urllib.request.build_opener(_NoRedirectHandler)
+            with _opener.open(req, timeout=6) as resp:
                 status_code = getattr(resp, "status", 200)
+                # H4 — Response size limit: read at most 4 KB to prevent
+                # memory exhaustion via a slow/large response body.
+                resp.read(4096)
             sub.last_delivery_status = f"HTTP_{status_code}"
             sub.last_delivered_at = timezone.now()
             sub.save(update_fields=["last_delivery_status", "last_delivered_at"])

@@ -123,25 +123,28 @@ class ComplianceDocumentAccessTests(APITestCase):
 
     def test_buyer_cannot_create_compliance_document(self):
         self._auth_as(self.buyer)
+        # Use valid JPEG magic bytes so upload_security passes and role check fires.
+        fake_jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 20
         payload = {
             "doc_type": "CERT_BUSINESS_REGISTRATION",
-            "file": SimpleUploadedFile("doc.jpg", b"fake-image", content_type="image/jpeg"),
+            "file": SimpleUploadedFile("doc.jpg", fake_jpeg, content_type="image/jpeg"),
         }
         res = self.client.post(reverse("compliance-document-list"), payload, format="multipart")
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_supplier_cannot_duplicate_same_document_type(self):
         self._auth_as(self.supplier)
+        fake_jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 20
         payload = {
             "doc_type": "CERT_BUSINESS_REGISTRATION",
-            "file": SimpleUploadedFile("doc1.jpg", b"fake-image-1", content_type="image/jpeg"),
+            "file": SimpleUploadedFile("doc1.jpg", fake_jpeg, content_type="image/jpeg"),
         }
         first = self.client.post(reverse("compliance-document-list"), payload, format="multipart")
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
 
         second_payload = {
             "doc_type": "CERT_BUSINESS_REGISTRATION",
-            "file": SimpleUploadedFile("doc2.jpg", b"fake-image-2", content_type="image/jpeg"),
+            "file": SimpleUploadedFile("doc2.jpg", fake_jpeg, content_type="image/jpeg"),
         }
         second = self.client.post(reverse("compliance-document-list"), second_payload, format="multipart")
         self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)

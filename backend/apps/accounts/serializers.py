@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 import re
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 
 from .location_service import update_user_location
 from .upload_security import scrub_image_metadata, validate_uploaded_file
@@ -310,25 +311,18 @@ class RegisterSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(required=True, min_length=8, max_length=30)
     password = serializers.CharField(write_only=True, min_length=8)
     city = serializers.CharField(required=False, allow_blank=True, max_length=120)
-    role = serializers.ChoiceField(
-        choices=[UserRole.BUYER, UserRole.SUPPLIER, UserRole.WHOLESALER, UserRole.TRANSIT_AGENT],
-        default=UserRole.BUYER,
-        required=False,
-    )
-    company_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
-    air_price_per_kg = serializers.DecimalField(
-        max_digits=12, decimal_places=2, required=False, allow_null=True,
-    )
-    sea_price_per_kg = serializers.DecimalField(
-        max_digits=12, decimal_places=2, required=False, allow_null=True,
-    )
+
+    # M1 — Public self-registration is restricted to BUYER only.
+    # Professional roles (SUPPLIER, WHOLESALER, TRANSIT_AGENT) require admin
+    # approval and are assigned via ManagedUserCreateSerializer (admin-only).
+    # Any role value submitted by the client is silently overridden.
+    role = serializers.HiddenField(default=UserRole.BUYER)
 
     class Meta:
         model = User
         fields = (
             "name", "phone_number", "email", "password",
             "country_code", "city", "role",
-            "company_name", "air_price_per_kg", "sea_price_per_kg",
         )
         extra_kwargs = {"email": {"required": True}}
 
@@ -336,8 +330,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         normalized = (value or "").strip().lower()
         if not normalized:
             raise serializers.ValidationError("Email obligatoire.")
+        # M2 — Anti-enumeration: do not confirm whether the email is already
+        # registered. A genuine user can log in or use password reset.
         if User.objects.filter(email__iexact=normalized).exists():
-            raise serializers.ValidationError("Cet email est deja utilise.")
+            raise serializers.ValidationError(
+                "Ce compte ne peut pas etre cree. Essayez de vous connecter ou utilisez un autre email."
+            )
         return normalized
 
     def validate_name(self, value):
@@ -352,33 +350,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         return validate_phone_format(value)
 
     def validate(self, attrs):
-        role = attrs.get("role", UserRole.BUYER)
-        if role in {UserRole.SUPPLIER, UserRole.WHOLESALER, UserRole.TRANSIT_AGENT}:
-            if not (attrs.get("company_name") or "").strip():
-                raise serializers.ValidationError(
-                    {"company_name": "Nom de l'entreprise requis pour les comptes professionnels."}
-                )
-        if role == UserRole.TRANSIT_AGENT:
-            air = attrs.get("air_price_per_kg")
-            sea = attrs.get("sea_price_per_kg")
-            if air is None or air <= 0:
-                raise serializers.ValidationError(
-                    {"air_price_per_kg": "Prix transport aerien requis et superieur a 0."}
-                )
-            if sea is None or sea <= 0:
-                raise serializers.ValidationError(
-                    {"sea_price_per_kg": "Prix transport maritime requis et superieur a 0."}
-                )
+        # Role is always BUYER for public registration (HiddenField above).
         return attrs
 
     def create(self, validated_data):
-        from apps.logistics.models import TransportProfile
-
+        # M1 — role is always BUYER (HiddenField). Professional accounts are
+        # created exclusively via ManagedUserCreateSerializer (admin endpoint).
         full_name = validated_data.pop("name").strip()
         password = validated_data.pop("password")
-        company_name = (validated_data.pop("company_name", "") or "").strip()
-        air_price_per_kg = validated_data.pop("air_price_per_kg", None)
-        sea_price_per_kg = validated_data.pop("sea_price_per_kg", None)
         role = validated_data.get("role", UserRole.BUYER)
 
         base_username = re.sub(r"[^a-zA-Z0-9_]+", "_", full_name.lower()).strip("_") or "user"
@@ -397,19 +376,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             is_verified=False,
         )
         user.set_password(password)
-        # Aucun PIN par defaut: l'utilisateur le definira via /api/wallets/wallet/set_pin/.
         user.save()
-        if role == UserRole.TRANSIT_AGENT:
-            TransportProfile.objects.update_or_create(
-                user=user,
-                defaults={
-                    "company_name": company_name or f"Transit {user.username}",
-                    "coverage_countries": user.country_code or "CM",
-                    "air_price_per_kg": air_price_per_kg,
-                    "sea_price_per_kg": sea_price_per_kg,
-                    "is_active": True,
-                },
-            )
         update_user_location(user, force=True)
         return user
 
@@ -418,14 +385,33 @@ class LoginRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True, write_only=True)
 
+    # M2 — Constant-time dummy hash used when the user is not found.
+    # This ensures the response time is indistinguishable from a real
+    # failed authentication, preventing user enumeration via timing.
+    _DUMMY_HASH = (
+        "pbkdf2_sha256$600000$dummysalt0000000$"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+    )
+
     def validate(self, attrs):
+        from django.contrib.auth.hashers import check_password as _check_pw
+
         email = (attrs.get("email") or "").strip().lower()
         password = attrs.get("password") or ""
         user = User.objects.filter(email__iexact=email).first()
-        if user is None or not user.check_password(password):
+
+        if user is None:
+            # Always run a real PBKDF2 comparison to equalise response time
+            # regardless of whether the email exists in the database.
+            _check_pw(password, self._DUMMY_HASH)
             raise AuthenticationFailed("Identifiants invalides.")
+
+        if not user.check_password(password):
+            raise AuthenticationFailed("Identifiants invalides.")
+
         if not user.is_active:
             raise AuthenticationFailed("Compte non active. Verifiez votre email.")
+
         attrs["email"] = email
         attrs["user"] = user
         return attrs

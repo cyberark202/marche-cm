@@ -23,44 +23,55 @@ logger = logging.getLogger(__name__)
 # Role → allowed action map (deny-by-default: unlisted actions are forbidden)
 # ---------------------------------------------------------------------------
 
+_DISPUTE_PARTICIPANT_ACTIONS = {
+    "logistics.dispute.open",
+    "dispute.appeal",
+    "dispute.evidence.add",
+}
+
+_WALLET_ACTIONS = {
+    "wallet.topup",
+    "wallet.withdraw",
+    "wallet.transfer",
+}
+
+_CHAT_ACTIONS = {
+    "chat.send",
+    "chat.read",
+}
+
 ROLE_ACTIONS = {
     UserRole.GENERAL_ADMIN: {
         "admin.dashboard.view",
         "admin.users.manage",
         "admin.disputes.decide",
+        "admin.dispute.appeal.resolve",
+        "admin.dispute.inspect.request",
+        "admin.dispute.inspection.upload",
+        "admin.guarantee_fund.activate",
         "compliance.review",
         "wallet.reconcile",
         "wallet.reconcile.daily",
         "wallet.webhook.manage",
         "audit.export",
     },
-    UserRole.BUYER: {
-        "wallet.topup",
-        "wallet.withdraw",
-        "wallet.transfer",
-        "chat.send",
-        "chat.read",
-        "logistics.dispute.open",
-    },
-    UserRole.SUPPLIER: {
-        "chat.send",
-        "chat.read",
-        "logistics.dispute.open",
-    },
-    UserRole.WHOLESALER: {
-        "chat.send",
-        "chat.read",
-        "logistics.dispute.open",
-    },
-    UserRole.TRANSIT_AGENT: {
-        "chat.send",
-        "chat.read",
-        "logistics.dispute.open",
-    },
+    UserRole.BUYER: (
+        _WALLET_ACTIONS | _CHAT_ACTIONS | _DISPUTE_PARTICIPANT_ACTIONS
+    ),
+    UserRole.SUPPLIER: (
+        _WALLET_ACTIONS | _CHAT_ACTIONS | _DISPUTE_PARTICIPANT_ACTIONS
+    ),
+    UserRole.WHOLESALER: (
+        _WALLET_ACTIONS | _CHAT_ACTIONS | _DISPUTE_PARTICIPANT_ACTIONS
+    ),
+    UserRole.TRANSIT_AGENT: (
+        _WALLET_ACTIONS | _CHAT_ACTIONS | _DISPUTE_PARTICIPANT_ACTIONS | {"custody.log"}
+    ),
 }
 
 SENSITIVE_ACTIONS_REQUIRING_2FA = {
     "wallet.withdraw",
+    "wallet.reconcile",
     "profile.update",
     "auth.password.change",
     "auth.email.change",

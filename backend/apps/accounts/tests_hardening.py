@@ -436,7 +436,7 @@ class RequestSizeLimitMiddlewareTests(TestCase):
         get_response = MagicMock()
         mw = RequestSizeLimitMiddleware(get_response)
 
-        request = self.factory.post("/api/catalog/products/")
+        request = self.factory.post("/api/auth/login/")
         request.META["CONTENT_LENGTH"] = "2048"  # > 1024 limit
 
         response = mw(request)

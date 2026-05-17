@@ -302,3 +302,99 @@ class FraudEvent(models.Model):
 
     def __str__(self) -> str:
         return f"FraudEvent({self.user_id}, score={self.risk_score}, {self.decision})"
+
+
+# ---------------------------------------------------------------------------
+# Idempotency — dedicated request-level lock table (Phase 1)
+# ---------------------------------------------------------------------------
+
+class IdempotencyRecord(models.Model):
+    """
+    Dedicated idempotency table providing:
+      - Request-body hash validation (prevents key reuse with different payload)
+      - SELECT FOR UPDATE locking (eliminates concurrent-request race conditions)
+      - Response snapshot (idempotent replays return identical responses)
+      - TTL-based expiry (24 h for financial ops, configurable per endpoint)
+
+    This sits ABOVE the WalletTransaction.idempotency_key DB constraint.
+    The constraint remains as a last-resort safety net; this table provides
+    the correct UX (clean cached response instead of IntegrityError).
+    """
+
+    STATUS_PROCESSING = "processing"
+    STATUS_COMPLETE = "complete"
+    STATUS_FAILED = "failed"
+
+    STATUS_CHOICES = [
+        (STATUS_PROCESSING, "En cours"),
+        (STATUS_COMPLETE, "Termine"),
+        (STATUS_FAILED, "Echec"),
+    ]
+
+    key = models.CharField(max_length=120)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="idempotency_records",
+    )
+    endpoint = models.CharField(max_length=60)
+    # SHA-256 of request body with PIN/secrets stripped — prevents key reuse fraud.
+    request_hash = models.CharField(max_length=64)
+    response_snapshot = models.JSONField(null=True, blank=True)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_PROCESSING)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["key", "user", "endpoint"],
+                name="uniq_idempotency_key_user_endpoint",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["expires_at"], name="idx_idempotency_expires_at"),
+        ]
+
+    def __str__(self) -> str:
+        return f"IdempotencyRecord({self.endpoint}, {self.status})"
+
+
+# ---------------------------------------------------------------------------
+# Transaction state audit log (Phase 2)
+# ---------------------------------------------------------------------------
+
+class WalletTransactionStateLog(models.Model):
+    """
+    Immutable log of every state transition for a WalletTransaction.
+
+    Rules:
+      - Never update rows — append only.
+      - Records the from/to status, optional extended_status, reason, and actor.
+      - Used for: compliance audit, debugging, reconciliation, ML training.
+    """
+
+    transaction = models.ForeignKey(
+        WalletTransaction,
+        on_delete=models.CASCADE,
+        related_name="state_logs",
+    )
+    from_status = models.CharField(max_length=20, blank=True)
+    to_status = models.CharField(max_length=20)
+    # Richer status detail that does not replace the API-visible status field.
+    # Examples: "provider_pending", "provider_confirmed", "settlement_pending",
+    #           "failed_retryable", "failed_final", "reconciliation_pending".
+    extended_status = models.CharField(max_length=40, blank=True)
+    reason = models.CharField(max_length=240, blank=True)
+    actor_id = models.IntegerField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["transaction", "created_at"], name="idx_tx_state_log_tx_ts"),
+        ]
+
+    def __str__(self) -> str:
+        return f"StateLog(tx={self.transaction_id}, {self.from_status}->{self.to_status})"
