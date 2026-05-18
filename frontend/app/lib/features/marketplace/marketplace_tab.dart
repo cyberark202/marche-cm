@@ -295,12 +295,10 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = (product['title'] ?? product['name'] ?? 'Produit').toString();
-    final priceMin =
-        (product['price_min'] ?? product['price'] ?? 0).toString();
-    final priceMax = (product['price_max'] ?? '').toString();
-    final isVerified = product['is_verified'] == true ||
-        product['supplier_is_verified'] == true;
-    final imageUrl = (product['main_image'] ?? product['image'] ?? '').toString();
+    final priceMin = (product['price_for_min_qty'] ?? 0).toString();
+    final priceMax = (product['price_for_max_qty'] ?? '').toString();
+    final isVerified = product['seller_is_verified'] == true;
+    final imageUrl = (product['image'] ?? '').toString();
     final hasVideo = product['has_video'] == true ||
         (product['video_url'] ?? '').toString().isNotEmpty;
 
@@ -521,20 +519,12 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
     final name =
         (widget.product['title'] ?? widget.product['name'] ?? 'Produit')
             .toString();
-    final priceMin =
-        (widget.product['price_min'] ?? widget.product['price'] ?? 0)
-            .toString();
-    final priceMax = (widget.product['price_max'] ?? '').toString();
-    final imageUrl =
-        (widget.product['main_image'] ?? widget.product['image'] ?? '')
-            .toString();
+    final priceMin = (widget.product['price_for_min_qty'] ?? 0).toString();
+    final priceMax = (widget.product['price_for_max_qty'] ?? '').toString();
+    final imageUrl = (widget.product['image'] ?? '').toString();
     final description = (widget.product['description'] ?? '').toString();
-    final supplier = (widget.product['supplier_name'] ??
-            widget.product['owner_username'] ??
-            '')
-        .toString();
-    final isVerified = widget.product['is_verified'] == true ||
-        widget.product['supplier_is_verified'] == true;
+    final supplier = (widget.product['seller_username'] ?? '').toString();
+    final isVerified = widget.product['seller_is_verified'] == true;
 
     return DraggableScrollableSheet(
       expand: false,

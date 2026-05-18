@@ -165,17 +165,12 @@ class _VideoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final videoUrl = (post['video_url'] ?? post['video'] ?? '').toString();
-    final coverUrl = (post['main_image'] ?? post['image'] ?? '').toString();
+    final coverUrl = (post['image'] ?? '').toString();
     final title = (post['title'] ?? post['name'] ?? '').toString();
     final description = (post['description'] ?? '').toString();
-    final supplier = (post['supplier_name'] ??
-            post['owner_username'] ??
-            post['supplier'] ??
-            '')
-        .toString();
-    final price = (post['price_min'] ?? post['price'] ?? '').toString();
-    final isVerified = post['is_verified'] == true ||
-        post['supplier_is_verified'] == true;
+    final supplier = (post['seller_username'] ?? '').toString();
+    final price = (post['price_for_min_qty'] ?? '').toString();
+    final isVerified = post['seller_is_verified'] == true;
 
     return Stack(
       fit: StackFit.expand,
@@ -348,12 +343,8 @@ class _ActionBarState extends State<_ActionBar> {
         builder: (_) => VideoCommentsPage(
           video: VideoPostData(
             id: productId,
-            coverUrl: (widget.post['main_image'] ?? widget.post['image'] ?? '')
-                .toString(),
-            publisherName: (widget.post['supplier_name'] ??
-                    widget.post['owner_username'] ??
-                    '')
-                .toString(),
+            coverUrl: (widget.post['image'] ?? '').toString(),
+            publisherName: (widget.post['seller_username'] ?? '').toString(),
             publisherAvatar: '',
             description: (widget.post['description'] ?? '').toString(),
             likes: _likes,
