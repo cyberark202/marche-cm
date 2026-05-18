@@ -383,6 +383,13 @@ class ComplianceDocumentViewSet(viewsets.ModelViewSet):
             return self.queryset.none()
         return self.queryset.filter(user=actor)
 
+    def perform_update(self, serializer):
+        if "status" in self.request.data:
+            raise PermissionDenied(
+                "Modification directe du statut interdite. Utilisez l'action /review/."
+            )
+        serializer.save()
+
     def perform_create(self, serializer):
         if not _is_compliance_actor(self.request.user):
             raise PermissionDenied("Seuls fournisseur, grossiste et transitaire soumettent des certifications.")

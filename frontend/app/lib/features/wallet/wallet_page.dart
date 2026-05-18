@@ -73,7 +73,8 @@ class _WalletPageState extends State<WalletPage> {
       _transactions = transactions;
       _error = null;
       _fromCache = false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[WalletPage] _load error: $e');
       final cachedWallet =
           await WalletCacheService.instance.loadWallet(allowStale: true);
       final cachedTx =

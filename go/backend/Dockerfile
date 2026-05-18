@@ -34,6 +34,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq5 \
         # curl for health checks
         curl \
+        # dumb-init: PID 1 signal forwarding + zombie reaping (ASGI/WS graceful shutdown)
+        dumb-init \
     && rm -rf /var/lib/apt/lists/* \
     # Disable pip warnings in production — no pip in runtime.
     && pip uninstall -y pip setuptools wheel 2>/dev/null || true
@@ -68,7 +70,12 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -fsS http://localhost:8000/api/health/ || exit 1
 
-# Default entrypoint: Daphne ASGI server.
+# dumb-init as PID 1: forwards signals to Daphne (SIGTERM → graceful WS shutdown)
+# and reaps zombie processes. Without it, SIGTERM is ignored by PID 1 and
+# WebSocket connections are force-killed instead of closed cleanly.
+ENTRYPOINT ["dumb-init", "--"]
+
+# Default command: Daphne ASGI server.
 # Override CMD in docker-compose or K8s for workers/crons.
 CMD ["daphne", \
      "-b", "0.0.0.0", \

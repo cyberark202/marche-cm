@@ -136,7 +136,7 @@ class WalletOtpChallenge(models.Model):
 
 class WalletWebhookEvent(models.Model):
     provider = models.CharField(max_length=40, default="NOTCHPAY")
-    event_id = models.CharField(max_length=120, unique=True)
+    event_id = models.CharField(max_length=120)
     payload = models.JSONField(default=dict, blank=True)
     processed = models.BooleanField(default=False)
     processed_at = models.DateTimeField(null=True, blank=True)
@@ -145,6 +145,12 @@ class WalletWebhookEvent(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "event_id"],
+                name="uniq_webhookevent_provider_event_id",
+            ),
+        ]
 
 
 class LedgerDirection(models.TextChoices):
