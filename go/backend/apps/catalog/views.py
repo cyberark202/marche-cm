@@ -288,15 +288,22 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         return Response({"status": "ok"})
 
-    @action(detail=False, methods=["get"], url_path="recommended")
+    @action(detail=False, methods=["get"], url_path="recommended",
+            permission_classes=[permissions.AllowAny])
     def recommended(self, request):
         products = list(self.queryset.filter(is_active=True))
-        profile = BuyerPreferenceProfile.objects.filter(user=request.user).first()
+        profile = (
+            BuyerPreferenceProfile.objects.filter(user=request.user).first()
+            if request.user.is_authenticated else None
+        )
 
-        interactions = {
-            item["product_id"]: item["view_count"]
-            for item in BuyerProductInteraction.objects.filter(user=request.user).values("product_id", "view_count")
-        }
+        interactions = (
+            {
+                item["product_id"]: item["view_count"]
+                for item in BuyerProductInteraction.objects.filter(user=request.user).values("product_id", "view_count")
+            }
+            if request.user.is_authenticated else {}
+        )
         keyword_weights = dict(profile.keyword_weights if profile else {})
         locality_weights = dict(profile.locality_weights if profile else {})
         preferred_price_count = profile.preferred_price_count if profile else 0
