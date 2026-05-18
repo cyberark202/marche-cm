@@ -4,6 +4,7 @@
 /// OWASP MASVS-NETWORK-1, MASVS-AUTH-2
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -125,7 +126,12 @@ class _AuthInterceptor extends Interceptor {
   final Dio dio;
   final TokensRefreshedCallback? onTokensRefreshed;
   final AuthFailedCallback? onAuthFailed;
-  bool _isRefreshing = false;
+
+  // Completer pattern: concurrent 401 responses all piggyback on a single
+  // in-flight refresh instead of each triggering an independent refresh or
+  // clearing tokens prematurely. Eliminates spurious logouts on wallet pages
+  // that fire multiple parallel requests (Future.wait / TabBarView rebuilds).
+  Completer<String?>? _refreshCompleter;
 
   _AuthInterceptor({
     required this.dio,
@@ -148,30 +154,46 @@ class _AuthInterceptor extends Interceptor {
   @override
   Future<void> onResponse(
       Response response, ResponseInterceptorHandler handler) async {
-    if (response.statusCode == 401 && !_isRefreshing) {
-      final retried = await _tryRefreshAndRetry(response.requestOptions);
-      if (retried != null) return handler.resolve(retried);
+    if (response.statusCode != 401) return handler.next(response);
 
+    final newToken = await _refreshToken();
+
+    if (newToken == null || newToken.isEmpty) {
       await TokenRepository.clearTokens();
       onAuthFailed?.call();
+      return handler.next(response);
     }
-    handler.next(response);
+
+    response.requestOptions.headers['Authorization'] = 'Bearer $newToken';
+    try {
+      final retried = await dio.fetch(response.requestOptions);
+      return handler.resolve(retried);
+    } catch (_) {
+      return handler.next(response);
+    }
   }
 
-  Future<Response?> _tryRefreshAndRetry(RequestOptions original) async {
-    _isRefreshing = true;
+  /// Returns a fresh access token. If a refresh is already in flight, waits
+  /// for it instead of issuing a second concurrent refresh request.
+  Future<String?> _refreshToken() async {
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+
+    final completer = Completer<String?>();
+    _refreshCompleter = completer;
     try {
       final result = await TokenRepository.refresh();
-      final newAccess = result.access;
-      if (newAccess == null || newAccess.isEmpty) return null;
-
-      onTokensRefreshed?.call(newAccess, result.refresh);
-      original.headers['Authorization'] = 'Bearer $newAccess';
-      return await dio.fetch(original);
+      final newAccess =
+          (result.access != null && result.access!.isNotEmpty) ? result.access : null;
+      if (newAccess != null) onTokensRefreshed?.call(newAccess, result.refresh);
+      completer.complete(newAccess);
+      return newAccess;
     } catch (_) {
+      completer.complete(null);
       return null;
     } finally {
-      _isRefreshing = false;
+      _refreshCompleter = null;
     }
   }
 

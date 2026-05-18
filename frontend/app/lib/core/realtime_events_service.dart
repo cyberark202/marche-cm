@@ -79,6 +79,7 @@ class RealtimeEventsService {
   }
 
   void _scheduleReconnect() {
+    if (_reconnectTimer?.isActive == true) return;
     _connected = false;
     _connectedToken = null;
     _cancelSubscription();

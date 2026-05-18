@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -27,12 +29,16 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
   List<Map<String, String>> _providerChoices = const [];
   Map<String, String> _providerLogo = const {};
   bool _busy = false;
-  late final String _idempotencyKey;
+
+  static String _generateIdempotencyKey() {
+    final rand = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rand.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
 
   @override
   void initState() {
     super.initState();
-    _idempotencyKey = '${DateTime.now().millisecondsSinceEpoch}';
     _loadUiConfig();
   }
 
@@ -195,6 +201,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
     if (!mounted || pin == null) return;
 
     setState(() => _busy = true);
+    final idempotencyKey = _generateIdempotencyKey();
     try {
       final result = await _api.post(
         '/api/wallets/topup/',
@@ -204,7 +211,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
           'amount': amountValue,
           'provider': _provider,
           'pin': pin,
-          'idempotency_key': _idempotencyKey,
+          'idempotency_key': idempotencyKey,
         },
         token: token,
       );

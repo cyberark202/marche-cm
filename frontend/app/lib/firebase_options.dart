@@ -66,7 +66,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '713755103175',
     projectId: 'market-cm-d074b',
     storageBucket: 'market-cm-d074b.firebasestorage.app',
-    iosBundleId: 'com.example.app',
+    iosBundleId: 'com.marchecm.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -75,7 +75,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '713755103175',
     projectId: 'market-cm-d074b',
     storageBucket: 'market-cm-d074b.firebasestorage.app',
-    iosBundleId: 'com.example.app',
+    iosBundleId: 'com.marchecm.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

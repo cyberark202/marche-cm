@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -27,12 +29,16 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
   List<Map<String, String>> _providerChoices = const [];
   Map<String, String> _providerLogo = const {};
   bool _busy = false;
-  late final String _idempotencyKey;
+
+  static String _generateIdempotencyKey() {
+    final rand = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rand.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
 
   @override
   void initState() {
     super.initState();
-    _idempotencyKey = '${DateTime.now().millisecondsSinceEpoch}';
     _loadUiConfig();
   }
 
@@ -190,6 +196,7 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
     if (!mounted || pin == null) return;
 
     setState(() => _busy = true);
+    final idempotencyKey = _generateIdempotencyKey();
     try {
       await _api.post(
         '/api/wallets/withdraw/',
@@ -201,7 +208,7 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
           'pin': pin,
           'challenge_token': verification.challengeToken,
           'verification_code': verification.verificationCode,
-          'idempotency_key': _idempotencyKey,
+          'idempotency_key': idempotencyKey,
         },
         token: token,
       );

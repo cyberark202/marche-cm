@@ -70,12 +70,12 @@ class ApiService {
       final fileName = file.name.isEmpty ? 'upload.bin' : file.name;
       MultipartFile multipartFile;
 
-      if (file.bytes != null && file.bytes!.isNotEmpty) {
-        multipartFile =
-            MultipartFile.fromBytes(file.bytes!, filename: fileName);
-      } else if (!kIsWeb && (file.path ?? '').isNotEmpty) {
+      if (!kIsWeb && (file.path ?? '').isNotEmpty) {
         multipartFile =
             await MultipartFile.fromFile(file.path!, filename: fileName);
+      } else if (file.bytes != null && file.bytes!.isNotEmpty) {
+        multipartFile =
+            MultipartFile.fromBytes(file.bytes!, filename: fileName);
       } else {
         final stream = file.readStream;
         if (stream == null) {
@@ -83,11 +83,11 @@ class ApiService {
             'Le fichier sélectionné est inaccessible sur cette plateforme.',
           );
         }
-        final chunks = <int>[];
-        await for (final chunk in stream) {
-          chunks.addAll(chunk);
-        }
-        multipartFile = MultipartFile.fromBytes(chunks, filename: fileName);
+        multipartFile = MultipartFile.fromStream(
+          () => stream,
+          file.size,
+          filename: fileName,
+        );
       }
       formMap[fileFieldName] = multipartFile;
     }
