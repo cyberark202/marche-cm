@@ -55,7 +55,7 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
       List<Map<String, dynamic>> rows = const [];
       try {
         rows = await _api.getList(
-          '/api/catalog/products/?has_video=true&page_size=20',
+          '/api/products/?has_video=true&page_size=20',
           token: token,
         );
       } catch (_) {
