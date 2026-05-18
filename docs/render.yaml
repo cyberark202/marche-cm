@@ -1,0 +1,129 @@
+services:
+  - type: web
+    name: marche-cm-api
+    runtime: python
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    preDeployCommand: python manage.py migrate --noinput
+    startCommand: daphne -b 0.0.0.0 -p $PORT config.asgi:application
+    healthCheckPath: /api/health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATA_ENCRYPTION_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://*.onrender.com"
+      - key: USE_X_FORWARDED_PROTO
+        value: "True"
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+      - key: SESSION_COOKIE_SECURE
+        value: "True"
+      - key: CSRF_COOKIE_SECURE
+        value: "True"
+      - key: SECURE_HSTS_SECONDS
+        value: "31536000"
+      - key: SECURE_HSTS_INCLUDE_SUBDOMAINS
+        value: "True"
+      - key: SECURE_HSTS_PRELOAD
+        value: "True"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: marche-cm-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: marche-cm-redis
+          property: connectionString
+      - key: CACHE_URL
+        fromService:
+          type: keyvalue
+          name: marche-cm-redis
+          property: connectionString
+
+  - type: cron
+    name: marche-cm-finops-retries
+    runtime: python
+    plan: starter
+    rootDir: backend
+    schedule: "*/3 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py run_financial_ops --skip-reconciliation --retries-limit 200 --send-alerts
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: SECRET_KEY
+        sync: false
+      - key: DATA_ENCRYPTION_KEY
+        sync: false
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: marche-cm-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: marche-cm-redis
+          property: connectionString
+      - key: CACHE_URL
+        fromService:
+          type: keyvalue
+          name: marche-cm-redis
+          property: connectionString
+      - key: RECONCILIATION_REQUIRE_PROVIDER_BALANCE
+        value: "True"
+
+  - type: cron
+    name: marche-cm-finops-daily
+    runtime: python
+    plan: starter
+    rootDir: backend
+    schedule: "10 0 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py run_financial_ops --skip-retries --strict-provider-balance --send-alerts --fail-on-alert
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: SECRET_KEY
+        sync: false
+      - key: DATA_ENCRYPTION_KEY
+        sync: false
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: marche-cm-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: marche-cm-redis
+          property: connectionString
+      - key: CACHE_URL
+        fromService:
+          type: keyvalue
+          name: marche-cm-redis
+          property: connectionString
+      - key: RECONCILIATION_REQUIRE_PROVIDER_BALANCE
+        value: "True"
+
+  - type: keyvalue
+    name: marche-cm-redis
+    plan: starter
+    ipAllowList: []
+
+databases:
+  - name: marche-cm-db
+    plan: basic-256mb
+    ipAllowList: []
