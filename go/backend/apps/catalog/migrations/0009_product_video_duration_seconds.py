@@ -9,12 +9,18 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="product",
-            name="video_duration_seconds",
-            field=models.PositiveIntegerField(
-                default=0,
-                validators=[MinValueValidator(0), MaxValueValidator(180)],
-            ),
+        # Column already exists in production DB — register state only.
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name="product",
+                    name="video_duration_seconds",
+                    field=models.PositiveIntegerField(
+                        default=0,
+                        validators=[MinValueValidator(0), MaxValueValidator(180)],
+                    ),
+                ),
+            ],
+            database_operations=[],
         ),
     ]
