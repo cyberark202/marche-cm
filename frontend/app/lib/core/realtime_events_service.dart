@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'app_config.dart';
+import 'token_repository.dart';
 import 'websocket_service.dart';
 
 class RealtimeEventsService {
@@ -70,14 +71,14 @@ class RealtimeEventsService {
         _reconnectAttempts = 0; // reset backoff on successful message
         _controller.add(event);
       },
-      onError: (_) => _scheduleReconnect(token: token),
-      onDone: () => _scheduleReconnect(token: token),
+      onError: (_) => _scheduleReconnect(),
+      onDone: () => _scheduleReconnect(),
     );
     _connected = true;
     _connectedToken = token;
   }
 
-  void _scheduleReconnect({required String token}) {
+  void _scheduleReconnect() {
     _connected = false;
     _connectedToken = null;
     _cancelSubscription();
@@ -88,8 +89,12 @@ class RealtimeEventsService {
     final delaySeconds = (1 << _reconnectAttempts).clamp(1, 32);
     _reconnectAttempts++;
 
-    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () {
-      _doConnect(token: token, topics: _connectedTopics);
+    // Always fetch the latest token from storage — it may have been refreshed
+    // by the REST client while the WebSocket was disconnected (e.g. 4401 expiry).
+    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
+      final freshToken = await TokenRepository.getAccessToken();
+      if (freshToken == null || freshToken.isEmpty) return;
+      _doConnect(token: freshToken, topics: _connectedTopics);
     });
   }
 
