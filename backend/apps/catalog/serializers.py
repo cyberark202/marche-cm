@@ -38,7 +38,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_seller_is_verified(self, obj):
         seller = obj.seller
         if seller.role in {UserRole.SUPPLIER, UserRole.WHOLESALER, UserRole.TRANSIT_AGENT}:
-            return seller.compliance_documents.filter(status="APPROVED").exists()
+            return any(d.status == "APPROVED" for d in seller.compliance_documents.all())
         return bool(seller.is_verified)
 
     def validate(self, attrs):

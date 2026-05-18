@@ -24,7 +24,7 @@ class MessageSerializer(serializers.ModelSerializer):
         user = self.context.get("request").user if self.context.get("request") else None
         if not user or not user.is_authenticated:
             return ""
-        receipt = obj.receipts.filter(user=user).first()
+        receipt = next((r for r in obj.receipts.all() if r.user_id == user.id), None)
         return receipt.state if receipt else ""
 
     def validate_file(self, value):

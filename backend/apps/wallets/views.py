@@ -1354,7 +1354,9 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
     @decorators.action(detail=False, methods=["get"])
     def transactions(self, request):
-        wallet, _ = Wallet.objects.get_or_create(owner=request.user)
+        wallet = Wallet.objects.filter(owner=request.user).first()
+        if not wallet:
+            return response.Response({"detail": "Portefeuille introuvable."}, status=status.HTTP_404_NOT_FOUND)
         queryset = wallet.transactions.all().order_by("-created_at")
 
         status_filter = str(request.query_params.get("status") or "").strip().upper()
@@ -1428,7 +1430,9 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         if not external_id:
             return response.Response({"detail": "external_id requis."}, status=status.HTTP_400_BAD_REQUEST)
 
-        wallet, _ = Wallet.objects.get_or_create(owner=request.user)
+        wallet = Wallet.objects.filter(owner=request.user).first()
+        if not wallet:
+            return response.Response({"detail": "Portefeuille introuvable."}, status=status.HTTP_404_NOT_FOUND)
         tx = (
             WalletTransaction.objects
             .filter(wallet=wallet, external_transaction_id=external_id)

@@ -17,7 +17,6 @@ class WalletSerializer(serializers.ModelSerializer):
             "pending_balance",
             "balance",
             "blocked_balance",
-            "is_blocked",
             "updated_at",
         )
         read_only_fields = fields

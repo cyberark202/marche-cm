@@ -283,6 +283,13 @@ if USE_S3_STORAGE:
     AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE", "auto").strip()
     AWS_DEFAULT_ACL = None
     AWS_QUERYSTRING_AUTH = False
+    # Public media URL: use a custom domain (CDN) when available, otherwise
+    # derive from the endpoint + bucket (works for Cloudflare R2 public buckets).
+    _s3_custom_domain = os.getenv("AWS_S3_CUSTOM_DOMAIN", "").strip()
+    if _s3_custom_domain:
+        MEDIA_URL = f"https://{_s3_custom_domain}/"
+    elif AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
+        MEDIA_URL = f"{AWS_S3_ENDPOINT_URL.rstrip('/')}/{AWS_STORAGE_BUCKET_NAME}/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"

@@ -72,25 +72,17 @@ def _compute_file_sha256(file_obj) -> str:
 
 
 def _compute_chat_integrity_hash(shipment_id: int) -> str:
-    """
-    Compute a SHA-256 snapshot hash of the chat messages for the order
-    linked to this shipment. Falls back to a timestamp-based hash if
-    the chat app is unavailable.
-    """
+    # ChatRoom has no order FK — hash over stable Shipment fields instead.
     try:
-        from apps.chat.models import Message
-        from apps.orders.models import Order
-        order = Order.objects.filter(shipment__id=shipment_id).values("id").first()
-        if not order:
-            raise ValueError
-        msgs = (
-            Message.objects.filter(room__order_id=order["id"])
-            .order_by("created_at")
-            .values_list("id", "content", "created_at")
+        s = Shipment.objects.filter(id=shipment_id).values(
+            "id", "order_id", "buyer_id", "seller_id", "created_at"
+        ).first()
+        raw = (
+            f"{s['id']}:{s['order_id']}:{s['buyer_id']}:{s['seller_id']}:{s['created_at'].isoformat()}"
+            if s else f"shipment:{shipment_id}"
         )
-        raw = "|".join(f"{m[0]}:{m[1]}:{m[2].isoformat()}" for m in msgs)
     except Exception:
-        raw = f"shipment:{shipment_id}:{timezone.now().isoformat()}"
+        raw = f"shipment:{shipment_id}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -741,7 +733,7 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     queryset = (
         ShipmentDispute.objects
-        .select_related("shipment", "opened_by", "decided_by", "last_custody_holder",
+        .select_related("shipment", "opened_by", "accused_party", "decided_by", "last_custody_holder",
                         "appeal_requested_by", "appeal_reviewed_by")
         .prefetch_related("evidences")
         .all()

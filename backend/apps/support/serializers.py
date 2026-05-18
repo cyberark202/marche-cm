@@ -23,7 +23,7 @@ class SupportTicketSerializer(serializers.ModelSerializer):
     created_by_username = serializers.CharField(source="created_by.username", read_only=True)
     assigned_to_username = serializers.CharField(source="assigned_to.username", read_only=True)
     messages = SupportTicketMessageSerializer(many=True, read_only=True)
-    messages_count = serializers.IntegerField(source="messages.count", read_only=True)
+    messages_count = serializers.SerializerMethodField()
 
     class Meta:
         model = SupportTicket
@@ -55,6 +55,9 @@ class SupportTicketSerializer(serializers.ModelSerializer):
             "messages_count",
             "messages",
         )
+
+    def get_messages_count(self, obj):
+        return len(obj.messages.all())
 
     def validate_subject(self, value):
         subject = (value or "").strip()

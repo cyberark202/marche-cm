@@ -1,6 +1,9 @@
-from django.conf import settings
-from django.db import migrations, models
-import django.db.models.deletion
+"""
+Reconcile TrustedDevice constraints: migration 0012 added a named UniqueConstraint
+but the model uses unique_together. This migration converts to unique_together so
+the two representations stay in sync.
+"""
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
@@ -10,44 +13,12 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
-            name="FCMToken",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("registration_id", models.TextField(unique=True)),
-                (
-                    "type",
-                    models.CharField(
-                        choices=[
-                            ("android", "Android"),
-                            ("ios", "iOS"),
-                            ("web", "Web"),
-                        ],
-                        default="android",
-                        max_length=10,
-                    ),
-                ),
-                ("created_at", models.DateTimeField(auto_now_add=True)),
-                ("updated_at", models.DateTimeField(auto_now=True)),
-                (
-                    "user",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="fcm_tokens",
-                        to=settings.AUTH_USER_MODEL,
-                    ),
-                ),
-            ],
-            options={
-                "ordering": ["-updated_at"],
-            },
+        migrations.RemoveConstraint(
+            model_name="trusteddevice",
+            name="uniq_user_device_fingerprint",
+        ),
+        migrations.AlterUniqueTogether(
+            name="trusteddevice",
+            unique_together={("user", "device_fingerprint")},
         ),
     ]

@@ -25,7 +25,7 @@ from .serializers import (
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.select_related("category", "seller").all()
+    queryset = Product.objects.select_related("category", "seller").prefetch_related("seller__compliance_documents").all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
 

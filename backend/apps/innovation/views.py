@@ -359,7 +359,15 @@ class LoyaltyAccountView(APIView):
 
     def get(self, request):
         target_user = self._get_target_user(request, from_query=True)
-        account, _ = LoyaltyAccount.objects.get_or_create(user=target_user)
+        account = LoyaltyAccount.objects.filter(user=target_user).first()
+        if account is None:
+            return response.Response({
+                "points_balance": 0,
+                "tier": "BRONZE",
+                "updated_at": None,
+                "transactions": [],
+                "user_id": target_user.id,
+            })
         payload = LoyaltyAccountSerializer(account).data
         payload["transactions"] = payload["transactions"][:20]
         payload["user_id"] = target_user.id
