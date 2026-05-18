@@ -218,3 +218,25 @@ class TrustedDevice(models.Model):
 
     def __str__(self) -> str:
         return f"Device({self.user_id}, trusted={self.is_trusted})"
+
+
+class FCMToken(models.Model):
+    """Firebase Cloud Messaging registration token per device."""
+
+    DEVICE_TYPES = [("android", "Android"), ("ios", "iOS"), ("web", "Web")]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="fcm_tokens",
+    )
+    registration_id = models.TextField(unique=True)
+    type = models.CharField(max_length=10, choices=DEVICE_TYPES, default="android")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self) -> str:
+        return f"FCMToken({self.user_id}, {self.type})"

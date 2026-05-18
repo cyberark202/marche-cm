@@ -20,3 +20,8 @@ boto3==1.35.88
 # pyotp: TOTP MFA (not used — implemented natively in apps/accounts/mfa.py)
 # user-agents: server-side UA parsing for device fingerprinting
 user-agents==2.2.0
+
+# ── Push notifications ───────────────────────────────────────────────────────
+# Firebase Admin SDK for FCM push to Android / iOS / web.
+# Requires FIREBASE_SERVICE_ACCOUNT_KEY env var (JSON) or FIREBASE_SERVICE_ACCOUNT_KEY_PATH.
+firebase-admin==6.5.0

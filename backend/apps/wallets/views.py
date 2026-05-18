@@ -69,7 +69,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     throttle_scope = "wallet"
 
     def get_queryset(self):
-        Wallet.objects.get_or_create(owner=self.request.user)
         return Wallet.objects.filter(owner=self.request.user).select_related("owner")
 
     # M5 — Minimum transaction amount (100 XAF). Prevents micro-flood attacks
@@ -856,6 +855,18 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             action_key="wallet.transaction.success",
             metadata={"transaction_id": tx.external_transaction_id, "kind": tx.kind},
         )
+        # Notify the wallet owner with a user-specific event (shows popup on frontend).
+        try:
+            _kind_label = {"TOPUP": "Recharge", "WITHDRAWAL": "Retrait"}.get(tx.kind, tx.kind)
+            _amount = abs(tx.amount)
+            create_realtime_notification(
+                user=tx.wallet.owner,
+                title=f"{_kind_label} confirmé",
+                body=f"{_kind_label} de {_amount:,.0f} XAF confirmé avec succès.",
+                payload={"transaction_id": tx.external_transaction_id, "kind": tx.kind},
+            )
+        except Exception:
+            logger.exception("notif_wallet_success_failed tx=%s", getattr(tx, "id", None))
         return tx
 
     def _notify_wallet_incident(self, *, tx: WalletTransaction, title: str, body: str):

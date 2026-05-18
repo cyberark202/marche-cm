@@ -11,6 +11,7 @@ from apps.accounts.views import (
     AuditLogExportView,
     AuthDisabledView,
     ComplianceDocumentViewSet,
+    FCMTokenView,
     GoogleAuthView,
     LoginRequestView,
     LoginVerifyView,
@@ -142,6 +143,7 @@ urlpatterns = [
         SmartNotificationsRunView.as_view(),
         name="innovation-smart-notifications-run",
     ),
+    path("api/auth/fcm-token/", FCMTokenView.as_view(), name="auth-fcm-token"),
     path("api/auth/verify-email/", VerifyEmailView.as_view(), name="auth-verify-email"),
     path(
         "api/auth/google/",

@@ -39,7 +39,7 @@ from apps.orders.models import OrderStatus
 from apps.wallets.models import PaymentProvider, TransactionStatus
 from .compliance_preview import generate_compliance_preview
 from .location_service import update_user_location
-from .models import AuditLog, ComplianceDocument, SensitiveActionChallenge, User, UserRole
+from .models import AuditLog, ComplianceDocument, FCMToken, SensitiveActionChallenge, User, UserRole
 from .security import (
     has_action_permission,
     is_sensitive_action_2fa_required,
@@ -701,19 +701,20 @@ class SessionManagementView(APIView):
 
     def get(self, request):
         current_jti = str(getattr(request.auth, "payload", {}).get("jti", "") or "")
-        rows = []
-        tokens = OutstandingToken.objects.filter(user=request.user).order_by("-created_at")[:50]
-        for token in tokens:
-            is_blacklisted = BlacklistedToken.objects.filter(token=token).exists()
-            rows.append(
-                {
-                    "jti": token.jti,
-                    "created_at": token.created_at.isoformat() if token.created_at else "",
-                    "expires_at": token.expires_at.isoformat() if token.expires_at else "",
-                    "is_blacklisted": is_blacklisted,
-                    "is_current": bool(current_jti and token.jti == current_jti),
-                }
-            )
+        tokens = list(OutstandingToken.objects.filter(user=request.user).order_by("-created_at")[:50])
+        blacklisted_ids = set(
+            BlacklistedToken.objects.filter(token__in=tokens).values_list("token_id", flat=True)
+        )
+        rows = [
+            {
+                "jti": token.jti,
+                "created_at": token.created_at.isoformat() if token.created_at else "",
+                "expires_at": token.expires_at.isoformat() if token.expires_at else "",
+                "is_blacklisted": token.id in blacklisted_ids,
+                "is_current": bool(current_jti and token.jti == current_jti),
+            }
+            for token in tokens
+        ]
         return response.Response({"sessions": rows}, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -911,3 +912,30 @@ class AuthDisabledView(APIView):
 
     def post(self, request):
         return _auth_disabled_response()
+
+
+class FCMTokenView(APIView):
+    """Register or remove an FCM device token for push notifications."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        registration_id = (request.data.get("registration_id") or "").strip()
+        device_type = (request.data.get("type") or "android").strip()
+        if not registration_id:
+            return response.Response({"detail": "registration_id requis."}, status=status.HTTP_400_BAD_REQUEST)
+        if device_type not in ("android", "ios", "web"):
+            device_type = "android"
+        FCMToken.objects.update_or_create(
+            registration_id=registration_id,
+            defaults={"user": request.user, "type": device_type},
+        )
+        return response.Response({"ok": True})
+
+    def delete(self, request):
+        registration_id = (request.data.get("registration_id") or "").strip()
+        if registration_id:
+            FCMToken.objects.filter(
+                user=request.user, registration_id=registration_id
+            ).delete()
+        return response.Response(status=status.HTTP_204_NO_CONTENT)

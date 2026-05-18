@@ -17,4 +17,11 @@ def create_realtime_notification(*, user, title: str, body: str, payload: dict |
         event_type="notification_created",
         payload=event_payload,
     )
+    # Best-effort FCM push for users whose app is closed or backgrounded.
+    try:
+        from .push_service import send_push_notification
+        send_push_notification(user=user, title=title, body=body, data=event_payload)
+    except Exception:
+        pass  # Never let push failure break the in-app notification path.
+
     return notification
