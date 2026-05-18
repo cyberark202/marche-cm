@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Marché CM — Propositions de Logo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #F0FDF4;
+      min-height: 100vh;
+      padding: 48px 24px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #064E3B;
+      letter-spacing: 2px;
+    }
+    header p {
+      margin-top: 8px;
+      color: #6B7280;
+      font-size: 15px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 40px 32px 32px;
+      box-shadow: 0 4px 24px rgba(6,122,85,0.10);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: 2px solid transparent;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(6,122,85,0.18);
+      border-color: #34D399;
+    }
+    .card .number {
+      background: linear-gradient(135deg, #067A55, #34D399);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+    }
+    .card img {
+      width: 200px;
+      height: 240px;
+      object-fit: contain;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #064E3B;
+      margin-bottom: 10px;
+    }
+    .card p {
+      font-size: 13.5px;
+      color: #6B7280;
+      line-height: 1.7;
+    }
+    .card .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .tag {
+      background: #ECFDF5;
+      color: #065F46;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
+    .tag.red   { background: #FEF2F2; color: #991B1B; }
+    .tag.yellow{ background: #FFFBEB; color: #92400E; }
+    .tag.blue  { background: #EFF6FF; color: #1E40AF; }
+
+    footer {
+      text-align: center;
+      margin-top: 56px;
+      color: #9CA3AF;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MARCHÉ CM — PROPOSITIONS DE LOGO</h1>
+    <p>4 concepts distincts · Cliquez pour voir les détails</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- Logo 1 -->
+    <div class="card">
+      <div class="number">OPTION 1</div>
+      <img src="logo_1_sac_etoile.svg" alt="Logo Sac Étoile"/>
+      <h2>Le Sac Étoile</h2>
+      <p>
+        Sac de shopping avec dégradé vert profond. L'étoile blanche à l'intérieur
+        rappelle le drapeau camerounais. Icône simple, reconnaissable, parfaite pour
+        une app mobile.
+      </p>
+      <div class="tags">
+        <span class="tag">Moderne</span>
+        <span class="tag">Minimaliste</span>
+        <span class="tag">App-ready</span>
+      </div>
+    </div>
+
+    <!-- Logo 2 -->
+    <div class="card">
+      <div class="number">OPTION 2</div>
+      <img src="logo_2_montagne_m.svg" alt="Logo Montagne M"/>
+      <h2>La Montagne M</h2>
+      <p>
+        Trois sommets forment naturellement la lettre M (comme Marché). Référence
+        au Mont Cameroun, le plus haut sommet d'Afrique de l'Ouest. Dégradé vert
+        avec neiges sommitales blanches.
+      </p>
+      <div class="tags">
+        <span class="tag">Identitaire</span>
+        <span class="tag">Nature</span>
+        <span class="tag">Fort</span>
+      </div>
+    </div>
+
+    <!-- Logo 3 -->
+    <div class="card">
+      <div class="number">OPTION 3</div>
+      <img src="logo_3_bouclier_cameroun.svg" alt="Logo Bouclier Cameroun"/>
+      <h2>Le Bouclier Cameroun</h2>
+      <p>
+        Bouclier avec les 3 couleurs verticales du drapeau camerounais (vert, rouge, jaune).
+        La lettre M blanche s'impose au centre avec l'étoile nationale dorée.
+        Look officiel et patriotique.
+      </p>
+      <div class="tags">
+        <span class="tag">Patriotique</span>
+        <span class="tag red">Rouge</span>
+        <span class="tag yellow">Jaune</span>
+        <span class="tag">Premium</span>
+      </div>
+    </div>
+
+    <!-- Logo 4 -->
+    <div class="card">
+      <div class="number">OPTION 4</div>
+      <img src="logo_4_cercle_moderne.svg" alt="Logo Cercle Moderne"/>
+      <h2>Le Cercle Moderne</h2>
+      <p>
+        Cercle plein avec dégradé vert (comme l'app), M blanc centré, étoile en haut.
+        Trois points vert/rouge/jaune rappellent le Cameroun discrètement.
+        Style tech, propre, polyvalent.
+      </p>
+      <div class="tags">
+        <span class="tag blue">Tech</span>
+        <span class="tag">Polyvalent</span>
+        <span class="tag">Épuré</span>
+      </div>
+    </div>
+
+    <!-- Logo Fusion -->
+    <div class="card" style="border-color:#FCD116; background: linear-gradient(135deg,#F0FDF4,#ECFDF5); grid-column: 1 / -1; max-width: 380px; margin: 0 auto;">
+      <div class="number" style="background: linear-gradient(135deg,#023D2C,#067A55);">⭐ FUSION — RECOMMANDÉ</div>
+      <img src="logo_fusion.svg" alt="Logo Fusion" style="width:240px;height:290px;"/>
+      <h2 style="font-size:22px;">Fusion Officielle</h2>
+      <p>
+        Combine le <strong>cercle vert dégradé</strong> de l'Option 4 avec les éléments du logo existant :
+        flèches d'échange commerce (Afrique ↔ Chine), couleurs du drapeau camerounais (vert / rouge / jaune),
+        étoile nationale, texte <em>CENTRAL MARKET</em>. Le "CM" garde le dégradé tricolore du splash screen.
+      </p>
+      <div class="tags">
+        <span class="tag">Option 4</span>
+        <span class="tag red">Rouge</span>
+        <span class="tag yellow">Jaune</span>
+        <span class="tag">Flèches trade</span>
+        <span class="tag blue">Officiel</span>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Marché CM · Toutes les propositions sont en SVG vectoriel · Modifiables dans Figma, Illustrator ou Inkscape
+  </footer>
+</body>
+</html>

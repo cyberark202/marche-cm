@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" width="240" height="280">
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#E8F8F2"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="peak1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#034D38"/>
+      <stop offset="100%" stop-color="#067A55"/>
+    </linearGradient>
+    <linearGradient id="peak2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0EA877"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+    <linearGradient id="peak3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <filter id="shadow2">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#034D38" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="120" cy="120" r="95" fill="url(#sky)"/>
+
+  <!-- Peaks forming M shape (left peak, valley, center peak, valley, right peak) -->
+  <!-- Left outer peak -->
+  <polygon points="28,185 70,65 112,185" fill="url(#peak1)" filter="url(#shadow2)"/>
+  <!-- Right outer peak -->
+  <polygon points="128,185 170,65 212,185" fill="url(#peak1)" filter="url(#shadow2)"/>
+  <!-- Center peak (tallest) -->
+  <polygon points="75,185 120,45 165,185" fill="url(#peak2)" filter="url(#shadow2)"/>
+
+  <!-- Snow caps -->
+  <polygon points="70,65 120,45 170,65 120,95" fill="white" opacity="0.6"/>
+  <polygon points="28,70 70,65 90,95" fill="white" opacity="0.4"/>
+  <polygon points="170,65 212,70 150,95" fill="white" opacity="0.4"/>
+
+  <!-- Bottom base line -->
+  <rect x="28" y="183" width="184" height="5" rx="2.5" fill="url(#peak3)"/>
+
+  <!-- App name -->
+  <text x="120" y="238" text-anchor="middle"
+        font-family="'Helvetica Neue', Arial, sans-serif"
+        font-weight="800" font-size="22" letter-spacing="3"
+        fill="#067A55">MARCHÉ CM</text>
+  <text x="120" y="260" text-anchor="middle"
+        font-family="'Helvetica Neue', Arial, sans-serif"
+        font-weight="400" font-size="11" letter-spacing="4"
+        fill="#0EA877">MARKETPLACE</text>
+</svg>

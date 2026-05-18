@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" width="240" height="280">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#067A55"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+    <linearGradient id="g1b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#045C40"/>
+      <stop offset="100%" stop-color="#0EA877"/>
+    </linearGradient>
+    <filter id="shadow1">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#067A55" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Bag body -->
+  <rect x="35" y="85" width="170" height="130" rx="18" fill="url(#g1)" filter="url(#shadow1)"/>
+
+  <!-- Bag handle -->
+  <path d="M85 85 Q85 35 120 35 Q155 35 155 85"
+        fill="none" stroke="url(#g1b)" stroke-width="11" stroke-linecap="round"/>
+
+  <!-- Star cutout (white) -->
+  <polygon points="120,108 126,126 145,126 130,137 136,155 120,144 104,155 110,137 95,126 114,126"
+           fill="white" opacity="0.95"/>
+
+  <!-- App name -->
+  <text x="120" y="238" text-anchor="middle"
+        font-family="'Helvetica Neue', Arial, sans-serif"
+        font-weight="800" font-size="22" letter-spacing="3"
+        fill="#067A55">MARCHÉ CM</text>
+  <text x="120" y="260" text-anchor="middle"
+        font-family="'Helvetica Neue', Arial, sans-serif"
+        font-weight="400" font-size="11" letter-spacing="4"
+        fill="#0EA877">MARKETPLACE</text>
+</svg>

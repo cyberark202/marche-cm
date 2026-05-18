@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Config — blocks all cleartext (HTTP) traffic in release builds.
+
+  Allowed cleartext hosts (development only):
+    - localhost / 127.0.0.1 — local dev server on the host machine
+    - 10.0.2.2             — Android emulator alias for the host loopback
+
+  All other traffic, including the production API, must use HTTPS (TLS 1.2+).
+  android:cleartextTrafficPermitted="false" is the deny-by-default baseline.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Development machines accessible during local testing only. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

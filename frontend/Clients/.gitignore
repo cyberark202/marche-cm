@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+db.sqlite3
+.idea/
+.vscode/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+frontend/.packages
+

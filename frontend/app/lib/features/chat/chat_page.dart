@@ -1,0 +1,16 @@
+import 'package:flutter/material.dart';
+
+class ChatPage extends StatelessWidget {
+  const ChatPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Chat temps reel')),
+      body: const Center(
+        child: Text('Ici: messages texte, image, video, document via WebSocket'),
+      ),
+    );
+  }
+}
+

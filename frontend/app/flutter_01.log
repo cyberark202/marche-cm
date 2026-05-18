@@ -1,0 +1,89 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter run -d chrome
+
+## exception
+
+ShaderCompilerException: ShaderCompilerException: Shader compilation of "C:\src\flutter\packages\flutter\lib\src\material\shaders\stretch_effect.frag" to "build\flutter_assets\shaders/stretch_effect.frag" failed with exit code 1.
+impellerc stdout:
+
+impellerc stderr:
+Could not write file to build\flutter_assets\shaders/stretch_effect.frag
+
+
+
+
+```
+#0      ShaderCompiler.compileShader (package:flutter_tools/src/build_system/tools/shader_compiler.dart:196:9)
+<asynchronous suspension>
+#1      writeBundle.<anonymous closure> (package:flutter_tools/src/bundle_builder.dart:208:25)
+<asynchronous suspension>
+#2      Future.wait.<anonymous closure> (dart:async/future.dart:546:21)
+<asynchronous suspension>
+#3      writeBundle (package:flutter_tools/src/bundle_builder.dart:171:3)
+<asynchronous suspension>
+#4      WebDevFS.update (package:flutter_tools/src/isolated/devfs_web.dart:336:9)
+<asynchronous suspension>
+#5      ResidentWebRunner._updateDevFS (package:flutter_tools/src/isolated/resident_web_runner.dart:794:35)
+<asynchronous suspension>
+#6      ResidentWebRunner.run.<anonymous closure> (package:flutter_tools/src/isolated/resident_web_runner.dart:327:41)
+<asynchronous suspension>
+#7      asyncGuard.<anonymous closure> (package:flutter_tools/src/base/async_guard.dart:108:24)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[32m[✓][39m Flutter (Channel stable, 3.38.9, on Microsoft Windows [version
+    10.0.19045.6466], locale fr-CM) [4,0s]
+    [32m•[39m Flutter version 3.38.9 on channel stable at C:\src\flutter
+    [32m•[39m Upstream repository https://github.com/flutter/flutter.git
+    [32m•[39m Framework revision 67323de285 (3 months ago), 2026-01-28 13:43:12 -0800
+    [32m•[39m Engine revision 587c18f873
+    [32m•[39m Dart version 3.10.8
+    [32m•[39m DevTools version 2.51.1
+    [32m•[39m Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop,
+      enable-windows-desktop, enable-android, enable-ios, cli-animations,
+      enable-native-assets, omit-legacy-version-file, enable-lldb-debugging
+
+[32m[✓][39m Windows Version (10 Pro 64-bit, 22H2, 2009) [23,8s]
+
+[32m[✓][39m Android toolchain - develop for Android devices (Android SDK version 36.1.0) [22,2s]
+    [32m•[39m Android SDK at C:\Users\user\AppData\Local\Android\Sdk
+    [32m•[39m Emulator version 36.3.10.0 (build_id 14472402) (CL:N/A)
+    [32m•[39m Platform android-36, build-tools 36.1.0
+    [32m•[39m ANDROID_HOME = C:\Users\user\AppData\Local\Android\Sdk
+    [32m•[39m ANDROID_SDK_ROOT = C:\Users\user\AppData\Local\Android\Sdk
+    [32m•[39m Java binary at: C:\Program Files\Android\Android Studio1\jbr\bin\java
+      This is the JDK bundled with the latest Android Studio installation on this machine.
+      To manually set the JDK path, use: `flutter config --jdk-dir="path/to/jdk"`.
+    [32m•[39m Java version OpenJDK Runtime Environment (build 21.0.8+-14196175-b1038.72)
+    [32m•[39m All Android licenses accepted.
+
+[32m[✓][39m Chrome - develop for the web [1 184ms]
+    [32m•[39m Chrome at C:\Program Files\Google\Chrome\Application\chrome.exe
+
+[32m[✓][39m Visual Studio - develop Windows apps (Visual Studio Community 2026 18.2.1) [1 179ms]
+    [32m•[39m Visual Studio at C:\Program Files\Microsoft Visual Studio\18\Community
+    [32m•[39m Visual Studio Community 2026 version 18.2.11415.280
+    [32m•[39m Windows 10 SDK version 10.0.26100.0
+
+[32m[✓][39m Connected device (4 available) [4,2s]
+    [32m•[39m sdk gphone64 x86 64 (mobile) • emulator-5554 • android-x64    • Android 16 (API 36) (emulator)
+    [32m•[39m Windows (desktop)            • windows       • windows-x64    • Microsoft Windows [version 10.0.19045.6466]
+    [32m•[39m Chrome (web)                 • chrome        • web-javascript • Google Chrome 147.0.7727.102
+    [32m•[39m Edge (web)                   • edge          • web-javascript • Microsoft Edge 147.0.3912.72
+
+[33m[!][39m Network resources [332ms]
+    [31m✗[39m A network error occurred while checking "https://pub.dev/": Failed host lookup: 'pub.dev'
+    [31m✗[39m A network error occurred while checking "https://storage.googleapis.com/": Failed host lookup: 'storage.googleapis.com'
+    [31m✗[39m A network error occurred while checking "https://maven.google.com/": Failed host lookup: 'maven.google.com'
+    [31m✗[39m A network error occurred while checking "https://cocoapods.org/": Failed host lookup: 'cocoapods.org'
+    [31m✗[39m A network error occurred while checking "https://github.com/": Failed host lookup: 'github.com'
+
+[33m![39m Doctor found issues in 1 category.
+```

@@ -1,0 +1,213 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/widgets.dart';
+
+import '../../core/security/secure_dio_client.dart';
+import '../../core/token_repository.dart';
+
+enum UserRole { generalAdmin, supplier, wholesaler, transitAgent, buyer }
+
+class SessionStore extends ChangeNotifier {
+  UserRole role = UserRole.buyer;
+  String? token;
+  String? refreshToken;
+  int? userId;
+  String? username;
+  String? _authNotice;
+  Locale appLocale = const Locale("fr");
+
+  Timer? _refreshTimer;
+
+  bool get isAuthenticated => token != null && token!.isNotEmpty;
+  String? get authNotice => _authNotice;
+
+  /// Restores tokens from secure storage on cold start and reloads the user
+  /// profile so role/userId/username are populated without requiring re-login.
+  Future<void> restoreFromStorage() async {
+    final stored = await TokenRepository.getAccessToken();
+    if (stored == null || stored.isEmpty) return;
+
+    // Verify the stored token is still valid and load the user profile.
+    try {
+      final response = await SecureDioClient.dio.get('/api/auth/me/');
+      final data = response.data;
+      if (response.statusCode != 200 || data is! Map<String, dynamic>) {
+        await TokenRepository.clearTokens();
+        return;
+      }
+      token = stored;
+      refreshToken = await TokenRepository.getRefreshToken();
+      role = roleFromBackend((data['role'] ?? '').toString());
+      userId = data['id'] is int ? data['id'] as int : int.tryParse('${data['id']}');
+      username = (data['username'] ?? data['name'] ?? '').toString().trim();
+      if (username!.isEmpty) username = null;
+    } on DioException {
+      // Network error — restore token optimistically; let the first API call fail.
+      token = stored;
+      refreshToken = await TokenRepository.getRefreshToken();
+    } catch (_) {
+      await TokenRepository.clearTokens();
+      return;
+    }
+
+    _scheduleProactiveRefresh(stored);
+    notifyListeners();
+  }
+
+  void switchRole(UserRole newRole) {
+    role = newRole;
+    notifyListeners();
+  }
+
+  void setSession({
+    required String accessToken,
+    String? refreshTokenValue,
+    required UserRole userRole,
+    int? currentUserId,
+    String? currentUsername,
+  }) {
+    token = accessToken;
+    refreshToken = refreshTokenValue;
+    role = userRole;
+    userId = currentUserId;
+    username = currentUsername;
+    _authNotice = null;
+    TokenRepository.saveTokens(
+      accessToken: accessToken,
+      refreshToken: refreshTokenValue,
+    );
+    _scheduleProactiveRefresh(accessToken);
+    notifyListeners();
+  }
+
+  void updateTokens({
+    required String accessToken,
+    String? refreshTokenValue,
+  }) {
+    token = accessToken;
+    if (refreshTokenValue != null && refreshTokenValue.isNotEmpty) {
+      refreshToken = refreshTokenValue;
+    }
+    TokenRepository.saveTokens(
+      accessToken: accessToken,
+      refreshToken: refreshTokenValue,
+    );
+    _scheduleProactiveRefresh(accessToken);
+    notifyListeners();
+  }
+
+  void updateProfile({String? currentUsername}) {
+    if (currentUsername != null && currentUsername.trim().isNotEmpty) {
+      username = currentUsername.trim();
+    }
+    notifyListeners();
+  }
+
+  void logout({String? notice}) {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    token = null;
+    refreshToken = null;
+    userId = null;
+    username = null;
+    role = UserRole.buyer;
+    _authNotice = notice;
+    TokenRepository.clearTokens();
+    notifyListeners();
+  }
+
+  void setLocale(String languageCode) {
+    final code = languageCode.trim().toLowerCase();
+    if (code != "fr" && code != "en") return;
+    appLocale = Locale(code);
+    notifyListeners();
+  }
+
+  String? consumeAuthNotice() {
+    final value = _authNotice;
+    _authNotice = null;
+    return value;
+  }
+
+  UserRole roleFromBackend(String rawRole) {
+    switch (rawRole) {
+      case "GENERAL_ADMIN":
+        return UserRole.generalAdmin;
+      case "SUPPLIER":
+        return UserRole.supplier;
+      case "WHOLESALER":
+        return UserRole.wholesaler;
+      case "TRANSIT_AGENT":
+        return UserRole.transitAgent;
+      default:
+        return UserRole.buyer;
+    }
+  }
+
+  // ── B2: Proactive JWT refresh ─────────────────────────────────────────────
+
+  void _scheduleProactiveRefresh(String accessToken) {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+
+    final exp = _jwtExp(accessToken);
+    if (exp == null) return;
+
+    final expiresAt = DateTime.fromMillisecondsSinceEpoch(exp * 1000, isUtc: true);
+    final refreshAt = expiresAt.subtract(const Duration(seconds: 60));
+    final delay = refreshAt.difference(DateTime.now().toUtc());
+
+    if (delay.inSeconds < 5) {
+      // Already near/past expiry — refresh immediately.
+      _doRefresh();
+      return;
+    }
+    _refreshTimer = Timer(delay, _doRefresh);
+  }
+
+  Future<void> _doRefresh() async {
+    if (!isAuthenticated) return;
+    final result = await TokenRepository.refresh();
+    if (!isAuthenticated) return; // user logged out while awaiting
+    if (result.access != null && result.access!.isNotEmpty) {
+      token = result.access;
+      if (result.refresh != null && result.refresh!.isNotEmpty) {
+        refreshToken = result.refresh;
+      }
+      notifyListeners();
+      _scheduleProactiveRefresh(result.access!);
+    } else {
+      logout(notice: 'Session expirée. Veuillez vous reconnecter.');
+    }
+  }
+
+  static int? _jwtExp(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      var payload = parts[1];
+      switch (payload.length % 4) {
+        case 2:
+          payload += '==';
+        case 3:
+          payload += '=';
+      }
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final json = jsonDecode(decoded) as Map<String, dynamic>;
+      final exp = json['exp'];
+      if (exp is int) return exp;
+      if (exp is num) return exp.toInt();
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+}

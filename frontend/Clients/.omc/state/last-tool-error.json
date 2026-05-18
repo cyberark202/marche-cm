@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"e:\\\\project\\\\Marche CM\\\\frontend\\\\Clients\\\" && dart analyze lib/features/shell/shop_tab.dart lib/features/feed/feed_page.dart lib/core/api_service.dart 2>&1\",\"description\":\"Analyze Cl...",
+  "error": "Exit code 3\nAnalyzing shop_tab.dart, feed_page.dart, api_service.dart...\n\n  error - lib\\features\\feed\\feed_page.dart:572:36 - The named parameter 'onRefresh' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'onRefresh'. - undefined_named_parameter\n   info - lib\\features\\shell\\shop_tab.dart:1179:30 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefe...",
+  "timestamp": "2026-05-16T08:08:53.913Z",
+  "retry_count": 1
+}
