@@ -270,6 +270,20 @@ class WebhookThrottle(SlidingWindowThrottle):
         return self._get_ip(request)
 
 
+class FeedRecommendedAnonThrottle(SlidingWindowThrottle):
+    """30 req/minute per IP for the recommended feed — caps RAM load from anon scrapers."""
+    scope = "feed_recommended_anon"
+    rate = "30/minute"
+
+    def get_ident(self, request: Request) -> str:
+        return self._get_ip(request)
+
+    def allow_request(self, request: Request, view: APIView) -> bool:
+        if request.user and request.user.is_authenticated:
+            return True
+        return super().allow_request(request, view)
+
+
 # ---------------------------------------------------------------------------
 # IP-level hard block (Redis-backed)
 # ---------------------------------------------------------------------------

@@ -12,9 +12,6 @@ class ProductSerializer(serializers.ModelSerializer):
     seller_city = serializers.CharField(source="seller.city", read_only=True)
     seller_avatar_url = serializers.SerializerMethodField()
     seller_reference_code = serializers.CharField(source="seller.reference_code", read_only=True)
-    seller_location_label = serializers.CharField(source="seller.location_label", read_only=True)
-    seller_location_latitude = serializers.FloatField(source="seller.location_latitude", read_only=True)
-    seller_location_longitude = serializers.FloatField(source="seller.location_longitude", read_only=True)
     seller_is_verified = serializers.SerializerMethodField()
     seller_trust_score = serializers.DecimalField(
         source="seller.trust_score", max_digits=4, decimal_places=2, read_only=True
@@ -24,7 +21,18 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = "__all__"
+        fields = (
+            "id", "seller", "reference_code", "title", "description", "brand",
+            "category", "category_name", "category_label",
+            "min_order_qty", "max_order_qty", "price_for_min_qty", "price_for_max_qty",
+            "weight_kg", "image", "video", "video_duration_seconds",
+            "available_qty", "unit_price",
+            "colors", "tags", "variant_options", "bundle_items",
+            "allows_group_campaign", "is_active", "created_at",
+            "seller_username", "seller_country_code", "seller_city",
+            "seller_avatar_url", "seller_reference_code",
+            "seller_is_verified", "seller_trust_score",
+        )
         read_only_fields = ("seller", "created_at", "reference_code")
 
     def get_seller_avatar_url(self, obj):
@@ -36,10 +44,7 @@ class ProductSerializer(serializers.ModelSerializer):
         return obj.seller.avatar.url
 
     def get_seller_is_verified(self, obj):
-        seller = obj.seller
-        if seller.role in {UserRole.SUPPLIER, UserRole.WHOLESALER, UserRole.TRANSIT_AGENT}:
-            return any(d.status == "APPROVED" for d in seller.compliance_documents.all())
-        return bool(seller.is_verified)
+        return bool(obj.seller.is_verified)
 
     def validate(self, attrs):
         request = self.context.get("request")

@@ -926,6 +926,13 @@ class FCMTokenView(APIView):
             return response.Response({"detail": "registration_id requis."}, status=status.HTTP_400_BAD_REQUEST)
         if device_type not in ("android", "ios", "web"):
             device_type = "android"
+        # Prevent FCM token hijack: reject if token is already bound to a different user.
+        existing = FCMToken.objects.filter(registration_id=registration_id).exclude(user=request.user).first()
+        if existing:
+            return response.Response(
+                {"detail": "Ce token est deja associe a un autre compte. Reconnectez-vous."},
+                status=status.HTTP_409_CONFLICT,
+            )
         FCMToken.objects.update_or_create(
             registration_id=registration_id,
             defaults={"user": request.user, "type": device_type},

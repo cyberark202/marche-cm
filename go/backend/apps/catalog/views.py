@@ -25,20 +25,27 @@ from .serializers import (
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.select_related("category", "seller").prefetch_related("seller__compliance_documents").all()
+    queryset = Product.objects.select_related("category", "seller").all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
-        if self.action in {"list", "retrieve", "image_search"}:
+        if self.action in {"list", "retrieve", "image_search", "recommended"}:
             return [permissions.AllowAny()]
         return [permission() for permission in self.permission_classes]
+
+    def get_throttles(self):
+        throttles = super().get_throttles()
+        if self.action == "recommended":
+            from config.throttles import FeedRecommendedAnonThrottle
+            throttles.append(FeedRecommendedAnonThrottle())
+        return throttles
 
     def get_queryset(self):
         queryset = self.queryset
         if self.action in {"list", "retrieve", "image_search"}:
             queryset = queryset.filter(is_active=True)
-        search_query = (self.request.query_params.get("q") or "").strip().lower()
+        search_query = (self.request.query_params.get("q") or "").strip().lower()[:80]
         if search_query:
             terms = [term for term in re.split(r"\s+", search_query) if term]
             for term in terms:
@@ -291,12 +298,14 @@ class ProductViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="recommended",
             permission_classes=[permissions.AllowAny])
     def recommended(self, request):
-        products = list(self.queryset.filter(is_active=True))
+        # Cap the candidate pool at 200 rows to prevent full-table RAM load on anon calls.
+        base_qs = self.queryset.filter(is_active=True).order_by("-created_at")[:200]
+        products = list(base_qs)
+
         profile = (
             BuyerPreferenceProfile.objects.filter(user=request.user).first()
             if request.user.is_authenticated else None
         )
-
         interactions = (
             {
                 item["product_id"]: item["view_count"]
@@ -313,7 +322,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             else None
         )
 
-        q = (request.query_params.get("q") or "").strip()
+        q = (request.query_params.get("q") or "").strip()[:80]
         if q:
             q_tokens = self._tokenize_text(q)
             if q_tokens:
@@ -345,7 +354,11 @@ class ProductViewSet(viewsets.ModelViewSet):
             return value
 
         products.sort(key=score, reverse=True)
-        serializer = self.get_serializer(products, many=True)
+        page = self.paginate_queryset(products)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(products[:50], many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=["get"], url_path="image-search")

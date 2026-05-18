@@ -393,7 +393,11 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception:
             logger.exception("state_log_failed tx_id=%s", getattr(tx, "id", None))
 
-    def _enforce_kyc_limits(self, request, amount):
+    def _enforce_kyc_limits(self, request, amount, wallet=None):
+        # Always read the fresh KYC level from DB — the in-memory value on
+        # request.user was set at JWT decode time and may be stale if an admin
+        # downgraded the user between requests.
+        request.user.refresh_from_db(fields=["kyc_level"])
         profile = settings.KYC_LIMITS.get(getattr(request.user, "kyc_level", 0), settings.KYC_LIMITS[0])
         if amount > Decimal(str(profile["per_transaction"])):
             return response.Response(
@@ -401,10 +405,11 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         day_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        wallet, _ = Wallet.objects.get_or_create(owner=request.user)
-        # M4 — Include PENDING and SUCCESS to prevent parallel-request KYC bypass.
-        # A user cannot initiate N concurrent requests each under the limit and
-        # get them all confirmed — the PENDING sum closes the window.
+        # Accept a pre-locked wallet (select_for_update) when called from inside
+        # a transaction.atomic() block — avoids a second unlocked DB read.
+        if wallet is None:
+            wallet, _ = Wallet.objects.get_or_create(owner=request.user)
+        # Include PENDING and SUCCESS to prevent parallel-request KYC bypass.
         day_total = (
             wallet.transactions.filter(
                 status__in=[TransactionStatus.SUCCESS, TransactionStatus.PENDING],
@@ -505,9 +510,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 {"detail": "Montant invalide: NotchPay requiert un entier (FCFA)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        limit_error = self._enforce_kyc_limits(request, amount)
-        if limit_error:
-            return limit_error
         fraud_error = self._check_fraud(request, amount, "topup")
         if fraud_error:
             return fraud_error
@@ -534,6 +536,11 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         external_tx = f"WALLET-{secrets.token_hex(8)}"
         with transaction.atomic():
             wallet, _ = Wallet.objects.select_for_update().get_or_create(owner=request.user)
+            # KYC check re-evaluated inside the locked transaction to prevent
+            # two concurrent requests both passing the check before either commits.
+            limit_error = self._enforce_kyc_limits(request, amount, wallet=wallet)
+            if limit_error:
+                return limit_error
             if idempotency_key:
                 existing = wallet.transactions.filter(idempotency_key=idempotency_key).first()
                 if existing:
@@ -664,9 +671,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 {"detail": self._invalid_account_detail(provider, source=False)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        limit_error = self._enforce_kyc_limits(request, amount)
-        if limit_error:
-            return limit_error
         fraud_error = self._check_fraud(request, amount, "withdraw")
         if fraud_error:
             return fraud_error
@@ -693,6 +697,11 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
         with transaction.atomic():
             wallet, _ = Wallet.objects.select_for_update().get_or_create(owner=request.user)
+            # KYC check re-evaluated inside the locked transaction to prevent
+            # two concurrent requests both passing the check before either commits.
+            limit_error = self._enforce_kyc_limits(request, amount, wallet=wallet)
+            if limit_error:
+                return limit_error
             if idempotency_key:
                 existing = wallet.transactions.filter(idempotency_key=idempotency_key).first()
                 if existing:

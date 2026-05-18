@@ -64,10 +64,16 @@ class Wallet(models.Model):
                 inferred_available = Decimal("0.00")
             self.available_balance = inferred_available.quantize(Decimal("0.01"))
         self.sync_legacy_balances()
+        # Only expand update_fields when the save explicitly touches a balance column.
+        # A partial save of an unrelated field (e.g. currency) must NOT silently
+        # overwrite all five balance columns — that would create a race condition
+        # between two concurrent callers each saving a different subset.
         if update_fields:
-            merged = set(update_fields)
-            merged.update({"available_balance", "locked_balance", "pending_balance", "balance", "blocked_balance"})
-            kwargs["update_fields"] = list(merged)
+            fields = set(update_fields)
+            _BALANCE_FIELDS = {"available_balance", "locked_balance", "pending_balance", "balance", "blocked_balance"}
+            if fields & _BALANCE_FIELDS:
+                fields |= _BALANCE_FIELDS
+                kwargs["update_fields"] = list(fields)
         super().save(*args, **kwargs)
 
 

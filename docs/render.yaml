@@ -3,7 +3,7 @@ services:
     name: marche-cm-api
     runtime: python
     plan: starter
-    rootDir: backend
+    rootDir: go/backend
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
     preDeployCommand: python manage.py migrate --noinput
     startCommand: daphne -b 0.0.0.0 -p $PORT config.asgi:application
@@ -11,10 +11,16 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.2
+
+      # IMPORTANT: Ces deux clés doivent être définies MANUELLEMENT dans le dashboard
+      # Render une seule fois puis ne jamais régénérer.
+      # Régénérer SECRET_KEY déconnecte tous les utilisateurs.
+      # Régénérer DATA_ENCRYPTION_KEY corrompt toutes les données PII chiffrées.
       - key: SECRET_KEY
-        generateValue: true
+        sync: false
       - key: DATA_ENCRYPTION_KEY
-        generateValue: true
+        sync: false
+
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
@@ -35,6 +41,7 @@ services:
         value: "True"
       - key: SECURE_HSTS_PRELOAD
         value: "True"
+
       - key: DATABASE_URL
         fromDatabase:
           name: marche-cm-db
@@ -50,17 +57,61 @@ services:
           name: marche-cm-redis
           property: connectionString
 
+      # Email — définir EMAIL_HOST_USER et EMAIL_HOST_PASSWORD dans le dashboard.
+      # Utiliser SendGrid (smtp.sendgrid.net:587) ou Resend (smtp.resend.com:587).
+      - key: EMAIL_BACKEND
+        value: django.core.mail.backends.smtp.EmailBackend
+      - key: EMAIL_HOST
+        value: smtp.sendgrid.net
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        value: noreply@marche-cm.com
+
+      # Google OAuth — définir dans le dashboard (Google Cloud Console → OAuth 2.0).
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+
+      # Firebase FCM — définir dans le dashboard.
+      # Valeur = contenu JSON du fichier serviceAccountKey.json (Firebase Console →
+      # Project Settings → Service accounts → Generate new private key).
+      - key: FIREBASE_SERVICE_ACCOUNT_KEY
+        sync: false
+
+      # NotchPay — définir dans le dashboard après obtention des clés live.
+      - key: NOTCHPAY_ENABLED
+        value: "True"
+      - key: NOTCHPAY_MODE
+        value: live
+      - key: NOTCHPAY_PUBLIC_KEY
+        sync: false
+      - key: NOTCHPAY_PRIVATE_KEY
+        sync: false
+      - key: NOTCHPAY_CHECKOUT_WEBHOOK_SECRET
+        sync: false
+      - key: NOTCHPAY_DISBURSE_WEBHOOK_SECRET
+        sync: false
+      - key: BACKEND_PUBLIC_URL
+        value: https://marche-cm.onrender.com
+
   - type: cron
     name: marche-cm-finops-retries
     runtime: python
     plan: starter
-    rootDir: backend
+    rootDir: go/backend
     schedule: "*/3 * * * *"
     buildCommand: pip install -r requirements.txt
     startCommand: python manage.py run_financial_ops --skip-reconciliation --retries-limit 200 --send-alerts
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.2
+      # Copier la même valeur que le service web (ne pas régénérer).
       - key: SECRET_KEY
         sync: false
       - key: DATA_ENCRYPTION_KEY
@@ -83,18 +134,27 @@ services:
           property: connectionString
       - key: RECONCILIATION_REQUIRE_PROVIDER_BALANCE
         value: "True"
+      - key: NOTCHPAY_ENABLED
+        value: "True"
+      - key: NOTCHPAY_MODE
+        value: live
+      - key: NOTCHPAY_PUBLIC_KEY
+        sync: false
+      - key: NOTCHPAY_PRIVATE_KEY
+        sync: false
 
   - type: cron
     name: marche-cm-finops-daily
     runtime: python
     plan: starter
-    rootDir: backend
+    rootDir: go/backend
     schedule: "10 0 * * *"
     buildCommand: pip install -r requirements.txt
     startCommand: python manage.py run_financial_ops --skip-retries --strict-provider-balance --send-alerts --fail-on-alert
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.2
+      # Copier la même valeur que le service web (ne pas régénérer).
       - key: SECRET_KEY
         sync: false
       - key: DATA_ENCRYPTION_KEY
@@ -117,11 +177,20 @@ services:
           property: connectionString
       - key: RECONCILIATION_REQUIRE_PROVIDER_BALANCE
         value: "True"
+      - key: NOTCHPAY_ENABLED
+        value: "True"
+      - key: NOTCHPAY_MODE
+        value: live
+      - key: NOTCHPAY_PUBLIC_KEY
+        sync: false
+      - key: NOTCHPAY_PRIVATE_KEY
+        sync: false
 
   - type: keyvalue
     name: marche-cm-redis
     plan: starter
-    ipAllowList: []
+    ipAllowList:
+      - source: serviceGroup
 
 databases:
   - name: marche-cm-db

@@ -99,7 +99,7 @@ if not SECRET_KEY:
     else:
         raise ImproperlyConfigured("SECRET_KEY is required when DEBUG=False.")
 
-ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "10.73.205.205, 127.0.0.1,localhost")
+ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
 BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://127.0.0.1:8000")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 DATA_ENCRYPTION_KEY = os.getenv("DATA_ENCRYPTION_KEY", "").strip()
@@ -362,7 +362,7 @@ SECURITY_HARD_BLOCK_SCANNERS = _env_bool("SECURITY_HARD_BLOCK_SCANNERS", not DEB
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 CHANNEL_REDIS_PREFIX = os.getenv("CHANNEL_REDIS_PREFIX", "marche_cm").strip() or "marche_cm"
 CHANNEL_CAPACITY = _env_int("CHANNEL_CAPACITY", 1500)
-CHANNEL_EXPIRY_SECONDS = _env_int("CHANNEL_EXPIRY_SECONDS", 60)
+CHANNEL_EXPIRY_SECONDS = _env_int("CHANNEL_EXPIRY_SECONDS", 300)
 CHANNEL_GROUP_EXPIRY_SECONDS = _env_int("CHANNEL_GROUP_EXPIRY_SECONDS", 86400)
 
 if REDIS_URL:

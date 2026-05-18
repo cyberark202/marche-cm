@@ -117,6 +117,10 @@ def _can_update_status(user, shipment, new_status):
     if _is_general_admin(user):
         return True
     if new_status == ShipmentStatus.CANCELLED:
+        # Buyer/seller may only cancel before the transit agent has picked up.
+        # Once IN_TRANSIT or beyond, only an admin can cancel (requires dispute).
+        if shipment.status not in {ShipmentStatus.PICKUP_PENDING}:
+            return False
         return user.id in {shipment.buyer_id, shipment.seller_id}
     if user.id == shipment.transit_agent_id and new_status in TRANSIT_AGENT_STATUSES:
         return True
@@ -405,14 +409,19 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         shipment.status = new_status
         fields_to_update = ["status", "updated_at"]
         if new_status == ShipmentStatus.CANCELLED:
-            shipment.order.status = OrderStatus.CANCELLED
-            shipment.order.save(update_fields=["status", "updated_at"])
-            OrderFinanceService.refund_order_locked_funds(
-                order=shipment.order,
-                actor=request.user,
-                reason="Annulation expedition",
-            )
-        shipment.save(update_fields=fields_to_update)
+            # Refund + order cancel + shipment save must be atomic:
+            # if any step fails the others are rolled back — no partial refund.
+            with transaction.atomic():
+                shipment.order.status = OrderStatus.CANCELLED
+                shipment.order.save(update_fields=["status", "updated_at"])
+                OrderFinanceService.refund_order_locked_funds(
+                    order=shipment.order,
+                    actor=request.user,
+                    reason="Annulation expedition",
+                )
+                shipment.save(update_fields=fields_to_update)
+        else:
+            shipment.save(update_fields=fields_to_update)
         ShipmentEvent.objects.create(shipment=shipment, actor=request.user, status=new_status, note=note)
         broadcast_event("logistics", "shipment_status_changed", {"shipment_id": shipment.id, "status": new_status})
         broadcast_event("orders", "shipment_status_changed", {"order_id": shipment.order_id, "status": new_status})
