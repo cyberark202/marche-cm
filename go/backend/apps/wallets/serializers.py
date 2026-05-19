@@ -25,8 +25,21 @@ class WalletSerializer(serializers.ModelSerializer):
 class WalletTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = WalletTransaction
-        fields = "__all__"
-        # Toutes les transactions sont creees/mutees uniquement par les services
-        # internes (WalletAccountingService). Aucun champ ne doit etre modifiable
-        # via le serializer DRF.
-        read_only_fields = tuple(f.name for f in WalletTransaction._meta.get_fields() if hasattr(f, "name"))
+        # Liste blanche stricte: on n'expose jamais reference (contient le
+        # numero de telephone/email en clair), idempotency_key (implementation
+        # interne), metadata (donnees provider brutes) ni cinetpay_transfered
+        # (champ legacy interne).
+        fields = (
+            "id",
+            "wallet",
+            "kind",
+            "provider",
+            "status",
+            "amount",
+            "external_transaction_id",
+            "failure_reason",
+            "created_at",
+            "updated_at",
+            "reconciled_at",
+        )
+        read_only_fields = fields

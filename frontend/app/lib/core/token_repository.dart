@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -86,7 +87,9 @@ class TokenRepository {
           return (access: newAccess, refresh: newRefresh);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[TokenRepository.refresh] network error: $e');
+    }
     return (access: null, refresh: null);
   }
 }

@@ -50,7 +50,9 @@ class _WalletPageState extends State<WalletPage> {
         _defaultReconcileReason = BackendUiConfigService.instance
             .readString(config, ['defaults', 'wallet_reconcile_reason']);
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[WalletPage] _loadUiConfig error: $e');
+    }
   }
 
   Future<void> _load() async {

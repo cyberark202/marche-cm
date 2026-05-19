@@ -63,7 +63,9 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
         _providerLogo = logos;
         _provider = providers.isEmpty ? '' : providers.first['value']!;
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[WalletTopupPage] _loadUiConfig error: $e');
+    }
   }
 
   bool _isPhoneProvider(String provider) =>
@@ -217,6 +219,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
       );
       if (!mounted) return;
       final checkoutUrl = (result['checkout_url'] ?? '').toString();
+      final txId = (result['transaction_id'] ?? '').toString();
       if (checkoutUrl.isNotEmpty) {
         final initiatedAt = DateTime.now();
         await _launchTransferCode(checkoutUrl);
@@ -226,6 +229,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
           token: token,
           provider: _provider,
           initiatedAt: initiatedAt,
+          transactionId: txId,
         );
         if (!mounted) return;
         if (paid == true) Navigator.of(context).pop(true);

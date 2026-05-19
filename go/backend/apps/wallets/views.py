@@ -1,3 +1,4 @@
+import ipaddress
 import logging
 import hashlib
 import hmac
@@ -41,26 +42,52 @@ logger = logging.getLogger(__name__)
 security_event_logger = logging.getLogger("security.events")
 
 
+_PRIVATE_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+]
+
+
 def _client_ip(request) -> str:
-    """Extract real client IP honoring X-Forwarded-For from trusted proxies."""
-    xff = request.META.get("HTTP_X_FORWARDED_FOR", "").strip()
-    if xff:
-        candidate = xff.split(",")[0].strip()
-        import ipaddress
-        try:
-            ipaddress.ip_address(candidate)
-            return candidate
-        except ValueError:
-            pass
-    real_ip = request.META.get("HTTP_X_REAL_IP", "").strip()
-    if real_ip:
-        import ipaddress
-        try:
-            ipaddress.ip_address(real_ip)
-            return real_ip
-        except ValueError:
-            pass
-    return request.META.get("REMOTE_ADDR", "0.0.0.0")
+    """Extract real client IP. Only honors X-Forwarded-For from trusted proxies.
+
+    Trust order: TRUSTED_PROXY_CIDRS setting → RFC-1918 private ranges (cloud LBs).
+    An attacker on the public internet cannot spoof XFF to bypass fraud checks.
+    """
+    remote = request.META.get("REMOTE_ADDR", "0.0.0.0")
+    try:
+        remote_addr = ipaddress.ip_address(remote)
+    except ValueError:
+        return remote
+
+    trusted_cidrs = getattr(settings, "TRUSTED_PROXY_CIDRS", [])
+    if trusted_cidrs:
+        is_trusted = any(
+            remote_addr in ipaddress.ip_network(c, strict=False) for c in trusted_cidrs
+        )
+    else:
+        is_trusted = any(remote_addr in net for net in _PRIVATE_NETWORKS)
+
+    if is_trusted:
+        xff = request.META.get("HTTP_X_FORWARDED_FOR", "").strip()
+        if xff:
+            candidate = xff.split(",")[0].strip()
+            try:
+                ipaddress.ip_address(candidate)
+                return candidate
+            except ValueError:
+                pass
+        real_ip = request.META.get("HTTP_X_REAL_IP", "").strip()
+        if real_ip:
+            try:
+                ipaddress.ip_address(real_ip)
+                return real_ip
+            except ValueError:
+                pass
+
+    return remote
 
 
 class WalletViewSet(viewsets.ReadOnlyModelViewSet):

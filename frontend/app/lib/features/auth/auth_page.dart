@@ -72,7 +72,9 @@ class _AuthPageState extends State<AuthPage> {
         return;
       }
       _applyCountryDefaults(countryCode.toUpperCase());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AuthPage] _loadUiConfig error: $e');
+    }
   }
 
   @override
@@ -310,7 +312,9 @@ class _AuthPageState extends State<AuthPage> {
         accessToken: accessToken,
         countryCode: guessedCountry,
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AuthPage] resolveLocation error: $e');
+    }
   }
 
   String _deviceCountryCode() {

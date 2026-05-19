@@ -81,7 +81,9 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
           _shipmentFilter = filters.first['value']!;
         }
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[TransitDashboardPage] _loadUiConfig error: $e');
+    }
   }
 
   Future<_TransitPayload> _load() async {

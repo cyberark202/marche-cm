@@ -30,17 +30,25 @@ class NotchPayPendingSheet extends StatefulWidget {
     required this.token,
     required this.provider,
     required this.initiatedAt,
+    this.transactionId = '',
   });
 
   final String? token;
   final String provider;
   final DateTime initiatedAt;
+  /// ID externe de la transaction (external_transaction_id) retourné par
+  /// l'API au moment du topup. Quand fourni, le polling utilise l'endpoint
+  /// ciblé /api/wallets/transactions/{id}/status/ au lieu de scanner toute
+  /// la liste — évite les faux positifs si une autre transaction se termine
+  /// pendant l'attente.
+  final String transactionId;
 
   static Future<bool?> show({
     required BuildContext context,
     required String? token,
     required String provider,
     required DateTime initiatedAt,
+    String transactionId = '',
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -52,6 +60,7 @@ class NotchPayPendingSheet extends StatefulWidget {
         token: token,
         provider: provider,
         initiatedAt: initiatedAt,
+        transactionId: transactionId,
       ),
     );
   }
@@ -116,14 +125,32 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
     try {
       final token = widget.token ??
           (mounted ? context.read<SessionStore>().token : null);
-      final txList = await _api.getList(
-        '/api/wallets/transactions/',
-        token: token,
-      );
-      final result = _checkTransactions(txList);
-      if (result != _PollResult.pending) _setResult(result);
+
+      if (widget.transactionId.isNotEmpty) {
+        // Endpoint ciblé: évite de télécharger toute la liste et empêche
+        // qu'une transaction concurrente (retrait, etc.) déclenche un faux
+        // positif de confirmation.
+        final tx = await _api.getObject(
+          '/api/wallets/transactions/${widget.transactionId}/status/',
+          token: token,
+        );
+        final s = (tx['status'] ?? '').toString().toUpperCase();
+        if (s == 'SUCCESS') {
+          _setResult(_PollResult.success);
+        } else if (s == 'FAILED' || s == 'CANCELLED' || s == 'EXPIRED') {
+          _setResult(_PollResult.failed);
+        }
+      } else {
+        // Fallback: scan de la liste si transactionId non disponible.
+        final txList = await _api.getList(
+          '/api/wallets/transactions/',
+          token: token,
+        );
+        final result = _checkTransactions(txList);
+        if (result != _PollResult.pending) _setResult(result);
+      }
     } catch (_) {
-      // Network error during poll — keep waiting
+      // Erreur réseau pendant le polling — on continue d'attendre.
     } finally {
       _polling = false;
     }

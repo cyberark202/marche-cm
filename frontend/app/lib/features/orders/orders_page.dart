@@ -61,7 +61,9 @@ class _OrdersPageState extends State<OrdersPage> {
         _defaultTransitRatingScore = BackendUiConfigService.instance
             .readInt(config, ["defaults", "transit_rating_score"]);
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[OrdersPage] _loadUiConfig error: $e');
+    }
   }
 
   Future<void> _load() async {

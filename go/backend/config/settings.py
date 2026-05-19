@@ -358,6 +358,12 @@ if not SIMPLE_JWT["SIGNING_KEY"]:
 MFA_ISSUER_NAME = os.getenv("MFA_ISSUER_NAME", "Marche CM")
 DEVICE_FINGERPRINT_SECRET = os.getenv("DEVICE_FINGERPRINT_SECRET", "").strip()
 SECURITY_HARD_BLOCK_SCANNERS = _env_bool("SECURITY_HARD_BLOCK_SCANNERS", not DEBUG)
+# CIDRs des proxies de confiance (load balancer Render, Cloudflare, etc.).
+# Quand configuré, _client_ip() n'honore X-Forwarded-For que depuis ces IPs.
+# Sans configuration, REMOTE_ADDR est utilisé directement (pas de spoofing possible
+# mais l'IP visible est celle du load balancer, pas du client réel).
+# Exemple Render: TRUSTED_PROXY_CIDRS=10.0.0.0/8,172.16.0.0/12
+TRUSTED_PROXY_CIDRS = _env_list("TRUSTED_PROXY_CIDRS")
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 CHANNEL_REDIS_PREFIX = os.getenv("CHANNEL_REDIS_PREFIX", "marche_cm").strip() or "marche_cm"
@@ -677,13 +683,15 @@ if _jwt_verifying_key:
     SIMPLE_JWT["VERIFYING_KEY"] = _jwt_verifying_key
 
 if not DEBUG and SIMPLE_JWT.get("ALGORITHM", "HS256") == "HS256":
-    import warnings as _warnings
-    _warnings.warn(
-        "JWT_ALGORITHM=HS256 detected in production. "
-        "Migrate to RS256 (JWT_ALGORITHM, JWT_SIGNING_KEY, JWT_VERIFYING_KEY) "
-        "to limit blast radius if SECRET_KEY is ever compromised.",
-        stacklevel=1,
-    )
+    if not os.getenv("JWT_ALLOW_HS256_IN_PROD", "").strip():
+        raise ImproperlyConfigured(
+            "JWT_ALGORITHM=HS256 interdit en production. "
+            "Migrer vers RS256 pour limiter l'impact si SECRET_KEY est compromise:\n"
+            "  openssl genrsa -out jwt_private.pem 2048\n"
+            "  openssl rsa -in jwt_private.pem -pubout -out jwt_public.pem\n"
+            "  Variables: JWT_ALGORITHM=RS256  JWT_SIGNING_KEY=<private>  JWT_VERIFYING_KEY=<public>\n"
+            "Pour maintenir HS256 temporairement (non recommande): JWT_ALLOW_HS256_IN_PROD=1"
+        )
 
 # ---------------------------------------------------------------------------
 # Wallet PIN tuning — M8

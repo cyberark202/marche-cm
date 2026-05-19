@@ -63,7 +63,9 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
         _providerLogo = logos;
         _provider = providers.isEmpty ? '' : providers.first['value']!;
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[WalletWithdrawPage] _loadUiConfig error: $e');
+    }
   }
 
   bool _isPhoneProvider(String provider) =>
