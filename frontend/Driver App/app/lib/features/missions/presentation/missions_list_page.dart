@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 
-final _missionsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final res = await DriverDioClient.dio.get('/api/logistics/missions/available/');
+final _missionsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final res =
+      await DriverDioClient.dio.get('/api/logistics/missions/available/');
   final data = res.data;
   if (data is List) return data.cast<Map<String, dynamic>>();
   if (data is Map && data['results'] is List) {
@@ -30,7 +31,7 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
     ('ALL', 'Toutes'),
     ('MOTO', 'Moto'),
     ('CAR', 'Voiture'),
-    ('VAN', 'Camionnette'),
+    ('VAN', 'Camion'),
     ('FOOT', 'À pied'),
   ];
 
@@ -38,34 +39,47 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
   Widget build(BuildContext context) {
     final missionsAsync = ref.watch(_missionsProvider);
     return Scaffold(
-      backgroundColor: DriverPalette.bg,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            expandedHeight: 120,
-            backgroundColor: DriverPalette.primary,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              title: const Text('Missions disponibles',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
-              background: Container(
-                decoration: const BoxDecoration(gradient: DriverPalette.heroGradient),
-              ),
+      backgroundColor: T.bg,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ─────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Row(children: [
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Demandes',
+                            style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: T.ink,
+                                letterSpacing: -0.4)),
+                        missionsAsync.maybeWhen(
+                          data: (m) => Text('${m.length} disponibles',
+                              style:
+                                  const TextStyle(fontSize: 13, color: T.ink3)),
+                          orElse: () => const SizedBox.shrink(),
+                        ),
+                      ]),
+                ),
+                _HeaderBtn(
+                  icon: Icons.refresh,
+                  onTap: () => ref.invalidate(_missionsProvider),
+                ),
+              ]),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh, color: Colors.white),
-                onPressed: () => ref.invalidate(_missionsProvider),
-              ),
-            ],
-          ),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 52,
+
+            // ── Filter chips ───────────────────────────────────────────────
+            SizedBox(
+              height: 50,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 itemCount: _filters.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (_, i) {
@@ -75,75 +89,106 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
                     onTap: () => setState(() => _filter = f.$1),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
-                        color: sel ? DriverPalette.primary : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: sel ? DriverPalette.primary : DriverPalette.border),
+                        color: sel ? T.ink : T.surface,
+                        borderRadius: BorderRadius.circular(T.rFull),
+                        border: Border.all(color: sel ? T.ink : T.line),
                       ),
                       child: Text(f.$2,
                           style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600,
-                              color: sel ? Colors.white : DriverPalette.textSecondary)),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: sel ? Colors.white : T.ink3)),
                     ),
                   );
                 },
               ),
             ),
-          ),
-          missionsAsync.when(
-            loading: () => const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (e, _) => SliverFillRemaining(
-              child: Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.cloud_off_outlined, size: 48, color: DriverPalette.textMuted),
-                  const SizedBox(height: 12),
-                  Text('Erreur de chargement',
-                      style: TextStyle(color: DriverPalette.textSecondary, fontSize: 14)),
-                  const SizedBox(height: 8),
-                  FilledButton.tonal(
-                    onPressed: () => ref.invalidate(_missionsProvider),
-                    child: const Text('Réessayer'),
-                  ),
-                ]),
+            const Divider(height: 1, color: T.line2),
+
+            // ── List ───────────────────────────────────────────────────────
+            Expanded(
+              child: missionsAsync.when(
+                loading: () => const Center(
+                    child: CircularProgressIndicator(color: T.primary)),
+                error: (e, _) => Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.cloud_off_outlined,
+                        size: 48, color: T.ink4),
+                    const SizedBox(height: 12),
+                    const Text('Erreur de chargement',
+                        style: TextStyle(color: T.ink3, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: () => ref.invalidate(_missionsProvider),
+                      child: const Text('Réessayer'),
+                    ),
+                  ]),
+                ),
+                data: (missions) {
+                  final filtered = _filter == 'ALL'
+                      ? missions
+                      : missions
+                          .where((m) => m['vehicle_type'] == _filter)
+                          .toList();
+                  if (filtered.isEmpty) {
+                    return const Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.balance_outlined, size: 56, color: T.ink4),
+                        SizedBox(height: 12),
+                        Text('Aucune demande disponible',
+                            style: TextStyle(color: T.ink3, fontSize: 15)),
+                      ]),
+                    );
+                  }
+                  return RefreshIndicator(
+                    color: T.primary,
+                    onRefresh: () => ref.refresh(_missionsProvider.future),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) => _MissionCard(
+                        mission: filtered[i],
+                        onTap: () =>
+                            context.push('/missions/${filtered[i]['id']}'),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            data: (missions) {
-              final filtered = _filter == 'ALL'
-                  ? missions
-                  : missions.where((m) => m['vehicle_type'] == _filter).toList();
-              if (filtered.isEmpty) {
-                return const SliverFillRemaining(
-                  child: Center(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.assignment_outlined, size: 56, color: DriverPalette.textMuted),
-                      SizedBox(height: 12),
-                      Text('Aucune mission disponible',
-                          style: TextStyle(color: DriverPalette.textSecondary, fontSize: 15)),
-                    ]),
-                  ),
-                );
-              }
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                sliver: SliverList.separated(
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _MissionCard(
-                    mission: filtered[i],
-                    onTap: () => context.push('/missions/${filtered[i]['id']}'),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
+
+// ── Local widgets ─────────────────────────────────────────────────────────────
+
+class _HeaderBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _HeaderBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: T.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: T.line),
+          ),
+          child: Icon(icon, size: 18, color: T.ink3),
+        ),
+      );
 }
 
 class _MissionCard extends StatelessWidget {
@@ -155,81 +200,163 @@ class _MissionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final fee = (mission['delivery_fee'] ?? 0).toString();
     final dist = mission['distance_km'];
-    final createdAt = mission['created_at'] as String?;
-    String timeAgo = '';
-    if (createdAt != null) {
-      try {
-        final dt = DateTime.parse(createdAt).toLocal();
-        timeAgo = DateFormat('HH:mm').format(dt);
-      } catch (_) {}
-    }
+    final weight = mission['weight_kg'];
+    final cargo =
+        mission['cargo_description'] ?? mission['description'] ?? '';
+    final from =
+        mission['pickup_city'] ?? mission['pickup_address'] ?? 'Départ';
+    final to =
+        mission['delivery_city'] ?? mission['delivery_address'] ?? 'Arrivée';
+    final bidsCount = mission['bids_count'] ?? mission['quotes_count'] ?? 0;
+    final isUrgent = mission['is_urgent'] == true;
+    final vehicleType = (mission['vehicle_type'] ?? '') as String;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(DriverRadii.md),
-          boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2))],
+          color: T.surface,
+          borderRadius: BorderRadius.circular(T.rLg),
+          border: Border.all(
+              color: isUrgent ? T.accent : T.line,
+              width: isUrgent ? 1.5 : 1),
+          boxShadow: T.shadowSm,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Badge row + fee
+            Row(children: [
+              if (isUrgent) ...[
+                _Badge(
+                    label: 'URGENT',
+                    bg: T.accent,
+                    fg: const Color(0xFF1a0f00)),
+                const SizedBox(width: 6),
+              ],
+              if (vehicleType.isNotEmpty)
+                _Badge(
+                    label: _vehicleLabel(vehicleType),
+                    bg: T.surface2,
+                    fg: T.ink3),
+              const Spacer(),
+              Text('$fee FCFA',
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: T.ink,
+                      letterSpacing: -0.3)),
+            ]),
+            const SizedBox(height: 10),
+            // Route dots
             Row(children: [
               Container(
-                width: 38, height: 38,
-                decoration: BoxDecoration(
-                  color: DriverPalette.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.local_shipping_outlined, color: DriverPalette.primary, size: 20),
-              ),
-              const SizedBox(width: 10),
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(
+                      color: T.primary, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(mission['reference'] ?? 'Mission #${mission['id']}',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14,
-                          color: DriverPalette.textPrimary)),
-                  Text(mission['pickup_address'] ?? '',
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: DriverPalette.textSecondary)),
-                ]),
+                child: Text(from,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: T.ink),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
               ),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text('$fee FCFA',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15,
-                        color: DriverPalette.primary)),
-                if (timeAgo.isNotEmpty)
-                  Text(timeAgo, style: const TextStyle(fontSize: 11, color: DriverPalette.textMuted)),
-              ]),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(Icons.arrow_forward, size: 14, color: T.ink3),
+              ),
+              Container(
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(
+                      color: T.accent, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(to,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: T.ink),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+              ),
             ]),
-            const Divider(height: 16),
-            Row(children: [
-              const Icon(Icons.place_outlined, size: 14, color: DriverPalette.textMuted),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(mission['delivery_address'] ?? '',
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: DriverPalette.textSecondary)),
-              ),
-              if (dist != null) ...[
+            const SizedBox(height: 8),
+            // Details chip row
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: T.surface2,
+                  borderRadius: BorderRadius.circular(T.r)),
+              child: Row(children: [
+                const Icon(Icons.inventory_2_outlined,
+                    size: 13, color: T.ink3),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    [
+                      if (cargo.isNotEmpty) cargo,
+                      if (dist != null) '$dist km',
+                      if (weight != null) '$weight kg',
+                    ].join(' · '),
+                    style:
+                        const TextStyle(fontSize: 12, color: T.ink2),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: DriverPalette.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text('${dist} km',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                          color: DriverPalette.secondary)),
+                      color: T.surface3,
+                      borderRadius:
+                          BorderRadius.circular(T.rFull)),
+                  child: Text('$bidsCount devis',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: T.ink2)),
                 ),
-              ],
-            ]),
+              ]),
+            ),
           ],
         ),
       ),
     );
   }
+
+  String _vehicleLabel(String v) => switch (v) {
+        'MOTO' => 'Moto',
+        'CAR' => 'Voiture',
+        'VAN' => 'Camion',
+        'FOOT' => 'À pied',
+        _ => v,
+      };
+}
+
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color bg, fg;
+  const _Badge({required this.label, required this.bg, required this.fg});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(T.rFull)),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: fg)),
+      );
 }

@@ -37,7 +37,7 @@ class DriverWalletPage extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.fromLTRB(20, 56, 20, 28),
               decoration: const BoxDecoration(
-                gradient: DriverPalette.heroGradient,
+                gradient: T.gradientDriverHeader,
                 borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
               ),
               child: Column(

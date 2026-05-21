@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 
-final _earningsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  final res = await DriverDioClient.dio.get('/api/wallets/driver/earnings/');
+final _earningsProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final res =
+      await DriverDioClient.dio.get('/api/wallets/driver/earnings/');
   return res.data as Map<String, dynamic>;
 });
 
@@ -18,21 +20,18 @@ class EarningsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final earningsAsync = ref.watch(_earningsProvider);
     return Scaffold(
-      backgroundColor: DriverPalette.bg,
-      appBar: AppBar(
-        title: const Text('Mes gains'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-      ),
+      backgroundColor: T.bg,
       body: earningsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () =>
+            const Center(child: CircularProgressIndicator(color: T.primary)),
         error: (e, _) => Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off_outlined, size: 48, color: DriverPalette.textMuted),
+            const Icon(Icons.cloud_off_outlined, size: 48, color: T.ink4),
             const SizedBox(height: 12),
-            FilledButton.tonal(
+            const Text('Erreur de chargement',
+                style: TextStyle(color: T.ink3, fontSize: 14)),
+            const SizedBox(height: 8),
+            FilledButton(
               onPressed: () => ref.invalidate(_earningsProvider),
               child: const Text('Réessayer'),
             ),
@@ -47,73 +46,196 @@ class EarningsPage extends ConsumerWidget {
               ? (data['history'] as List).cast<Map<String, dynamic>>()
               : <Map<String, dynamic>>[];
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Stats grid
-                Row(children: [
-                  Expanded(child: _StatCard(label: 'Total gagné', value: '$total FCFA',
-                      icon: Icons.emoji_events_outlined, color: DriverPalette.secondary)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _StatCard(label: 'Ce mois', value: '$thisMonth FCFA',
-                      icon: Icons.calendar_month_outlined, color: DriverPalette.primary)),
-                ]),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(child: _StatCard(label: 'Cette semaine', value: '$thisWeek FCFA',
-                      icon: Icons.date_range_outlined, color: const Color(0xFF6366F1))),
-                  const SizedBox(width: 10),
-                  Expanded(child: _StatCard(label: 'Livraisons', value: '$deliveries',
-                      icon: Icons.local_shipping_outlined, color: const Color(0xFF10B981))),
-                ]),
-                const SizedBox(height: 24),
-                const Text('Historique des gains',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                        color: DriverPalette.textMuted, letterSpacing: 0.5)),
-                const SizedBox(height: 10),
-                if (history.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(
-                      child: Text('Aucun gain enregistré.',
-                          style: TextStyle(color: DriverPalette.textSecondary, fontSize: 14)),
+          return CustomScrollView(
+            slivers: [
+              // ── Amber gradient hero ─────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: T.gradientDriverHeader,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(28),
+                      bottomRight: Radius.circular(28),
                     ),
-                  )
-                else
-                  ...history.map((e) => _EarningTile(entry: e)),
-              ],
-            ),
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Back + title
+                          Row(children: [
+                            GestureDetector(
+                              onTap: () => context.pop(),
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color:
+                                      Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.arrow_back,
+                                    color: Colors.white, size: 20),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('Mes gains',
+                                style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white)),
+                          ]),
+                          const SizedBox(height: 20),
+                          // Total ce mois
+                          Text("Ce mois-ci",
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color:
+                                      Colors.white.withValues(alpha: 0.75),
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.1)),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_fmt(thisMonth)} FCFA',
+                            style: const TextStyle(
+                                fontSize: 34,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -1),
+                          ),
+                          const SizedBox(height: 4),
+                          Text('$deliveries livraisons complétées',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      Colors.white.withValues(alpha: 0.8))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Stats grid ──────────────────────────────────────────────
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+                sliver: SliverToBoxAdapter(
+                  child: Row(children: [
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Total',
+                        value: _fmt(total),
+                        icon: Icons.emoji_events_outlined,
+                        iconBg: T.accentSoft,
+                        iconFg: T.accentDark,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Cette semaine',
+                        value: _fmt(thisWeek),
+                        icon: Icons.date_range_outlined,
+                        iconBg: T.primarySoft,
+                        iconFg: T.primaryDark,
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+
+              // ── History header ──────────────────────────────────────────
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
+                sliver: SliverToBoxAdapter(
+                  child: Text('Historique',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: T.ink,
+                          letterSpacing: -0.2)),
+                ),
+              ),
+
+              // ── History list ────────────────────────────────────────────
+              if (history.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Text('Aucun gain enregistré.',
+                        style: TextStyle(color: T.ink3, fontSize: 14)),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                  sliver: SliverList.separated(
+                    itemCount: history.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: 8),
+                    itemBuilder: (_, i) =>
+                        _EarningTile(entry: history[i]),
+                  ),
+                ),
+            ],
           );
         },
       ),
     );
+  }
+
+  String _fmt(dynamic v) {
+    final n = num.tryParse(v.toString()) ?? 0;
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)} M';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(0)} k';
+    return n.toStringAsFixed(0);
   }
 }
 
 class _StatCard extends StatelessWidget {
   final String label, value;
   final IconData icon;
-  final Color color;
-  const _StatCard({required this.label, required this.value, required this.icon, required this.color});
+  final Color iconBg, iconFg;
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.iconBg,
+    required this.iconFg,
+  });
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(DriverRadii.md),
-      border: Border.all(color: DriverPalette.border),
-    ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(icon, color: color, size: 22),
-      const SizedBox(height: 8),
-      Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800,
-          color: DriverPalette.textPrimary)),
-      Text(label, style: const TextStyle(fontSize: 12, color: DriverPalette.textSecondary)),
-    ]),
-  );
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: T.surface,
+          borderRadius: BorderRadius.circular(T.r),
+          border: Border.all(color: T.line),
+          boxShadow: T.shadowSm,
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+                color: iconBg, borderRadius: BorderRadius.circular(9)),
+            child: Icon(icon, color: iconFg, size: 18),
+          ),
+          const SizedBox(height: 10),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: T.ink,
+                  letterSpacing: -0.3)),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 12, color: T.ink3)),
+        ]),
+      );
 }
 
 class _EarningTile extends StatelessWidget {
@@ -123,40 +245,53 @@ class _EarningTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final amount = (entry['amount'] ?? 0).toString();
-    final missionRef = entry['mission_reference'] ?? 'Mission';
+    final missionRef = entry['mission_reference'] ?? 'Livraison';
     final createdAt = entry['created_at'] as String?;
     String date = '';
     if (createdAt != null) {
-      try { date = DateFormat('dd MMM HH:mm').format(DateTime.parse(createdAt).toLocal()); } catch (_) {}
+      try {
+        date = DateFormat('dd MMM · HH:mm')
+            .format(DateTime.parse(createdAt).toLocal());
+      } catch (_) {}
     }
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: DriverPalette.border),
+        color: T.surface,
+        borderRadius: BorderRadius.circular(T.r),
+        border: Border.all(color: T.line),
       ),
       child: Row(children: [
         Container(
-          width: 36, height: 36,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.1),
+            color: T.primarySoft,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.arrow_downward, color: Colors.green, size: 18),
+          child: const Icon(Icons.arrow_downward,
+              color: T.primary, size: 18),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(missionRef, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                color: DriverPalette.textPrimary)),
+            Text(missionRef,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: T.ink),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
             if (date.isNotEmpty)
-              Text(date, style: const TextStyle(fontSize: 11, color: DriverPalette.textMuted)),
+              Text(date,
+                  style: const TextStyle(fontSize: 11, color: T.ink3)),
           ]),
         ),
         Text('+$amount FCFA',
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.green)),
+            style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                color: T.success)),
       ]),
     );
   }

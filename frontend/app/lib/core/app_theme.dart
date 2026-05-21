@@ -7,10 +7,10 @@ import 'package:flutter/services.dart';
 /// Palette : teal profond (primary), indigo (secondary), ambre (accent).
 class AppPalette {
   // ── Brand ──────────────────────────────────────────────────────────────
-  static const Color primary = Color(0xFF0F766E);
-  static const Color primaryDark = Color(0xFF0B5853);
-  static const Color primaryLight = Color(0xFF14B8A6);
-  static const Color primarySoft = Color(0xFFCCFBF1);
+  static const Color primary = Color(0xFF0F7A4F);
+  static const Color primaryDark = Color(0xFF0A5A3A);
+  static const Color primaryLight = Color(0xFF16A34A);
+  static const Color primarySoft = Color(0xFFE6F2EC);
 
   static const Color secondary = Color(0xFF4F46E5);
   static const Color secondaryDark = Color(0xFF3730A3);
@@ -34,13 +34,13 @@ class AppPalette {
   static const Color infoSoft = Color(0xFFE0F2FE);
 
   // ── Surfaces ───────────────────────────────────────────────────────────
-  static const Color bg = Color(0xFFF6F8FB);
-  static const Color bgSoft = Color(0xFFEEF2F7);
-  static const Color bgDeep = Color(0xFFE2E8F0);
+  static const Color bg = Color(0xFFFAF7F0);
+  static const Color bgSoft = Color(0xFFF1ECDE);
+  static const Color bgDeep = Color(0xFFE8E2D2);
   static const Color card = Colors.white;
   static const Color surfaceElevated = Color(0xFFFFFFFF);
-  static const Color border = Color(0xFFE2E8F0);
-  static const Color borderSoft = Color(0xFFF1F5F9);
+  static const Color border = Color(0xFFE5DECC);
+  static const Color borderSoft = Color(0xFFEDE7D6);
 
   // ── Text ───────────────────────────────────────────────────────────────
   static const Color text = Color(0xFF0F172A);
@@ -54,7 +54,7 @@ class AppPalette {
 
   // ── Gradients ──────────────────────────────────────────────────────────
   static const LinearGradient gradientPrimary = LinearGradient(
-    colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+    colors: [Color(0xFF0F7A4F), Color(0xFF063D27)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -84,7 +84,7 @@ class AppPalette {
   );
 
   static const LinearGradient gradientHero = LinearGradient(
-    colors: [Color(0xFF0B5853), Color(0xFF0F766E), Color(0xFF14B8A6)],
+    colors: [Color(0xFF063D27), Color(0xFF0F7A4F), Color(0xFF0A5A3A)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

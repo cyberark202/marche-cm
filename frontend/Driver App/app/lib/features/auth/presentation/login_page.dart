@@ -59,7 +59,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(24, 48, 24, 40),
                 decoration: const BoxDecoration(
-                  gradient: DriverPalette.heroGradient,
+                  gradient: T.gradientDriverHeader,
                   borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
                 ),
                 child: Column(

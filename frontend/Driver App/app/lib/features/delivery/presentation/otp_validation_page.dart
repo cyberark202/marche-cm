@@ -14,8 +14,8 @@ class OtpValidationPage extends StatefulWidget {
 }
 
 class _OtpValidationPageState extends State<OtpValidationPage> {
-  final _controllers = List.generate(6, (_) => TextEditingController());
-  final _focusNodes = List.generate(6, (_) => FocusNode());
+  final _controllers = List.generate(4, (_) => TextEditingController());
+  final _focusNodes = List.generate(4, (_) => FocusNode());
   bool _busy = false;
   String? _error;
 
@@ -29,8 +29,8 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
   String get _otp => _controllers.map((c) => c.text).join();
 
   Future<void> _validate() async {
-    if (_otp.length < 6) {
-      setState(() => _error = 'Entrez le code à 6 chiffres fourni par le client.');
+    if (_otp.length < 4) {
+      setState(() => _error = 'Entrez le code à 4 chiffres fourni par le client.');
       return;
     }
     setState(() { _busy = true; _error = null; });
@@ -57,7 +57,7 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
   }
 
   void _onChanged(int index, String val) {
-    if (val.length == 1 && index < 5) {
+    if (val.length == 1 && index < 3) {
       _focusNodes[index + 1].requestFocus();
     }
     if (val.isEmpty && index > 0) {
@@ -92,7 +92,7 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
                 fontWeight: FontWeight.w700, color: DriverPalette.textPrimary)),
             const SizedBox(height: 8),
             const Text(
-              'Demandez au client le code à 6 chiffres reçu par SMS pour confirmer la livraison.',
+              'Demandez au client le code à 4 chiffres reçu par SMS pour confirmer la livraison.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: DriverPalette.textSecondary, height: 1.5),
             ),
@@ -116,7 +116,7 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
             ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(6, (i) => SizedBox(
+              children: List.generate(4, (i) => SizedBox(
                 width: 46,
                 child: TextField(
                   controller: _controllers[i],
@@ -151,7 +151,7 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
             SizedBox(
               width: double.infinity, height: 52,
               child: FilledButton(
-                onPressed: (_otp.length == 6 && !_busy) ? _validate : null,
+                onPressed: (_otp.length == 4 && !_busy) ? _validate : null,
                 child: _busy
                     ? const SizedBox(width: 22, height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))

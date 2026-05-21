@@ -1,193 +1,311 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class DriverPalette {
-  // Brand — forest green + amber
-  static const Color primary = Color(0xFF1A6B3A);
-  static const Color primaryLight = Color(0xFF22883F);
-  static const Color primaryDark = Color(0xFF145230);
-  static const Color secondary = Color(0xFFF5A623);
-  static const Color secondaryDark = Color(0xFFE08E0B);
+/// Marché CM — Design tokens (fidèles à theme.jsx)
+/// Palette camerounaise : forest green + sunburst amber + coral flag-red
+class T {
+  // Brand
+  static const Color primary     = Color(0xFF0F7A4F);
+  static const Color primaryDark = Color(0xFF0A5A3A);
+  static const Color primaryDeep = Color(0xFF063D27);
+  static const Color primarySoft = Color(0xFFE6F2EC);
+  static const Color primaryTint = Color(0xFFF2F9F5);
 
-  // Status
-  static const Color success = Color(0xFF059669);
-  static const Color danger = Color(0xFFDC2626);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color info = Color(0xFF2563EB);
+  static const Color accent      = Color(0xFFF5B400);
+  static const Color accentDark  = Color(0xFFC68F00);
+  static const Color accentSoft  = Color(0xFFFEF4D6);
 
-  // Neutral
-  static const Color bg = Color(0xFFF0F7F2);
-  static const Color surface = Colors.white;
-  static const Color border = Color(0xFFD1E8D9);
-  static const Color textPrimary = Color(0xFF0F2318);
-  static const Color textSecondary = Color(0xFF4A6B54);
-  static const Color textMuted = Color(0xFF8FAF98);
+  static const Color coral       = Color(0xFFE5484D);
+  static const Color coralSoft   = Color(0xFFFEECEC);
+
+  // Surfaces (warm cream — daylight africain)
+  static const Color bg       = Color(0xFFFAF7F0);
+  static const Color surface  = Color(0xFFFFFFFF);
+  static const Color surface2 = Color(0xFFF1ECDE);
+  static const Color surface3 = Color(0xFFE8E2D2);
+
+  // Ink
+  static const Color ink  = Color(0xFF0E1F18);
+  static const Color ink2 = Color(0xFF2D3D36);
+  static const Color ink3 = Color(0xFF5C6B64);
+  static const Color ink4 = Color(0xFF8F9C96);
+
+  // Lines
+  static const Color line  = Color(0xFFE5DECC);
+  static const Color line2 = Color(0xFFEDE7D6);
+
+  // Semantic
+  static const Color success = Color(0xFF16A34A);
+  static const Color warning = Color(0xFFD97706);
+  static const Color info    = Color(0xFF2563EB);
+  static const Color danger  = Color(0xFFDC2626);
 
   // Gradients
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF1A6B3A), Color(0xFF22883F)],
+  static const LinearGradient gradientPrimary = LinearGradient(
+    colors: [primary, primaryDeep],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient heroGradient = LinearGradient(
-    colors: [Color(0xFF145230), Color(0xFF1A6B3A)],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
+  /// Gradient spécifique livreur (amber chaud)
+  static const LinearGradient gradientDriver = LinearGradient(
+    colors: [Color(0xFFC68426), Color(0xFF8E5A00)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
   );
 
+  static const LinearGradient gradientDriverHeader = LinearGradient(
+    colors: [Color(0xFFC68426), Color(0xFF8E5A00)],
+    begin: Alignment(0, -1),
+    end: Alignment(0.5, 1),
+  );
+
+  // Radii
+  static const double rSm  = 8;
+  static const double r    = 12;
+  static const double rLg  = 18;
+  static const double rXl  = 24;
+  static const double rFull = 999;
+
   // Shadows
-  static List<BoxShadow> shadowSoft = [
+  static List<BoxShadow> shadowSm = [
     BoxShadow(
-      color: const Color(0xFF1A6B3A).withValues(alpha: 0.08),
+      color: const Color(0xFF0E1F18).withValues(alpha: 0.06),
+      blurRadius: 4,
+      offset: const Offset(0, 1),
+    ),
+  ];
+  static List<BoxShadow> shadowMd = [
+    BoxShadow(
+      color: const Color(0xFF0E1F18).withValues(alpha: 0.08),
       blurRadius: 12,
+      spreadRadius: -2,
       offset: const Offset(0, 4),
     ),
   ];
-
-  static List<BoxShadow> shadowMedium = [
+  static List<BoxShadow> shadowBrand = [
     BoxShadow(
-      color: const Color(0xFF0F2318).withValues(alpha: 0.10),
-      blurRadius: 20,
+      color: const Color(0xFF0F7A4F).withValues(alpha: 0.45),
+      blurRadius: 22,
+      spreadRadius: -6,
+      offset: const Offset(0, 8),
+    ),
+  ];
+  static List<BoxShadow> shadowAccent = [
+    BoxShadow(
+      color: const Color(0xFFF5B400).withValues(alpha: 0.45),
+      blurRadius: 22,
+      spreadRadius: -6,
       offset: const Offset(0, 8),
     ),
   ];
 }
 
+/// Alias lisibles dans les widgets
+class DriverPalette {
+  static const Color primary     = T.primary;
+  static const Color primaryDark = T.primaryDark;
+  static const Color primaryDeep = T.primaryDeep;
+  static const Color primarySoft = T.primarySoft;
+  static const Color secondary   = T.accent;
+  static const Color secondaryDark = T.accentDark;
+  static const Color bg          = T.bg;
+  static const Color surface     = T.surface;
+  static const Color border      = T.line;
+  static const Color textPrimary = T.ink;
+  static const Color textSecondary = T.ink2;
+  static const Color textMuted   = T.ink3;
+  static const Color success     = T.success;
+  static const Color danger      = T.danger;
+  static const Color warning     = T.warning;
+  static const Color info        = T.info;
+  static const Color coral       = T.coral;
+  static const Color accent      = T.accent;
+  static const Color accentDark  = T.accentDark;
+  static const Color accentSoft  = T.accentSoft;
+
+  static final LinearGradient driverHeaderGradient = T.gradientDriverHeader;
+}
+
 class DriverRadii {
-  static const double xs = 8;
-  static const double sm = 12;
-  static const double md = 16;
-  static const double lg = 22;
-  static const double xl = 28;
-  static const double pill = 999;
+  static const double xs   = T.rSm;
+  static const double sm   = T.r;
+  static const double md   = T.rLg;
+  static const double lg   = T.rXl;
+  static const double xl   = 28;
+  static const double pill = T.rFull;
 }
 
 class DriverTheme {
   static ThemeData light() {
-    final base = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: DriverPalette.primary,
-        primary: DriverPalette.primary,
-        secondary: DriverPalette.secondary,
-        surface: DriverPalette.surface,
-        error: DriverPalette.danger,
-      ),
-    );
+    const textTheme = TextTheme();
 
-    return base.copyWith(
-      scaffoldBackgroundColor: DriverPalette.bg,
-      textTheme: GoogleFonts.poppinsTextTheme(base.textTheme).copyWith(
-        displayLarge: GoogleFonts.poppins(
-            fontSize: 32, fontWeight: FontWeight.w800, color: DriverPalette.textPrimary),
-        headlineMedium: GoogleFonts.poppins(
-            fontSize: 24, fontWeight: FontWeight.w700, color: DriverPalette.textPrimary),
-        titleLarge: GoogleFonts.poppins(
-            fontSize: 18, fontWeight: FontWeight.w700, color: DriverPalette.textPrimary),
-        titleMedium: GoogleFonts.poppins(
-            fontSize: 16, fontWeight: FontWeight.w600, color: DriverPalette.textPrimary),
-        bodyLarge: GoogleFonts.poppins(fontSize: 15, color: DriverPalette.textPrimary),
-        bodyMedium: GoogleFonts.poppins(fontSize: 14, color: DriverPalette.textSecondary),
-        bodySmall: GoogleFonts.poppins(fontSize: 12, color: DriverPalette.textMuted),
-        labelLarge: GoogleFonts.poppins(
-            fontSize: 14, fontWeight: FontWeight.w600, color: DriverPalette.textPrimary),
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: const ColorScheme.light(
+        primary: T.primary,
+        onPrimary: Colors.white,
+        primaryContainer: T.primarySoft,
+        onPrimaryContainer: T.primaryDark,
+        secondary: T.accent,
+        onSecondary: Color(0xFF1a0f00),
+        surface: T.surface,
+        onSurface: T.ink,
+        error: T.danger,
+        onError: Colors.white,
+        outline: T.line,
+        outlineVariant: T.line2,
+      ),
+      scaffoldBackgroundColor: T.bg,
+      fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+      textTheme: textTheme.copyWith(
+        displayLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 32, fontWeight: FontWeight.w800,
+            letterSpacing: -0.8, color: T.ink),
+        headlineLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 25, fontWeight: FontWeight.w700,
+            letterSpacing: -0.4, color: T.ink),
+        headlineMedium: GoogleFonts.plusJakartaSans(
+            fontSize: 20, fontWeight: FontWeight.w800,
+            letterSpacing: -0.3, color: T.ink),
+        titleLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 17, fontWeight: FontWeight.w700, color: T.ink),
+        titleMedium: GoogleFonts.plusJakartaSans(
+            fontSize: 15, fontWeight: FontWeight.w700, color: T.ink),
+        titleSmall: GoogleFonts.plusJakartaSans(
+            fontSize: 13.5, fontWeight: FontWeight.w600, color: T.ink),
+        bodyLarge: GoogleFonts.plusJakartaSans(fontSize: 15, color: T.ink),
+        bodyMedium: GoogleFonts.plusJakartaSans(fontSize: 13.5, color: T.ink2),
+        bodySmall: GoogleFonts.plusJakartaSans(fontSize: 12, color: T.ink3),
+        labelLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 14.5, fontWeight: FontWeight.w700, color: T.ink),
+        labelMedium: GoogleFonts.plusJakartaSans(
+            fontSize: 12.5, fontWeight: FontWeight.w600, color: T.ink2),
+        labelSmall: GoogleFonts.plusJakartaSans(
+            fontSize: 10.5, fontWeight: FontWeight.w600, color: T.ink3),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.white,
-        foregroundColor: DriverPalette.textPrimary,
+        backgroundColor: Colors.transparent,
+        foregroundColor: T.ink,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: GoogleFonts.poppins(
-            fontSize: 18, fontWeight: FontWeight.w700, color: DriverPalette.textPrimary),
+        surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+        ),
+        titleTextStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 17, fontWeight: FontWeight.w700, color: T.ink),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: DriverPalette.primary,
+          backgroundColor: T.primary,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DriverRadii.sm)),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-          textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 15),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DriverRadii.sm)),
+          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 22),
+          textStyle: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700, fontSize: 15),
           elevation: 0,
+          minimumSize: const Size(0, 52),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: DriverPalette.primary,
+          backgroundColor: T.primary,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DriverRadii.sm)),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-          textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 15),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DriverRadii.sm)),
+          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 22),
+          textStyle: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700, fontSize: 15),
+          minimumSize: const Size(0, 52),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: DriverPalette.primary,
-          side: const BorderSide(color: DriverPalette.primary),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DriverRadii.sm)),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-          textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15),
+          foregroundColor: T.ink,
+          side: const BorderSide(color: T.line, width: 1.5),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DriverRadii.sm)),
+          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 22),
+          textStyle: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w600, fontSize: 15),
+          minimumSize: const Size(0, 52),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        fillColor: T.surface,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DriverRadii.sm),
-          borderSide: const BorderSide(color: DriverPalette.border),
+          borderSide: const BorderSide(color: T.line),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DriverRadii.sm),
-          borderSide: const BorderSide(color: DriverPalette.border),
+          borderSide: const BorderSide(color: T.line),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DriverRadii.sm),
-          borderSide: const BorderSide(color: DriverPalette.primary, width: 1.5),
+          borderSide: const BorderSide(color: T.primary, width: 1.5),
         ),
-        labelStyle: GoogleFonts.poppins(color: DriverPalette.textSecondary, fontSize: 14),
-        hintStyle: GoogleFonts.poppins(color: DriverPalette.textMuted, fontSize: 14),
-        prefixIconColor: DriverPalette.primary,
+        labelStyle: GoogleFonts.plusJakartaSans(color: T.ink2, fontSize: 14),
+        hintStyle: GoogleFonts.plusJakartaSans(color: T.ink3, fontSize: 14),
+        prefixIconColor: T.ink3,
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: T.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DriverRadii.md),
-          side: const BorderSide(color: DriverPalette.border),
+          borderRadius: BorderRadius.circular(DriverRadii.sm),
+          side: const BorderSide(color: T.line),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: const Color(0xFFE8F5ED),
-        labelStyle: GoogleFonts.poppins(fontSize: 13, color: DriverPalette.primary),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: T.surface2,
+        selectedColor: T.ink,
+        labelStyle: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DriverRadii.pill)),
         side: BorderSide.none,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.white,
-        indicatorColor: DriverPalette.primary.withValues(alpha: 0.12),
+        backgroundColor: T.surface,
+        indicatorColor: T.primarySoft,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        height: 64,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.poppins(
-                fontSize: 11, fontWeight: FontWeight.w600, color: DriverPalette.primary);
-          }
-          return GoogleFonts.poppins(
-              fontSize: 11, color: DriverPalette.textMuted);
+          final sel = states.contains(WidgetState.selected);
+          return GoogleFonts.plusJakartaSans(
+            fontSize: 10.5,
+            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+            color: sel ? T.primary : T.ink3,
+          );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: DriverPalette.primary, size: 22);
-          }
-          return const IconThemeData(color: DriverPalette.textMuted, size: 22);
+          final sel = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: sel ? T.primary : T.ink3,
+            size: 22,
+          );
         }),
-        surfaceTintColor: Colors.transparent,
-        elevation: 8,
       ),
-      dividerTheme: const DividerThemeData(color: DriverPalette.border, thickness: 1),
+      dividerTheme: const DividerThemeData(color: T.line2, thickness: 1),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        contentTextStyle: GoogleFonts.poppins(fontSize: 13),
+        backgroundColor: T.ink,
+        contentTextStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 13, color: Colors.white),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DriverRadii.sm)),
+        actionTextColor: T.accent,
       ),
     );
   }

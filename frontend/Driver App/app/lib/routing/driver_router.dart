@@ -16,6 +16,7 @@ import '../features/missions/presentation/missions_list_page.dart';
 import '../features/profile/presentation/documents_page.dart';
 import '../features/profile/presentation/profile_page.dart';
 import '../features/profile/presentation/vehicle_page.dart';
+import '../features/dashboard/presentation/dashboard_page.dart';
 import '../features/shell/driver_shell.dart';
 import '../features/tracking/presentation/tracking_page.dart';
 import '../features/wallet/presentation/earnings_page.dart';
@@ -27,7 +28,7 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
-    initialLocation: '/missions',
+    initialLocation: '/dashboard',
     refreshListenable: notifier,
     redirect: (context, state) {
       final auth = ref.read(authProvider);
@@ -41,7 +42,7 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
 
       if (!isAuth && !isAuthRoute) return '/login';
       if (isAuth && !isOnboarded && loc != '/onboarding') return '/onboarding';
-      if (isAuth && isOnboarded && isAuthRoute) return '/missions';
+      if (isAuth && isOnboarded && isAuthRoute) return '/dashboard';
       return null;
     },
     routes: [
@@ -63,6 +64,11 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => DriverShell(child: child),
         routes: [
+          GoRoute(
+            path: '/dashboard',
+            pageBuilder: (_, __) =>
+                const NoTransitionPage(child: DashboardPage()),
+          ),
           GoRoute(
             path: '/missions',
             pageBuilder: (_, __) =>

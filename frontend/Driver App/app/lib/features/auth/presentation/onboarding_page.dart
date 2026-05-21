@@ -136,7 +136,7 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       decoration: const BoxDecoration(
-        gradient: DriverPalette.heroGradient,
+        gradient: T.gradientDriverHeader,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
       child: Column(
