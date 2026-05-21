@@ -67,7 +67,7 @@ class _BuyerCatalogPageState extends State<BuyerCatalogPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppPalette.bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -330,7 +330,7 @@ class _CatalogProductCard extends StatelessWidget {
                           style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF0F766E))),
+                              color: AppPalette.primary)),
                     ),
                     Container(
                       padding: const EdgeInsets.all(5),

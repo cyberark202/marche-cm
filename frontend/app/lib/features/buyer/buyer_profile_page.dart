@@ -21,7 +21,7 @@ class BuyerProfilePage extends StatelessWidget {
         .join();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppPalette.bg,
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader(context, name, initials)),
@@ -36,7 +36,7 @@ class BuyerProfilePage extends StatelessWidget {
             _MenuItem(
               icon: Icons.account_balance_wallet_outlined,
               label: 'Mon portefeuille',
-              color: const Color(0xFF0F766E),
+              color: AppPalette.primary,
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const WalletPage())),
             ),
@@ -146,7 +146,7 @@ class BuyerProfilePage extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-                colors: [Color(0xFF0F766E), Color(0xFF059669)],
+                colors: [AppPalette.primary, AppPalette.primaryDark],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight),
             borderRadius: BorderRadius.circular(14),

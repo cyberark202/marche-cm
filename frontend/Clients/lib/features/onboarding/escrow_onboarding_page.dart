@@ -40,7 +40,7 @@ class _EscrowOnboardingPageState extends State<EscrowOnboardingPage> {
   static const _slides = [
     _Slide(
       icon: Icons.lock_outlined,
-      iconColor: Color(0xFF1E8E4B),
+      iconColor: Color(0xFF0F7A4F),
       title: 'Vos paiements sont protégés',
       body:
           'Quand vous passez commande, votre argent n\'est pas envoyé directement au vendeur — '

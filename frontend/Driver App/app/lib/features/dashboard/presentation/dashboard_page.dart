@@ -114,13 +114,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                   height: 12,
                                   decoration: BoxDecoration(
                                     color: _isOnline
-                                        ? const Color(0xFF34D399)
+                                        ? DriverPalette.primary
                                         : Colors.white38,
                                     shape: BoxShape.circle,
                                     boxShadow: _isOnline
                                         ? [
                                             BoxShadow(
-                                              color: const Color(0xFF34D399)
+                                              color: DriverPalette.primary
                                                   .withValues(alpha: 0.3),
                                               blurRadius: 0,
                                               spreadRadius: 4,

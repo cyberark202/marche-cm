@@ -102,8 +102,7 @@ class _MissionDetail extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [DriverPalette.primary, DriverPalette.primaryLight]),
+                    gradient: T.gradientPrimary,
                     borderRadius: BorderRadius.circular(DriverRadii.md),
                   ),
                   child: Column(children: [

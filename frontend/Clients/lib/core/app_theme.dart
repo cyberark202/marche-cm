@@ -3,14 +3,14 @@ import 'package:flutter/services.dart';
 
 /// Design System — Clients (acheteurs)
 ///
-/// Tonalité : marketplace chaleureuse, accueillante, énergique.
-/// Palette : vert émeraude (primary), corail (secondary), ambre (accent).
+/// Tonalité : marketplace camerounaise, chaleureuse, de confiance.
+/// Palette : vert forêt #0F7A4F (primary), corail (secondary), ambre (accent).
 class AppPalette {
   // ── Brand ──────────────────────────────────────────────────────────────
-  static const Color primary = Color(0xFF0EA877);
-  static const Color primaryDark = Color(0xFF067A55);
-  static const Color primaryLight = Color(0xFF34D399);
-  static const Color primarySoft = Color(0xFFD1FAE5);
+  static const Color primary = Color(0xFF0F7A4F);
+  static const Color primaryDark = Color(0xFF0A5A3A);
+  static const Color primaryLight = Color(0xFF16A34A);
+  static const Color primarySoft = Color(0xFFE6F2EC);
 
   static const Color secondary = Color(0xFFFF7A45);
   static const Color secondaryDark = Color(0xFFE85D2C);
@@ -34,13 +34,13 @@ class AppPalette {
   static const Color infoSoft = Color(0xFFE0F2FE);
 
   // ── Surfaces ───────────────────────────────────────────────────────────
-  static const Color bg = Color(0xFFF7FAF8);
-  static const Color bgSoft = Color(0xFFEEF5F1);
-  static const Color bgDeep = Color(0xFFE0EBE5);
+  static const Color bg = Color(0xFFFAF7F0);
+  static const Color bgSoft = Color(0xFFF1ECDE);
+  static const Color bgDeep = Color(0xFFE8E2D2);
   static const Color card = Colors.white;
   static const Color surfaceElevated = Color(0xFFFFFFFF);
-  static const Color border = Color(0xFFE5EBE8);
-  static const Color borderSoft = Color(0xFFF0F4F2);
+  static const Color border = Color(0xFFE5DECC);
+  static const Color borderSoft = Color(0xFFEDE7D6);
 
   // ── Text ───────────────────────────────────────────────────────────────
   static const Color text = Color(0xFF0F1F1A);
@@ -54,7 +54,7 @@ class AppPalette {
 
   // ── Gradients ──────────────────────────────────────────────────────────
   static const LinearGradient gradientPrimary = LinearGradient(
-    colors: [Color(0xFF0EA877), Color(0xFF34D399)],
+    colors: [Color(0xFF0F7A4F), Color(0xFF063D27)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -72,19 +72,19 @@ class AppPalette {
   );
 
   static const LinearGradient gradientOcean = LinearGradient(
-    colors: [Color(0xFF0EA5E9), Color(0xFF0EA877)],
+    colors: [Color(0xFF0284C7), Color(0xFF0F7A4F)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient gradientPageLight = LinearGradient(
-    colors: [Color(0xFFFFFFFF), Color(0xFFF7FAF8), Color(0xFFEEF5F1)],
+    colors: [Color(0xFFFFFFFF), Color(0xFFFAF7F0), Color(0xFFF1ECDE)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
   static const LinearGradient gradientHero = LinearGradient(
-    colors: [Color(0xFF067A55), Color(0xFF0EA877), Color(0xFF34D399)],
+    colors: [Color(0xFF063D27), Color(0xFF0F7A4F), Color(0xFF0A5A3A)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -108,7 +108,7 @@ class AppPalette {
 
   static List<BoxShadow> shadowStrong = [
     BoxShadow(
-      color: const Color(0xFF0EA877).withValues(alpha: 0.16),
+      color: const Color(0xFF0F7A4F).withValues(alpha: 0.16),
       blurRadius: 32,
       offset: const Offset(0, 16),
     ),

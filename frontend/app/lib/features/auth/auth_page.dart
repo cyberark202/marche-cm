@@ -42,7 +42,7 @@ class _AuthPageState extends State<AuthPage> {
 
   bool _busy = false;
 
-  static const Color _brand = Color(0xFF1E8E4B);
+  static const Color _brand = AppPalette.primary;
 
   @override
   void initState() {

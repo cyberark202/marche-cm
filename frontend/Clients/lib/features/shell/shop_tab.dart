@@ -636,7 +636,7 @@ class _ShopTabState extends State<ShopTab> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF067A55), Color(0xFF0EA877)],
+          colors: [Color(0xFF063D27), Color(0xFF0F7A4F)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

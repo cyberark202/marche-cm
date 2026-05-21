@@ -142,7 +142,7 @@ class _WalletPageState extends State<WalletPage> {
       padding: const EdgeInsets.fromLTRB(20, 52, 20, 24),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF067A55), Color(0xFF0EA877), Color(0xFF34D399)],
+          colors: [Color(0xFF063D27), Color(0xFF0F7A4F), Color(0xFF0A5A3A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

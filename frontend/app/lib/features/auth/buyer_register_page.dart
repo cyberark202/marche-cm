@@ -102,7 +102,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
     final country = _countryService.findByCode(_countryCode);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppPalette.bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -126,7 +126,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                               width: 32, height: 32,
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                    colors: [Color(0xFF0F766E), Color(0xFF059669)]),
+                                    colors: [AppPalette.primary, AppPalette.primaryDark]),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Icon(Icons.storefront, color: Colors.white, size: 17),
@@ -159,7 +159,7 @@ class _BuyerRegisterPageState extends State<BuyerRegisterPage> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                            colors: [Color(0xFF0F766E), Color(0xFF059669)],
+                            colors: [AppPalette.primary, AppPalette.primaryDark],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight),
                         borderRadius: BorderRadius.circular(16),

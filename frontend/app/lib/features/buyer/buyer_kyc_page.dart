@@ -100,7 +100,7 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppPalette.bg,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,

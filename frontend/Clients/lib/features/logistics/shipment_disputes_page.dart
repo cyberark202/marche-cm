@@ -1135,7 +1135,7 @@ class _ShipmentPickerSheetState extends State<_ShipmentPickerSheet> {
                                 leading: const CircleAvatar(
                                   backgroundColor: Color(0xFFE8F5EE),
                                   child: Icon(Icons.local_shipping_outlined,
-                                      color: Color(0xFF1E8E4B), size: 20),
+                                      color: Color(0xFF0F7A4F), size: 20),
                                 ),
                                 title: Text(
                                   'Commande $ref',

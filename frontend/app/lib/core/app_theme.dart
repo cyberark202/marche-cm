@@ -72,7 +72,7 @@ class AppPalette {
   );
 
   static const LinearGradient gradientOcean = LinearGradient(
-    colors: [Color(0xFF0284C7), Color(0xFF0F766E)],
+    colors: [Color(0xFF0284C7), Color(0xFF0F7A4F)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -108,7 +108,7 @@ class AppPalette {
 
   static List<BoxShadow> shadowStrong = [
     BoxShadow(
-      color: const Color(0xFF0F766E).withValues(alpha: 0.16),
+      color: const Color(0xFF0F7A4F).withValues(alpha: 0.16),
       blurRadius: 32,
       offset: const Offset(0, 16),
     ),

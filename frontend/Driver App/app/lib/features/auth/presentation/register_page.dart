@@ -114,8 +114,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [DriverPalette.primary, DriverPalette.primaryLight]),
+                gradient: T.gradientPrimary,
                 borderRadius: BorderRadius.circular(DriverRadii.md),
               ),
               child: const Row(
