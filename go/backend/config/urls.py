@@ -28,6 +28,15 @@ from apps.accounts.views import (
     VerifyEmailView,
     WalletPinView,
 )
+from apps.accounts.driver_views import (
+    DriverRegisterView,
+    DriverProfileView,
+    DriverKYCView,
+    DriverWalletView,
+    DriverTransactionsView,
+    DriverEarningsView,
+    DriverWithdrawView,
+)
 from apps.catalog.views import ProductFavoriteViewSet, ProductViewSet, SavedProductFilterViewSet, VideoCommentViewSet, VideoLikeViewSet
 from apps.chat.views import ChatRoomViewSet, MessageViewSet
 from apps.analytics.views import GroupCampaignViewSet, RFQOfferViewSet, RequestForQuotationViewSet
@@ -145,6 +154,14 @@ urlpatterns = [
     ),
     path("api/auth/fcm-token/", FCMTokenView.as_view(), name="auth-fcm-token"),
     path("api/auth/verify-email/", VerifyEmailView.as_view(), name="auth-verify-email"),
+    # ── Driver-specific endpoints ─────────────────────────────────────────
+    path("api/driver/register/", DriverRegisterView.as_view(), name="driver-register"),
+    path("api/accounts/driver-profile/", DriverProfileView.as_view(), name="driver-profile"),
+    path("api/accounts/driver-kyc/", DriverKYCView.as_view(), name="driver-kyc"),
+    path("api/wallets/driver/", DriverWalletView.as_view(), name="driver-wallet"),
+    path("api/wallets/driver/transactions/", DriverTransactionsView.as_view(), name="driver-transactions"),
+    path("api/wallets/driver/earnings/", DriverEarningsView.as_view(), name="driver-earnings"),
+    path("api/wallets/driver/withdraw/", DriverWithdrawView.as_view(), name="driver-withdraw"),
     path(
         "api/auth/google/",
         AuthDisabledView.as_view() if settings.AUTH_LOCKDOWN else GoogleAuthView.as_view(),

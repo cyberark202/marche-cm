@@ -6,8 +6,11 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_config.dart';
+import '../../core/app_theme.dart';
 import '../../core/backend_ui_config_service.dart';
 import 'auth_api_service.dart';
+import 'buyer_register_page.dart';
+import 'seller_register_page.dart';
 import 'session_store.dart';
 
 class AuthPage extends StatefulWidget {
@@ -553,6 +556,42 @@ class _AuthPageState extends State<AuthPage> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       children: [
+        // ── Pages d'inscription dédiées ────────────────────
+        const Text('Inscription guidée',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                color: Color(0xFF334155))),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickRegisterBtn(
+                label: 'Acheteur',
+                icon: Icons.shopping_bag_outlined,
+                colors: [AppPalette.primary, Color(0xFF059669)],
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const BuyerRegisterPage())),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickRegisterBtn(
+                label: 'Vendeur / Pro',
+                icon: Icons.store_outlined,
+                colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const SellerRegisterPage())),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Row(children: [
+          Expanded(child: Divider()),
+          Padding(padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Text('ou', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12))),
+          Expanded(child: Divider()),
+        ]),
+        const SizedBox(height: 8),
         // ── Role selector ──────────────────────────────────
         _roleSelector(),
         const SizedBox(height: 16),
@@ -818,4 +857,42 @@ class _AuthPageState extends State<AuthPage> {
       ),
     );
   }
+}
+
+class _QuickRegisterBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final List<Color> colors;
+  final VoidCallback onTap;
+  const _QuickRegisterBtn({
+    required this.label, required this.icon,
+    required this.colors, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: colors),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 18),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(label,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13)),
+              ),
+            ],
+          ),
+        ),
+      );
 }

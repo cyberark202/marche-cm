@@ -16,6 +16,7 @@ import 'core/realtime_events_service.dart';
 import 'core/security/secure_dio_client.dart';
 import 'features/auth/auth_page.dart';
 import 'features/auth/session_store.dart';
+import 'features/buyer/buyer_shell.dart';
 import 'features/buyer/buyer_store.dart';
 import 'features/home/public_home_page.dart';
 import 'features/shell/main_shell.dart';
@@ -96,7 +97,7 @@ class MarcheCmApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = context.watch<SessionStore>();
     return MaterialApp(
-      title: 'Marche CM Pro',
+      title: 'Market CM',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: scaffoldKey,
       locale: session.appLocale,
@@ -192,7 +193,7 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
       );
     }
     if (session.role == UserRole.buyer) {
-      return _BuyerAccountBlockedPage(onLogout: () => session.logout());
+      return const BuyerShell();
     }
     return const MainShell();
   }
@@ -297,50 +298,6 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const AuthPage()),
-    );
-  }
-}
-
-class _BuyerAccountBlockedPage extends StatelessWidget {
-  const _BuyerAccountBlockedPage({required this.onLogout});
-
-  final VoidCallback onLogout;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.shopping_bag_outlined,
-                    size: 72, color: Colors.green),
-                const SizedBox(height: 24),
-                Text(
-                  'Compte acheteur détecté',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Cette application est réservée aux professionnels (vendeurs, grossistes, fournisseurs, transitaires, admin).\n'
-                  'Pour faire vos achats, veuillez utiliser l\'application Marche CM Clients.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                FilledButton.icon(
-                  onPressed: onLogout,
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Se déconnecter'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

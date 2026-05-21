@@ -16,6 +16,7 @@ class UserRole(models.TextChoices):
     WHOLESALER = "WHOLESALER", "Grossiste"
     TRANSIT_AGENT = "TRANSIT_AGENT", "Transitaire"
     BUYER = "BUYER", "Acheteur"
+    DRIVER = "DRIVER", "Livreur"
 
 
 class User(AbstractUser):
@@ -240,3 +241,38 @@ class FCMToken(models.Model):
 
     def __str__(self) -> str:
         return f"FCMToken({self.user_id}, {self.type})"
+
+
+class VehicleType(models.TextChoices):
+    MOTO = "MOTO", "Moto / Scooter"
+    CAR = "CAR", "Voiture"
+    VAN = "VAN", "Camionnette"
+    TRUCK = "TRUCK", "Camion"
+    BICYCLE = "BICYCLE", "Vélo"
+    FOOT = "FOOT", "À pied"
+
+
+class DriverProfile(models.Model):
+    """Extended profile for DRIVER-role users."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="driver_profile",
+        limit_choices_to={"role": "DRIVER"},
+    )
+    vehicle_type = models.CharField(
+        max_length=20, choices=VehicleType.choices, default=VehicleType.MOTO
+    )
+    license_number = models.CharField(max_length=60, blank=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+    completed_deliveries = models.PositiveIntegerField(default=0)
+    is_approved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"DriverProfile({self.user_id}, {self.vehicle_type})"
