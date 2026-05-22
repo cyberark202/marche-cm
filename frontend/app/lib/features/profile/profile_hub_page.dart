@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
 import '../../core/app_config.dart';
+import '../../core/app_theme.dart';
 import '../../core/realtime_events_service.dart';
 import '../auth/auth_api_service.dart';
 import '../auth/session_store.dart';
@@ -96,181 +97,16 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final session = context.watch<SessionStore>();
-    final canAccessCompliance = session.role == UserRole.supplier ||
-        session.role == UserRole.wholesaler ||
-        session.role == UserRole.transitAgent;
-    return _loading
-        ? const Center(child: CircularProgressIndicator())
-        : ListView(
-            padding: const EdgeInsets.all(12),
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("Mon profil",
-                            style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 4),
-                        Text("Rôle actif: ${session.role.name}"),
-                      ],
-                    ),
-                  ),
-                  Chip(
-                    avatar: const Icon(Icons.verified_user_outlined, size: 16),
-                    label: Text(session.role.name),
-                  ),
-                ],
-              ),
-              Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: NetworkImage(
-                      _resolveMediaUrl((_me["avatar_url"] ?? "").toString()),
-                    ),
-                  ),
-                  title: Text(
-                    (_me["name"] ??
-                            _me["username"] ??
-                            session.username ??
-                            "Compte")
-                        .toString(),
-                  ),
-                  subtitle: Text(
-                    "Ref: ${(_me["reference_code"] ?? "").toString().isEmpty ? "-" : _me["reference_code"]}",
-                  ),
-                  trailing: TextButton.icon(
-                    onPressed: _openProfileEditDialog,
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text("Modifier"),
-                  ),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  title: const Text("Wallet"),
-                  subtitle: Text(
-                    _wallets.isEmpty
-                        ? "Aucun wallet"
-                        : "Solde: ${_wallets.first["balance"]} | Bloqué: ${_wallets.first["blocked_balance"]}",
-                  ),
-                  trailing: const Icon(Icons.account_balance_wallet_outlined),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const WalletPage()),
-                  ),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  title: const Text("Utilisateurs en ligne"),
-                  subtitle: Text("${_onlineUsers.length} connectés"),
-                  onTap: () => _showOnlineUsers(context),
-                ),
-              ),
-              if (canAccessCompliance)
-                Card(
-                  child: ListTile(
-                    title: const Text("Conformité/KYC"),
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const ComplianceDocumentsPage())),
-                  ),
-                ),
-              if (session.role == UserRole.wholesaler)
-                Card(
-                  child: ListTile(
-                    title: const Text("Campagnes"),
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const CampaignsPage())),
-                  ),
-                ),
-              Card(
-                child: ListTile(
-                  title: const Text("Securite du compte"),
-                  subtitle: const Text(
-                      "Sessions actives, mot de passe, verification"),
-                  trailing: const Icon(Icons.shield_outlined),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const SecurityCenterPage()),
-                  ),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  title: const Text("Innovation Hub (15 features)"),
-                  subtitle: const Text(
-                      "Escrow split, RFQ compare, alerts, loyalty, webhooks..."),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const InnovationHubPage()),
-                  ),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  title: const Text("Demandes RFQ"),
-                  onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const RfqsPage())),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  title: const Text("Offres RFQ"),
-                  onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const RfqOffersPage())),
-                ),
-              ),
-              if (session.role == UserRole.transitAgent)
-                Card(
-                  child: ListTile(
-                    title: const Text("Profil transport"),
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const TransportProfilePage())),
-                  ),
-                ),
-              Card(
-                child: ListTile(
-                  title: const Text("Litiges expédition"),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const ShipmentDisputesPage())),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  title: const Text("Support & Aide"),
-                  subtitle: const Text("FAQ, contact support, assistance"),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const SupportCenterPage(),
-                    ),
-                  ),
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.logout),
-                  title: const Text("Deconnexion"),
-                  subtitle: const Text("Revoque la session courante"),
-                  onTap: _logout,
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.refresh),
-                  title: const Text("Actualiser"),
-                  onTap: () {
-                    widget.onRefresh();
-                    _load();
-                  },
-                ),
-              ),
-            ],
-          );
+  String _resolveMediaUrl(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) {
+      return "https://i.pravatar.cc/200?u=profile";
+    }
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      return value;
+    }
+    final normalized = value.startsWith("/") ? value : "/$value";
+    return "${AppConfig.apiBaseUrl}$normalized";
   }
 
   void _showOnlineUsers(BuildContext context) {
@@ -293,18 +129,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
             .toList(),
       ),
     );
-  }
-
-  String _resolveMediaUrl(String raw) {
-    final value = raw.trim();
-    if (value.isEmpty) {
-      return "https://i.pravatar.cc/200?u=profile";
-    }
-    if (value.startsWith("http://") || value.startsWith("https://")) {
-      return value;
-    }
-    final normalized = value.startsWith("/") ? value : "/$value";
-    return "${AppConfig.apiBaseUrl}$normalized";
   }
 
   Future<void> _openProfileEditDialog() async {
@@ -457,6 +281,439 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
     session.logout();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Session fermee.")),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<SessionStore>();
+    final canAccessCompliance = session.role == UserRole.supplier ||
+        session.role == UserRole.wholesaler ||
+        session.role == UserRole.transitAgent;
+    final isWholesaler = session.role == UserRole.wholesaler;
+    final isTransitAgent = session.role == UserRole.transitAgent;
+
+    final name = (_me["name"] ??
+            _me["username"] ??
+            session.username ??
+            "Compte")
+        .toString();
+    final walletBalance = _wallets.isEmpty
+        ? '0'
+        : (_wallets.first["balance"] ?? '0').toString();
+    return Scaffold(
+      backgroundColor: AppPalette.bg,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : CustomScrollView(
+              slivers: [
+                // ── Hero sombre vert ────────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: AppPalette.gradientHero,
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(AppRadii.xl),
+                      ),
+                    ),
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                        child: Column(
+                          children: [
+                            // Avatar + nom + badge + refresh
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                GestureDetector(
+                                  onTap: _openProfileEditDialog,
+                                  child: Stack(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 36,
+                                        backgroundImage: NetworkImage(
+                                          _resolveMediaUrl(
+                                            (_me["avatar_url"] ?? "")
+                                                .toString(),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        bottom: 0,
+                                        right: 0,
+                                        child: Container(
+                                          width: 20,
+                                          height: 20,
+                                          decoration: const BoxDecoration(
+                                            color: AppPalette.accent,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.edit,
+                                            size: 11,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.3,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.16),
+                                          borderRadius: BorderRadius.circular(
+                                              AppRadii.pill),
+                                        ),
+                                        child: Text(
+                                          session.role.name,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.refresh,
+                                      color: Colors.white),
+                                  onPressed: () {
+                                    _load();
+                                    widget.onRefresh();
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            // Stats
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: const _StatBadge(
+                                    value: '—',
+                                    label: 'Commandes',
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _StatBadge(
+                                    value: '$walletBalance FCFA',
+                                    label: 'Wallet',
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _StatBadge(
+                                    value: '${_onlineUsers.length}',
+                                    label: 'En ligne',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ── Corps ───────────────────────────────────────────────────
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                  sliver: SliverList.list(
+                    children: [
+                      // Section COMPTE
+                      const _SectionLabel('COMPTE'),
+                      _ProfileTile(
+                        icon: Icons.edit_outlined,
+                        title: 'Modifier le profil',
+                        onTap: _openProfileEditDialog,
+                      ),
+                      _ProfileTile(
+                        icon: Icons.shield_outlined,
+                        title: 'Sécurité du compte',
+                        subtitle: 'Sessions, mot de passe',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const SecurityCenterPage()),
+                        ),
+                      ),
+                      _ProfileTile(
+                        icon: Icons.account_balance_wallet_outlined,
+                        title: 'Wallet',
+                        subtitle: 'Solde: $walletBalance FCFA',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const WalletPage()),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Section COMMERCE
+                      const _SectionLabel('COMMERCE'),
+                      if (canAccessCompliance)
+                        _ProfileTile(
+                          icon: Icons.verified_user_outlined,
+                          title: 'Conformité / KYC',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const ComplianceDocumentsPage()),
+                          ),
+                        ),
+                      _ProfileTile(
+                        icon: Icons.request_quote_outlined,
+                        title: 'Demandes RFQ',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const RfqsPage()),
+                        ),
+                      ),
+                      _ProfileTile(
+                        icon: Icons.local_offer_outlined,
+                        title: 'Offres RFQ',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const RfqOffersPage()),
+                        ),
+                      ),
+                      if (isWholesaler)
+                        _ProfileTile(
+                          icon: Icons.campaign_outlined,
+                          title: 'Campagnes',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const CampaignsPage()),
+                          ),
+                        ),
+                      if (isTransitAgent)
+                        _ProfileTile(
+                          icon: Icons.local_shipping_outlined,
+                          title: 'Profil transport',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const TransportProfilePage()),
+                          ),
+                        ),
+                      _ProfileTile(
+                        icon: Icons.gavel_outlined,
+                        title: 'Litiges expédition',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  const ShipmentDisputesPage()),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Section SUPPORT
+                      const _SectionLabel('SUPPORT'),
+                      _ProfileTile(
+                        icon: Icons.help_outline,
+                        title: 'Support & Aide',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const SupportCenterPage()),
+                        ),
+                      ),
+                      _ProfileTile(
+                        icon: Icons.lightbulb_outline,
+                        title: 'Innovation Hub',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const InnovationHubPage()),
+                        ),
+                      ),
+                      _ProfileTile(
+                        icon: Icons.people_outline,
+                        title: 'Utilisateurs en ligne',
+                        subtitle: '${_onlineUsers.length} connectés',
+                        onTap: () => _showOnlineUsers(context),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Déconnexion
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: AppPalette.dangerSoft,
+                          borderRadius: BorderRadius.circular(AppRadii.md),
+                          border: Border.all(
+                            color: AppPalette.danger
+                                .withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          leading: const Icon(Icons.logout,
+                              color: AppPalette.danger),
+                          title: const Text(
+                            'Déconnexion',
+                            style: TextStyle(
+                              color: AppPalette.danger,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          onTap: _logout,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+// ── Local widgets ────────────────────────────────────────────────────────────
+
+class _StatBadge extends StatelessWidget {
+  const _StatBadge({required this.value, required this.label});
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppPalette.textMuted,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileTile extends StatelessWidget {
+  const _ProfileTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppPalette.borderSoft),
+        boxShadow: AppPalette.shadowSoft,
+      ),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppPalette.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(AppRadii.xs),
+          ),
+          child: Icon(icon, color: AppPalette.primary, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppPalette.text,
+          ),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppPalette.textMuted,
+                ),
+              )
+            : null,
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: AppPalette.textMuted,
+          size: 20,
+        ),
+        dense: true,
+        onTap: onTap,
+      ),
     );
   }
 }

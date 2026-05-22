@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
+import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
 import '../business/rfq_offers_page.dart';
 import '../feed/video_publish_page.dart';
@@ -156,13 +157,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
   Widget build(BuildContext context) {
     final session = context.watch<SessionStore>();
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Fournisseur - ${session.username ?? "Utilisateur"}'),
-        actions: [
-          IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
-          _RoleMenu(session: session),
-        ],
-      ),
+      backgroundColor: AppPalette.bg,
       body: FutureBuilder<_SupplierPayload>(
         future: _future,
         builder: (context, snapshot) {
@@ -181,145 +176,261 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
           final wallet = payload.wallets.isEmpty
               ? const <String, dynamic>{}
               : payload.wallets.first;
+          final walletBalance = '${wallet['balance'] ?? '0'}';
+          final walletBlocked = '${wallet['blocked_balance'] ?? '0'}';
 
-          return ListView(
-            padding: const EdgeInsets.all(12),
-            children: [
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _KpiCard(
-                      title: 'Produits actifs',
-                      value: '$activeProducts',
+          return CustomScrollView(
+            slivers: [
+              // ── Hero header ───────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: AppPalette.gradientHero,
+                    borderRadius: BorderRadius.vertical(
+                      bottom: Radius.circular(AppRadii.xl),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _KpiCard(
-                      title: 'Commandes confirmees',
-                      value: '$confirmedOrders',
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Titre + badge rôle
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Bonjour 👋',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      session.username ?? 'Utilisateur',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              _RoleBadge(session: session),
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap: _refresh,
+                                child: const Icon(
+                                  Icons.refresh,
+                                  color: Colors.white70,
+                                  size: 22,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          // Balance card
+                          _BalanceCard(
+                            balance: walletBalance,
+                            blocked: walletBlocked,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _KpiCard(
-                      title: 'Offres RFQ',
-                      value: '${payload.offers.length}',
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _KpiCard(
-                      title: 'Wallet',
-                      value: '${wallet['balance'] ?? '0'} FCFA',
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _KpiCard(
-                      title: 'Blocage escrow',
-                      value: '${wallet['blocked_balance'] ?? '0'} FCFA',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _WindowCard(
-                title: 'Ecrans dedies fournisseur',
-                icon: Icons.apps_outlined,
-                body: Column(
+
+              // ── KPI grid ─────────────────────────────────────────────────
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                sliver: SliverGrid.count(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 1.6,
                   children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.inventory_2_outlined),
-                      title: const Text("Produits / publication d'articles"),
-                      subtitle: const Text('Ecran separe'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const SupplierProductsPage()),
-                      ),
+                    _KpiCard(
+                      icon: Icons.inventory_2_outlined,
+                      iconColor: AppPalette.primary,
+                      value: '$activeProducts',
+                      label: 'Produits actifs',
                     ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.shopping_bag_outlined),
-                      title: const Text('Commandes passees'),
-                      subtitle: const Text('Ecran separe'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const OrdersPage()),
-                      ),
+                    _KpiCard(
+                      icon: Icons.shopping_bag_outlined,
+                      iconColor: AppPalette.secondary,
+                      value: '$confirmedOrders',
+                      label: 'Commandes confirmées',
                     ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.bar_chart_outlined),
-                      title: const Text('Montants des ventes'),
-                      subtitle: const Text('Ecran separe'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const SalesSummaryPage(),
-                        ),
-                      ),
+                    _KpiCard(
+                      icon: Icons.request_quote_outlined,
+                      iconColor: AppPalette.accent,
+                      value: '${payload.offers.length}',
+                      label: 'Offres RFQ',
                     ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.request_quote_outlined),
-                      title: const Text('Offres RFQ'),
-                      subtitle: const Text('Ecran separe'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const RfqOffersPage()),
-                      ),
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.smart_display_outlined),
-                      title: const Text('Publication video'),
-                      subtitle: const Text('Ecran separe'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const VideoPublishPage()),
-                      ),
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.verified_user_outlined),
-                      title: const Text('Certifications'),
-                      subtitle: const Text('Ecran separe'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ComplianceDocumentsPage(),
-                        ),
-                      ),
+                    _KpiCard(
+                      icon: Icons.account_balance_wallet_outlined,
+                      iconColor: AppPalette.success,
+                      value: '$walletBalance FCFA',
+                      label: 'Wallet solde',
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-              _WindowCard(
-                title: 'Synthese',
-                icon: Icons.query_stats_outlined,
-                body: _SimpleList(
-                  items: [
-                    _SimpleItem(
-                      title: 'Documents en attente',
-                      subtitle: '$pendingCompliance',
-                    ),
-                    _SimpleItem(
-                      title: 'RFQ ouverts',
-                      subtitle:
-                          "${payload.rfqs.where((rfq) => '${rfq['status']}' == 'OPEN').length}",
-                    ),
-                  ],
+
+              // ── Accès rapides ─────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Accès rapides',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppPalette.text,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _QuickButton(
+                            icon: Icons.inventory_2_outlined,
+                            iconColor: AppPalette.primary,
+                            label: 'Produits',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const SupplierProductsPage()),
+                            ),
+                          ),
+                          _QuickButton(
+                            icon: Icons.shopping_bag_outlined,
+                            iconColor: AppPalette.secondary,
+                            label: 'Commandes',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const OrdersPage()),
+                            ),
+                          ),
+                          _QuickButton(
+                            icon: Icons.bar_chart_outlined,
+                            iconColor: AppPalette.accent,
+                            label: 'Ventes',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const SalesSummaryPage()),
+                            ),
+                          ),
+                          _QuickButton(
+                            icon: Icons.video_camera_back_outlined,
+                            iconColor: AppPalette.info,
+                            label: 'Vidéo',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const VideoPublishPage()),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ── Conformité ────────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Conformité',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppPalette.text,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius:
+                              BorderRadius.circular(AppRadii.md),
+                          border: Border.all(color: AppPalette.borderSoft),
+                          boxShadow: AppPalette.shadowSoft,
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          leading: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: AppPalette.primary
+                                  .withValues(alpha: 0.10),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadii.xs),
+                            ),
+                            child: const Icon(
+                              Icons.verified_user_outlined,
+                              color: AppPalette.primary,
+                              size: 20,
+                            ),
+                          ),
+                          title: const Text(
+                            'Documents de conformité',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppPalette.text,
+                            ),
+                          ),
+                          subtitle: pendingCompliance > 0
+                              ? Text(
+                                  '$pendingCompliance document(s) en attente',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppPalette.warning,
+                                  ),
+                                )
+                              : const Text(
+                                  'Gérez vos certifications KYC',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppPalette.textMuted,
+                                  ),
+                                ),
+                          trailing: const Icon(
+                            Icons.chevron_right,
+                            color: AppPalette.textMuted,
+                          ),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const ComplianceDocumentsPage()),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -364,6 +475,8 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
   }
 }
 
+// ── Data model ──────────────────────────────────────────────────────────────
+
 class _SupplierPayload {
   const _SupplierPayload({
     required this.products,
@@ -384,112 +497,224 @@ class _SupplierPayload {
   final bool fallback;
 }
 
-class _RoleMenu extends StatelessWidget {
-  const _RoleMenu({required this.session});
+// ── Local widgets ────────────────────────────────────────────────────────────
+
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({required this.session});
   final SessionStore session;
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      avatar: const Icon(Icons.verified_user_outlined, size: 16),
-      label: Text(session.role.name),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.28),
+        ),
+      ),
+      child: Text(
+        session.role.name,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _BalanceCard extends StatelessWidget {
+  const _BalanceCard({required this.balance, required this.blocked});
+  final String balance;
+  final String blocked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.account_balance_wallet_outlined,
+            color: Colors.white70,
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Solde',
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$balance FCFA',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Text(
+                'Bloqué escrow',
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$blocked FCFA',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _KpiCard extends StatelessWidget {
-  const _KpiCard({required this.title, required this.value});
-  final String title;
-  final String value;
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: const TextStyle(fontSize: 12, color: Colors.black54)),
-          const SizedBox(height: 6),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
-        ],
-      ),
-    );
-  }
-}
-
-class _WindowCard extends StatelessWidget {
-  const _WindowCard({required this.title, required this.icon, this.body});
-  final String title;
+  const _KpiCard({
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+  });
   final IconData icon;
-  final Widget? body;
+  final Color iconColor;
+  final String value;
+  final String label;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x11000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          )
-        ],
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppPalette.borderSoft),
+        boxShadow: AppPalette.shadowSoft,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 18),
-              const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-            ],
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(AppRadii.xs),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
           ),
-          if (body != null) ...[
-            const SizedBox(height: 10),
-            body!,
-          ],
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppPalette.text,
+              letterSpacing: -0.3,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10.5,
+              color: AppPalette.textMuted,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
   }
 }
 
-class _SimpleList extends StatelessWidget {
-  const _SimpleList({required this.items});
-  final List<_SimpleItem> items;
+class _QuickButton extends StatelessWidget {
+  const _QuickButton({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+  });
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return const Text('Aucune donnee.');
-    }
-    return Column(
-      children: items
-          .map(
-            (item) => ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(item.title,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(item.subtitle,
-                  maxLines: 2, overflow: TextOverflow.ellipsis),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 74,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(color: AppPalette.borderSoft),
+          boxShadow: AppPalette.shadowSoft,
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(AppRadii.sm),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
             ),
-          )
-          .toList(),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppPalette.text,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
     );
   }
-}
-
-class _SimpleItem {
-  const _SimpleItem({required this.title, required this.subtitle});
-  final String title;
-  final String subtitle;
 }

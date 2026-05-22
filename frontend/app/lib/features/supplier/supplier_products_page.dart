@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
+import '../../core/app_theme.dart';
 import '../../core/backend_ui_config_service.dart';
 import '../auth/session_store.dart';
 
@@ -17,12 +18,14 @@ class SupplierProductsPage extends StatefulWidget {
 class _SupplierProductsPageState extends State<SupplierProductsPage> {
   final ApiService _api = ApiService();
   List<Map<String, dynamic>> _products = const [];
+  List<Map<String, dynamic>> _filtered = const [];
   bool _loading = true;
   String? _error;
   int _defaultMinQty = 0;
   int _defaultMaxQty = 0;
   int _defaultMinPrice = 0;
   int _defaultMaxPrice = 0;
+  final TextEditingController _searchCtrl = TextEditingController();
 
   String? _safePlatformFilePath(PlatformFile file) {
     if (kIsWeb) {
@@ -44,6 +47,33 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
     super.initState();
     _loadUiConfig();
     _load();
+    _searchCtrl.addListener(_applySearch);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.removeListener(_applySearch);
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _applySearch() {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    setState(() {
+      if (q.isEmpty) {
+        _filtered = _products;
+      } else {
+        _filtered = _products
+            .where((p) =>
+                (p['title'] ?? '').toString().toLowerCase().contains(q) ||
+                (p['brand'] ?? '').toString().toLowerCase().contains(q) ||
+                (p['category_name'] ?? '')
+                    .toString()
+                    .toLowerCase()
+                    .contains(q))
+            .toList();
+      }
+    });
   }
 
   Future<void> _load() async {
@@ -59,7 +89,12 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
         fallback: "Impossible de charger vos publications.",
       );
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() {
+        _loading = false;
+        _filtered = _products;
+      });
+    }
   }
 
   Future<void> _loadUiConfig() async {
@@ -121,7 +156,7 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: "Quantite min"),
                 ),
-                TextField(  
+                TextField(
                   controller: maxQty,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: "Quantite max"),
@@ -260,8 +295,13 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppPalette.bg,
       appBar: AppBar(
-        title: const Text("Mes produits"),
+        backgroundColor: Colors.transparent,
+        title: const Text(
+          'Mes produits',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
@@ -273,92 +313,219 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(12),
+          : Column(
               children: [
-                const _HeaderCard(
-                  title: "Catalogue fournisseur",
-                  subtitle:
-                      "Publiez vos articles et gerez rapidement votre inventaire.",
-                ),
-                const SizedBox(height: 10),
-                if (_error != null)
-                  _SectionCard(
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text("Chargement incomplet"),
-                      subtitle: Text(_error!),
-                    ),
-                  ),
-                if (_products.isEmpty)
-                  const _SectionCard(
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text("Aucun produit"),
-                      subtitle: Text("Ajoutez votre premier article."),
-                    ),
-                  ),
-                ..._products.map(
-                  (p) => _SectionCard(
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text((p["title"] ?? "").toString()),
-                      subtitle: Text(
-                        "Qt min/max: ${p["min_order_qty"] ?? "-"}-${p["max_order_qty"] ?? "-"} | Prix: ${p["price_for_min_qty"] ?? "-"}-${p["price_for_max_qty"] ?? "-"} | Poids: ${p["weight_kg"] ?? "-"} kg",
+                // Barre de recherche
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Chercher un produit...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppRadii.pill),
+                        borderSide:
+                            const BorderSide(color: AppPalette.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppRadii.pill),
+                        borderSide:
+                            const BorderSide(color: AppPalette.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppRadii.pill),
+                        borderSide: const BorderSide(
+                            color: AppPalette.primary, width: 1.8),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 80),
+
+                // Erreur
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppPalette.dangerSoft,
+                        borderRadius: BorderRadius.circular(AppRadii.md),
+                        border: Border.all(
+                            color: AppPalette.danger
+                                .withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline,
+                              color: AppPalette.danger, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: AppPalette.danger,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Liste
+                Expanded(
+                  child: _filtered.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.inventory_2_outlined,
+                                size: 64,
+                                color: AppPalette.textMuted
+                                    .withValues(alpha: 0.4),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Aucun produit',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppPalette.text,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Ajoutez votre premier article.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppPalette.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                          itemCount: _filtered.length,
+                          itemBuilder: (context, i) {
+                            final p = _filtered[i];
+                            final isActive = p['is_active'] == true;
+                            final minQ =
+                                p['min_order_qty']?.toString() ?? '-';
+                            final maxQ =
+                                p['max_order_qty']?.toString() ?? '-';
+                            final minP =
+                                p['price_for_min_qty']?.toString() ?? '-';
+                            final maxP =
+                                p['price_for_max_qty']?.toString() ?? '-';
+                            final weight =
+                                p['weight_kg']?.toString() ?? '-';
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius:
+                                    BorderRadius.circular(AppRadii.md),
+                                border: Border.all(
+                                    color: AppPalette.borderSoft),
+                                boxShadow: AppPalette.shadowSoft,
+                              ),
+                              child: Row(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  // Icône
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: AppPalette.primary
+                                          .withValues(alpha: 0.10),
+                                      borderRadius:
+                                          BorderRadius.circular(AppRadii.sm),
+                                    ),
+                                    child: const Icon(
+                                      Icons.inventory_2_outlined,
+                                      color: AppPalette.primary,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+
+                                  // Contenu
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          (p['title'] ?? '').toString(),
+                                          style: const TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppPalette.text,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          'Qté $minQ-$maxQ | Prix $minP-$maxP FCFA | $weight kg',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppPalette.textMuted,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // Badge statut
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isActive
+                                          ? AppPalette.successSoft
+                                          : AppPalette.bgDeep,
+                                      borderRadius: BorderRadius.circular(
+                                          AppRadii.pill),
+                                    ),
+                                    child: Text(
+                                      isActive ? 'Actif' : 'Inactif',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: isActive
+                                            ? AppPalette.success
+                                            : AppPalette.textMuted,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
               ],
             ),
-    );
-  }
-}
-
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(color: Colors.black54)),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: child,
     );
   }
 }
