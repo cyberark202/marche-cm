@@ -1,9 +1,4 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-
-import '../../core/app_icons.dart';
-import '../../core/app_theme.dart';
 
 class CmSplashScreen extends StatefulWidget {
   const CmSplashScreen({super.key, this.onCompleted, this.holdMs = 1800});
@@ -25,7 +20,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
   late final Animation<double> _titleFade;
   late final Animation<Offset> _titleSlide;
   late final Animation<double> _taglineFade;
-  late final Animation<double> _flagProgress;
   late final Animation<double> _loaderFade;
 
   @override
@@ -53,10 +47,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
         parent: _main,
         curve: const Interval(0.0, 0.35, curve: Curves.easeOut),
       ),
-    );
-    _flagProgress = CurvedAnimation(
-      parent: _main,
-      curve: const Interval(0.25, 0.75, curve: Curves.easeInOutCubic),
     );
     _titleFade = CurvedAnimation(
       parent: _main,
@@ -101,20 +91,54 @@ class _CmSplashScreenState extends State<CmSplashScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // Fond vert foncé
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFF6F8FB),
-                  Color(0xFFEEF6F3),
-                  Color(0xFFE0F2EC),
-                ],
+                colors: [Color(0xFF063D27), Color(0xFF0F7A4F)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
             ),
           ),
-          _AnimatedBackdropBlobs(listenable: _pulse),
+          // Étoiles décoratives semi-transparentes
+          Positioned(
+            top: 60,
+            left: 24,
+            child: Icon(
+              Icons.star_outline,
+              color: Colors.white.withValues(alpha: 0.18),
+              size: 64,
+            ),
+          ),
+          Positioned(
+            top: 120,
+            right: 18,
+            child: Icon(
+              Icons.star_outline,
+              color: Colors.white.withValues(alpha: 0.22),
+              size: 48,
+            ),
+          ),
+          Positioned(
+            bottom: 180,
+            left: 12,
+            child: Icon(
+              Icons.star_outline,
+              color: Colors.white.withValues(alpha: 0.15),
+              size: 80,
+            ),
+          ),
+          Positioned(
+            bottom: 100,
+            right: 30,
+            child: Icon(
+              Icons.star_outline,
+              color: Colors.white.withValues(alpha: 0.20),
+              size: 56,
+            ),
+          ),
+          // Contenu centré
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -122,6 +146,7 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Spacer(),
+                  // Logo simplifié
                   AnimatedBuilder(
                     animation: _main,
                     builder: (_, __) {
@@ -129,67 +154,63 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                         scale: _logoScale.value,
                         child: Opacity(
                           opacity: _logoFade.value,
-                          child: _LogoCrest(flagProgress: _flagProgress.value),
+                          child: _SimpleLogo(),
                         ),
                       );
                     },
                   ),
                   const SizedBox(height: 32),
+                  // Titre "Marché.cm"
                   FadeTransition(
                     opacity: _titleFade,
                     child: SlideTransition(
                       position: _titleSlide,
                       child: const Text(
-                        "Central Market",
+                        "Marché.cm",
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
-                          color: AppPalette.text,
+                          color: Colors.white,
                           letterSpacing: -0.5,
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
+                  // Tagline
                   FadeTransition(
                     opacity: _taglineFade,
                     child: const Text(
-                      "La marketplace B2B2C du Cameroun",
+                      "LE MARCHÉ CENTRAL DU CAMEROUN",
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: AppPalette.textMuted,
-                        letterSpacing: 0.2,
+                        color: Colors.white,
+                        letterSpacing: 2.0,
                       ),
                     ),
                   ),
                   const Spacer(),
+                  // Spinner blanc
                   FadeTransition(
                     opacity: _loaderFade,
-                    child: const _ChasingDotsLoader(),
+                    child: const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
                   ),
                   const SizedBox(height: 24),
+                  // Texte connexion
                   FadeTransition(
                     opacity: _loaderFade,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          AppIcons.shield,
-                          size: 13,
-                          color: AppPalette.textMuted.withValues(alpha: 0.65),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Connexion securisee",
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppPalette.textMuted.withValues(alpha: 0.65),
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
+                    child: const Text(
+                      "Connexion sécurisée...",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -203,243 +224,61 @@ class _CmSplashScreenState extends State<CmSplashScreen>
   }
 }
 
-class _AnimatedBackdropBlobs extends StatelessWidget {
-  const _AnimatedBackdropBlobs({required this.listenable});
-
-  final Animation<double> listenable;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: listenable,
-      builder: (_, __) {
-        final t = listenable.value;
-        return Stack(
-          children: [
-            Positioned(
-              top: 80 + (t * 20),
-              right: -60,
-              child: _Blob(
-                size: 260,
-                color: AppPalette.cmGreen.withValues(alpha: 0.12),
-              ),
-            ),
-            Positioned(
-              top: 260 - (t * 30),
-              left: -80,
-              child: _Blob(
-                size: 220,
-                color: AppPalette.cmYellow.withValues(alpha: 0.1),
-              ),
-            ),
-            Positioned(
-              bottom: 140 + (t * 25),
-              right: -40,
-              child: _Blob(
-                size: 200,
-                color: AppPalette.cmRed.withValues(alpha: 0.08),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _Blob extends StatelessWidget {
-  const _Blob({required this.size, required this.color});
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
-      ),
-    );
-  }
-}
-
-class _LogoCrest extends StatelessWidget {
-  const _LogoCrest({required this.flagProgress});
-  final double flagProgress;
-
+class _SimpleLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 140,
-      height: 140,
+      width: 100,
+      height: 100,
       child: Stack(
-        alignment: Alignment.center,
         children: [
-          Container(
-            width: 140,
-            height: 140,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  AppPalette.primary.withValues(alpha: 0.06),
-                  AppPalette.primary.withValues(alpha: 0.22),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: AppPalette.primary.withValues(alpha: 0.12),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppPalette.primary.withValues(alpha: 0.18),
-                  blurRadius: 40,
-                  offset: const Offset(0, 16),
-                ),
-              ],
-            ),
-          ),
+          // Fond blanc
           Container(
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
               color: Colors.white,
-              boxShadow: AppPalette.shadowMedium,
-            ),
-            alignment: Alignment.center,
-            child: ShaderMask(
-              shaderCallback: (rect) {
-                return LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  stops: [
-                    0.0,
-                    0.33 * flagProgress,
-                    0.66 * flagProgress,
-                    flagProgress,
-                  ],
-                  colors: const [
-                    AppPalette.cmGreen,
-                    AppPalette.cmGreen,
-                    AppPalette.cmRed,
-                    AppPalette.cmYellow,
-                  ],
-                ).createShader(rect);
-              },
-              blendMode: BlendMode.srcATop,
-              child: const Text(
-                "CM",
-                style: TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -1,
-                  height: 1,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
                 ),
-              ),
+              ],
+            ),
+            child: const Icon(
+              Icons.store_mall_directory,
+              size: 48,
+              color: Color(0xFF0F7A4F),
             ),
           ),
+          // Étoile ambre en haut à droite
           Positioned(
-            top: 0,
-            right: 0,
-            child: Transform.translate(
-              offset: const Offset(4, -4),
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: AppPalette.cmYellow,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppPalette.cmYellow.withValues(alpha: 0.5),
-                      blurRadius: 16,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  AppIcons.zap,
-                  size: 15,
-                  color: AppPalette.cmRed,
-                ),
+            top: -4,
+            right: -4,
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5B400),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF5B400).withValues(alpha: 0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.star,
+                size: 16,
+                color: Colors.white,
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ChasingDotsLoader extends StatefulWidget {
-  const _ChasingDotsLoader();
-
-  @override
-  State<_ChasingDotsLoader> createState() => _ChasingDotsLoaderState();
-}
-
-class _ChasingDotsLoaderState extends State<_ChasingDotsLoader>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 80,
-      height: 14,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, __) {
-          return Stack(
-            children: List.generate(3, (i) {
-              const colors = [
-                AppPalette.cmGreen,
-                AppPalette.cmRed,
-                AppPalette.cmYellow,
-              ];
-              final phase = (_controller.value + i * 0.25) % 1.0;
-              final sineY = math.sin(phase * math.pi * 2) * 4;
-              final sineScale = 0.8 + math.sin(phase * math.pi * 2) * 0.25;
-              return Positioned(
-                left: 10 + i * 22.0,
-                top: 4 + sineY,
-                child: Transform.scale(
-                  scale: sineScale,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: colors[i],
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: colors[i].withValues(alpha: 0.45),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }),
-          );
-        },
       ),
     );
   }

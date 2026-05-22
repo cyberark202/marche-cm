@@ -16,6 +16,7 @@ import '../business/rfqs_page.dart';
 import '../common/support_center_page.dart';
 import '../innovation/innovation_hub_page.dart';
 import '../logistics/shipment_disputes_page.dart';
+import '../orders/orders_page.dart';
 import '../wallet/wallet_page.dart';
 import 'compliance_documents_page.dart';
 import 'security_center_page.dart';
@@ -55,9 +56,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
     _eventsSub = RealtimeEventsService.instance.events.listen((event) {
       if (!mounted) return;
       final t = (event["topic"] ?? "").toString();
-      if (t == "profiles" || t == "wallets" || t == "compliance") {
-        _load();
-      }
+      if (t == "profiles" || t == "wallets" || t == "compliance") _load();
     });
   }
 
@@ -100,141 +99,139 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
 
     final name = (_me["name"] ?? _me["username"] ?? session.username ?? "Compte")
         .toString();
-    final refCode = (_me["reference_code"] ?? "").toString();
     final avatarUrl = _resolveMediaUrl((_me["avatar_url"] ?? "").toString());
     final walletBalance =
         _wallets.isEmpty ? null : (_wallets.first["balance"] ?? "0").toString();
 
+    // Initiales
+    final parts = name.trim().split(RegExp(r'\s+'));
+    final initials = parts.length >= 2
+        ? "${parts[0][0]}${parts[1][0]}".toUpperCase()
+        : name.isNotEmpty
+            ? name[0].toUpperCase()
+            : "?";
+
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(child: _buildHero(session, name, avatarUrl, refCode, walletBalance)),
+        // Hero vert
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-            child: _SettingsGroup(
-              title: "Mon activité",
-              items: [
-                _SettingsItem(
-                  icon: Icons.receipt_long_outlined,
-                  label: "Commandes",
-                  subtitle: "Suivi de mes achats",
-                  onTap: () {},
-                ),
-                _SettingsItem(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: "Wallet",
-                  subtitle: walletBalance != null
-                      ? "Solde: $walletBalance FCFA"
-                      : "Gérer mes finances",
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const WalletPage()),
-                  ),
-                ),
-                _SettingsItem(
-                  icon: Icons.request_quote_outlined,
-                  label: "Demandes RFQ",
-                  subtitle: "Mes demandes de devis",
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const RfqsPage()),
-                  ),
-                ),
-                _SettingsItem(
-                  icon: Icons.gavel_outlined,
-                  label: "Litiges",
-                  subtitle: "Signaler un probleme sur une commande",
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const ShipmentDisputesPage()),
-                  ),
-                ),
-                _SettingsItem(
-                  icon: Icons.lightbulb_outline,
-                  label: "Innovation Hub",
-                  subtitle: "Escrow, alertes, fidélité...",
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const InnovationHubPage()),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: _buildHero(context, session, name, initials, avatarUrl),
+        ),
+        // Stats card
+        SliverToBoxAdapter(
+          child: _buildStatsCard(walletBalance),
+        ),
+        // Section COMPTE
+        SliverToBoxAdapter(
+          child: _buildSectionHeader("COMPTE"),
         ),
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: _SettingsGroup(
-              title: "Sécurité & Conformité",
-              items: [
-                if (canAccessCompliance)
-                  _SettingsItem(
-                    icon: Icons.verified_outlined,
-                    label: "Conformité / KYC",
-                    subtitle: "Documents et vérification",
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const ComplianceDocumentsPage())),
-                  ),
-                _SettingsItem(
-                  icon: Icons.shield_outlined,
-                  label: "Sécurité du compte",
-                  subtitle: "Sessions, mot de passe, 2FA",
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const SecurityCenterPage()),
-                  ),
-                ),
-              ],
+          child: _buildSettingsGroup([
+            _SettingsItem(
+              icon: Icons.person_outline,
+              label: "Infos personnelles",
+              subtitle: "Modifier nom, photo",
+              onTap: _openProfileEditDialog,
             ),
-          ),
+            _SettingsItem(
+              icon: Icons.shield_outlined,
+              label: "Conformité KYC",
+              subtitle: "Documents et vérification",
+              trailingBadge: "OK",
+              onTap: canAccessCompliance
+                  ? () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const ComplianceDocumentsPage()))
+                  : () {},
+            ),
+            _SettingsItem(
+              icon: Icons.lock_outline,
+              label: "Sécurité & PIN",
+              subtitle: "Sessions, mot de passe, 2FA",
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => const SecurityCenterPage())),
+            ),
+            _SettingsItem(
+              icon: Icons.place_outlined,
+              label: "Adresses",
+              subtitle: "Gérer mes adresses de livraison",
+              onTap: () {},
+            ),
+          ]),
+        ),
+        // Section COMMERCE
+        SliverToBoxAdapter(
+          child: _buildSectionHeader("COMMERCE"),
         ),
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: _SettingsGroup(
-              title: "Support",
-              items: [
-                _SettingsItem(
-                  icon: Icons.help_outline,
-                  label: "Aide & Support",
-                  subtitle: "FAQ, contacter l'équipe",
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const SupportCenterPage()),
-                  ),
-                ),
-              ],
+          child: _buildSettingsGroup([
+            _SettingsItem(
+              icon: Icons.shopping_bag_outlined,
+              label: "Mes commandes",
+              subtitle: "Suivi de mes achats",
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const OrdersPage())),
             ),
-          ),
+            _SettingsItem(
+              icon: Icons.account_balance_wallet_outlined,
+              label: "Portefeuille",
+              subtitle: walletBalance != null
+                  ? "Solde: $walletBalance FCFA"
+                  : "Gérer mes finances",
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const WalletPage())),
+            ),
+            _SettingsItem(
+              icon: Icons.request_quote_outlined,
+              label: "Demandes RFQ",
+              subtitle: "Mes demandes de devis",
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const RfqsPage())),
+            ),
+            _SettingsItem(
+              icon: Icons.gavel_outlined,
+              label: "Litiges",
+              subtitle: "Signaler un problème sur une commande",
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const ShipmentDisputesPage())),
+            ),
+            _SettingsItem(
+              icon: Icons.lightbulb_outline,
+              label: "Innovation Hub",
+              subtitle: "Escrow, alertes, fidélité...",
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const InnovationHubPage())),
+            ),
+          ]),
+        ),
+        // Section SUPPORT
+        SliverToBoxAdapter(
+          child: _buildSectionHeader("SUPPORT"),
         ),
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: _SettingsGroup(
-              title: "Compte",
-              items: [
-                _SettingsItem(
-                  icon: Icons.edit_outlined,
-                  label: "Modifier mon profil",
-                  subtitle: "Nom, photo, identifiant",
-                  onTap: _openProfileEditDialog,
-                ),
-                _SettingsItem(
-                  icon: Icons.refresh,
-                  label: "Actualiser",
-                  subtitle: "Recharger les données",
-                  onTap: _load,
-                ),
-                _SettingsItem(
-                  icon: Icons.logout,
-                  label: "Se déconnecter",
-                  subtitle: "Révoquer la session courante",
-                  iconColor: AppPalette.danger,
-                  labelColor: AppPalette.danger,
-                  onTap: _confirmLogout,
-                ),
-              ],
+          child: _buildSettingsGroup([
+            _SettingsItem(
+              icon: Icons.help_outline,
+              label: "Aide & Support",
+              subtitle: "FAQ, contacter l'équipe",
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const SupportCenterPage())),
             ),
-          ),
+            _SettingsItem(
+              icon: Icons.refresh,
+              label: "Actualiser",
+              subtitle: "Recharger les données",
+              onTap: _load,
+            ),
+            _SettingsItem(
+              icon: Icons.logout,
+              label: "Se déconnecter",
+              subtitle: "Révoquer la session courante",
+              iconColor: AppPalette.danger,
+              labelColor: AppPalette.danger,
+              onTap: _confirmLogout,
+            ),
+          ]),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
@@ -242,42 +239,62 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
   }
 
   Widget _buildHero(
+    BuildContext context,
     SessionStore session,
     String name,
+    String initials,
     String avatarUrl,
-    String refCode,
-    String? walletBalance,
   ) {
-    final initials = name.isNotEmpty ? name[0].toUpperCase() : "?";
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 52, 20, 24),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF063D27), Color(0xFF0F7A4F), Color(0xFF0A5A3A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      color: const Color(0xFF063D27),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        MediaQuery.of(context).padding.top + 16,
+        16,
+        24,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // AppBar transparent
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Profil",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                onPressed: () {},
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Avatar + infos
+          Row(
             children: [
               CircleAvatar(
-                radius: 36,
-                backgroundColor: Colors.white24,
+                radius: 28,
+                backgroundColor: const Color(0xFFF5B400),
                 backgroundImage:
                     avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
                 child: avatarUrl.isEmpty
-                    ? Text(initials,
+                    ? Text(
+                        initials,
                         style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700))
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                        ),
+                      )
                     : null,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,56 +302,166 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                     Text(
                       name,
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 20,
+                      ),
                     ),
-                    if (refCode.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text("Réf: $refCode",
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 12)),
-                    ],
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _HeroBadge(
-                            icon: Icons.person_outline,
-                            label: session.role.name),
-                      ],
+                    Text(
+                      "Acheteur · Douala CM",
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Badge KYC
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5B400),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shield_outlined,
+                              color: Colors.white, size: 12),
+                          SizedBox(width: 4),
+                          Text(
+                            "KYC VALIDÉ",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          if (walletBalance != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(14),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsCard(String? walletBalance) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF063D27),
+      ),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x10000000), blurRadius: 12, offset: Offset(0, 4))
+          ],
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      "16",
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 20,
+                          color: Color(0xFF0F1F1A)),
+                    ),
+                    Text("Commandes",
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.account_balance_wallet_outlined,
-                      color: Colors.white70, size: 18),
-                  const SizedBox(width: 8),
-                  const Text("Solde wallet",
-                      style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  const Spacer(),
-                  Text("$walletBalance FCFA",
+              const VerticalDivider(color: Colors.grey, width: 1),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      walletBalance != null ? "2,1 M" : "—",
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14)),
-                ],
+                          fontWeight: FontWeight.w800,
+                          fontSize: 20,
+                          color: Color(0xFF0F1F1A)),
+                    ),
+                    const Text("Dépensé",
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
               ),
-            ),
+              const VerticalDivider(color: Colors.grey, width: 1),
+              const Expanded(
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.star,
+                            color: Color(0xFFF5B400), size: 18),
+                        Text(
+                          "4,8",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 20,
+                              color: Color(0xFF0F1F1A)),
+                        ),
+                      ],
+                    ),
+                    Text("Note",
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF8A9A8A),
+          letterSpacing: 1.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsGroup(List<_SettingsItem> items) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))
+        ],
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            items[i],
+            if (i < items.length - 1)
+              const Divider(height: 1, indent: 56, endIndent: 0),
           ],
         ],
       ),
@@ -354,8 +481,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
               child: const Text("Annuler")),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-                backgroundColor: AppPalette.danger),
+            style: FilledButton.styleFrom(backgroundColor: AppPalette.danger),
             child: const Text("Se déconnecter"),
           ),
         ],
@@ -405,8 +531,9 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                         if (picked == null || picked.files.isEmpty) return;
                         final sel = picked.files.single;
                         if (_safePlatformFilePath(sel) == null &&
-                            (sel.bytes == null ||
-                                sel.bytes!.isEmpty)) return;
+                            (sel.bytes == null || sel.bytes!.isEmpty)) {
+                          return;
+                        }
                         setDialogState(() {
                           avatarFile = sel;
                           removeAvatar = false;
@@ -419,8 +546,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                     if (avatarFile != null)
                       Expanded(
                         child: Text(avatarFile!.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
                   ],
                 ),
@@ -445,8 +571,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content:
-                            Text("Session invalide. Reconnectez-vous.")),
+                        content: Text("Session invalide. Reconnectez-vous.")),
                   );
                   return;
                 }
@@ -487,8 +612,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                         content: Text(_api.toUserMessage(e,
-                            fallback:
-                                "Échec de mise à jour du profil."))),
+                            fallback: "Échec de mise à jour du profil."))),
                   );
                 }
               },
@@ -517,84 +641,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
   }
 }
 
-class _HeroBadge extends StatelessWidget {
-  const _HeroBadge({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 12),
-          const SizedBox(width: 4),
-          Text(label,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-}
-
-class _SettingsGroup extends StatelessWidget {
-  const _SettingsGroup({required this.title, required this.items});
-
-  final String title;
-  final List<_SettingsItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Colors.black45,
-              letterSpacing: 0.8,
-            ),
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                  color: Color(0x08000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 2))
-            ],
-          ),
-          child: Column(
-            children: [
-              for (int i = 0; i < items.length; i++) ...[
-                items[i],
-                if (i < items.length - 1)
-                  const Divider(height: 1, indent: 56),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+// ── Widgets helpers ───────────────────────────────────────────────────────────
 
 class _SettingsItem extends StatelessWidget {
   const _SettingsItem({
@@ -604,6 +651,7 @@ class _SettingsItem extends StatelessWidget {
     this.subtitle,
     this.iconColor,
     this.labelColor,
+    this.trailingBadge,
   });
 
   final IconData icon;
@@ -612,32 +660,50 @@ class _SettingsItem extends StatelessWidget {
   final VoidCallback onTap;
   final Color? iconColor;
   final Color? labelColor;
+  final String? trailingBadge;
 
   @override
   Widget build(BuildContext context) {
     final ic = iconColor ?? AppPalette.primary;
     return ListTile(
       leading: Container(
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          color: ic.withValues(alpha: 0.12),
+          color: AppPalette.primarySoft,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: ic, size: 18),
+        child: Icon(icon, color: ic, size: 20),
       ),
       title: Text(
         label,
         style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: 14,
+            fontSize: 15,
             color: labelColor),
       ),
       subtitle: subtitle != null
           ? Text(subtitle!,
-              style: const TextStyle(fontSize: 12, color: Colors.black45))
+              style: const TextStyle(fontSize: 12, color: Colors.grey))
           : null,
-      trailing: const Icon(Icons.chevron_right, color: Colors.black26),
+      trailing: trailingBadge != null
+          ? Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppPalette.primarySoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                trailingBadge!,
+                style: const TextStyle(
+                  color: AppPalette.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
+              ),
+            )
+          : const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,
     );
   }

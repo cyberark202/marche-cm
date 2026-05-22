@@ -6,6 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_config.dart';
+import '../../core/app_theme.dart';
 import '../../core/backend_ui_config_service.dart';
 import 'auth_api_service.dart';
 import 'session_store.dart';
@@ -34,8 +35,9 @@ class _AuthPageState extends State<AuthPage> {
   String _regCountryCode = "";
 
   bool _busy = false;
-
-  static const Color _brand = Color(0xFF0F7A4F);
+  bool _showLogin = true;
+  bool _loginPassVisible = false;
+  bool _rememberMe = false;
 
   @override
   void initState() {
@@ -64,9 +66,7 @@ class _AuthPageState extends State<AuthPage> {
         config,
         ["defaults", "country_code"],
       );
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _applyCountryDefaults(countryCode.toUpperCase());
     } catch (_) {}
   }
@@ -178,9 +178,7 @@ class _AuthPageState extends State<AuthPage> {
     final password = _regPass.text;
     final city = _regCity.text.trim();
 
-    if (name.length < 2) {
-      return "Nom complet invalide (2 caracteres minimum).";
-    }
+    if (name.length < 2) return "Nom complet invalide (2 caracteres minimum).";
     if (!phone.startsWith('+')) {
       return "Le numero doit commencer par un indicatif pays (ex: +237...).";
     }
@@ -190,12 +188,8 @@ class _AuthPageState extends State<AuthPage> {
     if (!RegExp(r"^[^\s@]+@[^\s@]+\.[^\s@]+$").hasMatch(email)) {
       return "Adresse email invalide.";
     }
-    if (password.length < 8) {
-      return "Mot de passe trop court (8 caracteres minimum).";
-    }
-    if (city.length > 120) {
-      return "Ville trop longue.";
-    }
+    if (password.length < 8) return "Mot de passe trop court (8 caracteres minimum).";
+    if (city.length > 120) return "Ville trop longue.";
     return null;
   }
 
@@ -228,9 +222,7 @@ class _AuthPageState extends State<AuthPage> {
       final user = payload["user"] is Map<String, dynamic>
           ? payload["user"] as Map<String, dynamic>
           : <String, dynamic>{};
-      if (access.isEmpty) {
-        throw Exception("Token d'acces manquant.");
-      }
+      if (access.isEmpty) throw Exception("Token d'acces manquant.");
       if (!mounted) return;
       final session = context.read<SessionStore>();
       session.setSession(
@@ -269,9 +261,7 @@ class _AuthPageState extends State<AuthPage> {
   }) async {
     final hasLatitude = user["location_latitude"] != null;
     final hasLongitude = user["location_longitude"] != null;
-    if (hasLatitude && hasLongitude) {
-      return;
-    }
+    if (hasLatitude && hasLongitude) return;
     final currentCountry = (user["country_code"] ?? "").toString().trim();
     final guessedCountry =
         currentCountry.isNotEmpty ? "" : _deviceCountryCode();
@@ -288,9 +278,7 @@ class _AuthPageState extends State<AuthPage> {
         (WidgetsBinding.instance.platformDispatcher.locale.countryCode ?? "")
             .trim()
             .toUpperCase();
-    if (countryCode.length == 2) {
-      return countryCode;
-    }
+    if (countryCode.length == 2) return countryCode;
     return "";
   }
 
@@ -299,15 +287,11 @@ class _AuthPageState extends State<AuthPage> {
     if (_countryService.findByCode(candidate) == null) {
       candidate = _deviceCountryCode();
     }
-    if (_countryService.findByCode(candidate) == null) {
-      candidate = "CM";
-    }
+    if (_countryService.findByCode(candidate) == null) candidate = "CM";
     if (!mounted) return;
     setState(() {
       _defaultCountryCode = candidate;
-      if (_regCountryCode.trim().isEmpty) {
-        _regCountryCode = candidate;
-      }
+      if (_regCountryCode.trim().isEmpty) _regCountryCode = candidate;
     });
   }
 
@@ -337,44 +321,17 @@ class _AuthPageState extends State<AuthPage> {
     );
   }
 
-  Widget _countryPickerField() {
-    final country = _selectedRegisterCountry();
-    final label = country == null
-        ? "Selectionner un pays"
-        : "${country.flagEmoji} ${country.name} (${country.countryCode})";
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: _busy ? null : _openCountryPicker,
-      child: InputDecorator(
-        decoration: _fieldDecoration(
-          label: "Pays de residence",
-          icon: Icons.public,
-          hint: "Selectionner",
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const Icon(Icons.arrow_drop_down),
-          ],
-        ),
-      ),
-    );
-  }
-
   InputDecoration _fieldDecoration({
     required String label,
     required IconData icon,
     String? hint,
+    Widget? suffixIcon,
   }) {
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      prefixIcon: Icon(icon, color: _brand),
+      prefixIcon: Icon(icon, color: AppPalette.primary),
+      suffixIcon: suffixIcon,
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -388,71 +345,289 @@ class _AuthPageState extends State<AuthPage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _brand, width: 1.4),
+        borderSide: const BorderSide(color: AppPalette.primary, width: 1.4),
       ),
     );
   }
 
-  Widget _loginTab() {
+  Widget _logoWidget() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(Icons.store, color: AppPalette.primary, size: 20),
+    );
+  }
+
+  Widget _heroSection() {
+    return Container(
+      color: const Color(0xFF063D27),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        MediaQuery.of(context).padding.top + 16,
+        16,
+        0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _logoWidget(),
+              const SizedBox(width: 8),
+              const Text(
+                "Marché.",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                child: const Text("Mode invité →"),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            "Bonjour 👋",
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 28,
+            ),
+          ),
+          const SizedBox(height: 4),
+          RichText(
+            text: const TextSpan(
+              children: [
+                TextSpan(
+                  text: "Connectez-vous ",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 22,
+                  ),
+                ),
+                TextSpan(
+                  text: "pour commencer.",
+                  style: TextStyle(
+                    color: Color(0xFFF5B400),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 22,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Achetez en gros ou en détail. Paiement Mobile Money sécurisé.",
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _loginForm() {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
+        const SizedBox(height: 24),
+        const Text(
+          "E-mail",
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF3A4A3A),
+          ),
+        ),
+        const SizedBox(height: 6),
         TextField(
           controller: _loginEmail,
           textInputAction: TextInputAction.next,
           keyboardType: TextInputType.emailAddress,
           decoration: _fieldDecoration(
-            label: "Email",
+            label: "",
             icon: Icons.alternate_email,
             hint: "exemple@email.com",
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        const Text(
+          "Mot de passe",
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF3A4A3A),
+          ),
+        ),
+        const SizedBox(height: 6),
         TextField(
           controller: _loginPass,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _login(),
-          decoration:
-              _fieldDecoration(label: "Mot de passe", icon: Icons.lock_outline),
-          obscureText: true,
+          obscureText: !_loginPassVisible,
+          decoration: _fieldDecoration(
+            label: "",
+            icon: Icons.lock_outline,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _loginPassVisible ? Icons.visibility_off : Icons.visibility,
+                color: Colors.grey,
+              ),
+              onPressed: () =>
+                  setState(() => _loginPassVisible = !_loginPassVisible),
+            ),
+          ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Checkbox(
+              value: _rememberMe,
+              onChanged: (v) => setState(() => _rememberMe = v ?? false),
+              activeColor: AppPalette.primary,
+            ),
+            const Text("Se souvenir", style: TextStyle(fontSize: 13)),
+            const Spacer(),
+            TextButton(
+              onPressed: () {},
+              style: TextButton.styleFrom(
+                foregroundColor: AppPalette.primary,
+                textStyle: const TextStyle(fontSize: 13),
+              ),
+              child: const Text("Mot de passe oublié ?"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
         SizedBox(
           height: 52,
+          width: double.infinity,
           child: FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: _brand,
+              backgroundColor: AppPalette.primary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
             onPressed: _busy ? null : _login,
-            child: Text(_busy ? "Connexion..." : "Se connecter"),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 52,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+            child: Text(
+              _busy ? "Connexion..." : "Se connecter →",
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
               ),
-              side: const BorderSide(color: Color(0xFFD5DFD5)),
             ),
-            onPressed: _busy ? null : _loginWithGoogle,
-            icon: const Icon(Icons.login),
-            label: const Text("Continuer avec Google"),
           ),
         ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                "OU CONTINUER AVEC",
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[500],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Expanded(child: Divider()),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFD8E2D8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: _busy ? null : _loginWithGoogle,
+                child: const Text(
+                  "G  Google",
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFD8E2D8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () {},
+                child: const Text(
+                  "📱 OTP SMS",
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Center(
+          child: GestureDetector(
+            onTap: () => setState(() => _showLogin = false),
+            child: RichText(
+              text: const TextSpan(
+                children: [
+                  TextSpan(
+                    text: "Pas encore de compte ? ",
+                    style: TextStyle(color: Color(0xFF666666), fontSize: 14),
+                  ),
+                  TextSpan(
+                    text: "S'inscrire",
+                    style: TextStyle(
+                      color: AppPalette.primary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _registerTab() {
+  Widget _registerForm() {
+    final country = _selectedRegisterCountry();
+    final countryLabel = country == null
+        ? "Selectionner un pays"
+        : "${country.flagEmoji} ${country.name} (${country.countryCode})";
+
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
+        const SizedBox(height: 24),
         TextField(
           controller: _regName,
           textInputAction: TextInputAction.next,
@@ -468,7 +643,7 @@ class _AuthPageState extends State<AuthPage> {
           textInputAction: TextInputAction.next,
           keyboardType: TextInputType.phone,
           decoration: _fieldDecoration(
-            label: "Numero de telephone",
+            label: "Numéro de téléphone",
             icon: Icons.phone_outlined,
             hint: "Ex: +2376XXXXXXXX",
           ),
@@ -485,7 +660,28 @@ class _AuthPageState extends State<AuthPage> {
           ),
         ),
         const SizedBox(height: 12),
-        _countryPickerField(),
+        InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: _busy ? null : _openCountryPicker,
+          child: InputDecorator(
+            decoration: _fieldDecoration(
+              label: "Pays de résidence",
+              icon: Icons.public,
+              hint: "Selectionner",
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    countryLabel,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
         TextField(
           controller: _regCity,
@@ -501,22 +697,28 @@ class _AuthPageState extends State<AuthPage> {
           controller: _regPass,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _register(),
-          decoration:
-              _fieldDecoration(label: "Mot de passe", icon: Icons.lock_outline),
           obscureText: true,
+          decoration: _fieldDecoration(
+            label: "Mot de passe",
+            icon: Icons.lock_outline,
+          ),
         ),
         const SizedBox(height: 18),
         SizedBox(
           height: 52,
+          width: double.infinity,
           child: FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: _brand,
+              backgroundColor: AppPalette.primary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
             onPressed: _busy ? null : _register,
-            child: Text(_busy ? "Inscription..." : "Creer mon compte"),
+            child: Text(
+              _busy ? "Inscription..." : "Créer mon compte →",
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -525,120 +727,57 @@ class _AuthPageState extends State<AuthPage> {
           style: TextStyle(color: Color(0xFF5A6A5A), fontSize: 12),
           textAlign: TextAlign.center,
         ),
+        const SizedBox(height: 16),
+        Center(
+          child: GestureDetector(
+            onTap: () => setState(() => _showLogin = true),
+            child: RichText(
+              text: const TextSpan(
+                children: [
+                  TextSpan(
+                    text: "Déjà un compte ? ",
+                    style: TextStyle(color: Color(0xFF666666), fontSize: 14),
+                  ),
+                  TextSpan(
+                    text: "Se connecter",
+                    style: TextStyle(
+                      color: AppPalette.primary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF2F6F2),
-        body: SafeArea(
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFF4F8F4), Color(0xFFE9F1EA)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+    return Scaffold(
+      backgroundColor: AppPalette.bg,
+      body: Column(
+        children: [
+          _heroSection(),
+          // Coin arrondi bas sur le fond vert
+          Container(
+            height: 24,
+            color: const Color(0xFF063D27),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: AppPalette.bg,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
             ),
-            child: Column(
-              children: [
-                const SizedBox(height: 14),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.arrow_back),
-                      ),
-                      const SizedBox(width: 4),
-                      const Expanded(
-                        child: Text(
-                          "Authentification",
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF182118),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(
-                    "Connectez-vous rapidement pour acheter et vendre en toute confiance.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF526252),
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x14000000),
-                          blurRadius: 18,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 10),
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0F5F0),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const TabBar(
-                            indicatorSize: TabBarIndicatorSize.tab,
-                            indicator: BoxDecoration(
-                              color: _brand,
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                            ),
-                            labelColor: Colors.white,
-                            unselectedLabelColor: Color(0xFF4F5F4F),
-                            tabs: [
-                              Tab(text: "Connexion"),
-                              Tab(text: "Inscription"),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              _loginTab(),
-                              _registerTab(),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
-            ),
           ),
-        ),
+          Expanded(
+            child: _showLogin ? _loginForm() : _registerForm(),
+          ),
+        ],
       ),
     );
   }

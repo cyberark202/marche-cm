@@ -80,12 +80,6 @@ class _WalletPageState extends State<WalletPage> {
           (tx["kind"] ?? "").toString().toUpperCase() == "TOPUP")
       .fold<double>(0, (s, tx) => s + _asPositive(tx["amount"]));
 
-  double get _withdrawTotal => _transactions
-      .where((tx) =>
-          (tx["status"] ?? "").toString().toUpperCase() == "SUCCESS" &&
-          (tx["kind"] ?? "").toString().toUpperCase() == "WITHDRAWAL")
-      .fold<double>(0, (s, tx) => s + _asPositive(tx["amount"]));
-
   double _asPositive(dynamic raw) =>
       (double.tryParse((raw ?? "0").toString()) ?? 0).abs();
 
@@ -93,7 +87,25 @@ class _WalletPageState extends State<WalletPage> {
   Widget build(BuildContext context) {
     final session = context.watch<SessionStore>();
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FB),
+      backgroundColor: AppPalette.bg,
+      appBar: AppBar(
+        backgroundColor: AppPalette.bg,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          "Portefeuille",
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 19),
+        ),
+        actions: [
+          IconButton(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.more_vert),
+          ),
+        ],
+      ),
       body: _loading
           ? const AppSkeletonListView(count: 4)
           : _error != null
@@ -117,125 +129,160 @@ class _WalletPageState extends State<WalletPage> {
                   onRefresh: _load,
                   child: CustomScrollView(
                     slivers: [
-                      SliverToBoxAdapter(
-                          child: _buildHero(session)),
-                      SliverToBoxAdapter(
-                          child: _buildQuickActions()),
-                      SliverToBoxAdapter(
-                          child: _buildTransactions()),
+                      SliverToBoxAdapter(child: _buildBalanceCard(session)),
+                      SliverToBoxAdapter(child: _buildMiniCards()),
+                      SliverToBoxAdapter(child: _buildPaymentMethods()),
+                      SliverToBoxAdapter(child: _buildTransactions()),
                       if (session.role == UserRole.generalAdmin)
-                        SliverToBoxAdapter(
-                            child: _buildAdminReconcile()),
-                      const SliverToBoxAdapter(
-                          child: SizedBox(height: 100)),
+                        SliverToBoxAdapter(child: _buildAdminReconcile()),
+                      const SliverToBoxAdapter(child: SizedBox(height: 100)),
                     ],
                   ),
                 ),
     );
   }
 
-  Widget _buildHero(SessionStore session) {
+  Widget _buildBalanceCard(SessionStore session) {
     final balance = (_wallet["balance"] ?? "0").toString();
-    final blocked = (_wallet["blocked_balance"] ?? "0").toString();
+    final walletId = (_wallet["id"] ?? "").toString();
     return Container(
-      margin: const EdgeInsets.fromLTRB(0, 0, 0, 0),
-      padding: const EdgeInsets.fromLTRB(20, 52, 20, 24),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF063D27), Color(0xFF0F7A4F), Color(0xFF0A5A3A)],
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF063D27), Color(0xFF0F7A4F)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.account_balance_wallet,
-                  color: Colors.white70, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                "Wallet de ${session.username ?? 'Utilisateur'}",
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh, color: Colors.white70),
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  _balanceVisible ? "$balance FCFA" : "••••••",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
+              const Text(
+                "SOLDE DISPONIBLE",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5,
                 ),
               ),
+              const Spacer(),
               IconButton(
                 onPressed: () =>
                     setState(() => _balanceVisible = !_balanceVisible),
                 icon: Icon(
                   _balanceVisible ? Icons.visibility : Icons.visibility_off,
                   color: Colors.white70,
+                  size: 18,
                 ),
+                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
-            "Solde disponible",
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
+            _balanceVisible ? "$balance FCFA" : "••••••",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          if (walletId.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              "ID #$walletId",
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 8),
+          // Badge PIN actif
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5B400),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              "PIN actif",
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _StatChip(
-                icon: Icons.south_west_outlined,
-                label: "Rechargé",
-                value: _balanceVisible
-                    ? "${_topupTotal.toStringAsFixed(0)} FCFA"
-                    : "••••",
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF5B400),
+                      foregroundColor: Colors.black87,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () async {
+                      final done = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                            builder: (_) => const WalletTopupPage()),
+                      );
+                      if (done == true) await _load();
+                    },
+                    child: const Text(
+                      "+ Recharger",
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(width: 10),
-              _StatChip(
-                icon: Icons.north_east_outlined,
-                label: "Retiré",
-                value: _balanceVisible
-                    ? "${_withdrawTotal.toStringAsFixed(0)} FCFA"
-                    : "••••",
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.white, width: 1.4),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () async {
+                      final done = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                            builder: (_) => const WalletWithdrawPage()),
+                      );
+                      if (done == true) await _load();
+                    },
+                    child: const Text(
+                      "→ Envoyer",
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(width: 10),
-              _StatChip(
-                icon: Icons.lock_outline,
-                label: "Sécurisé",
-                value: _balanceVisible ? "$blocked FCFA" : "••••",
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Icon(Icons.shield_outlined,
-                  color: Colors.white.withValues(alpha: 0.55), size: 13),
-              const SizedBox(width: 5),
-              Text(
-                'Fonds sécurisés · Protégés par escrow',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.55),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+              const SizedBox(width: 8),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.qr_code, color: Colors.white, size: 20),
+                  onPressed: _setWalletPin,
                 ),
               ),
             ],
@@ -245,47 +292,85 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildMiniCards() {
+    final blocked =
+        (_wallet["blocked_balance"] ?? "0").toString();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
           Expanded(
-            child: _QuickAction(
-              icon: Icons.add_circle_outline,
-              label: "Recharger",
-              color: AppPalette.primary,
-              onTap: () async {
-                final done = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(builder: (_) => const WalletTopupPage()),
-                );
-                if (done == true) await _load();
-              },
+            child: _MiniCard(
+              icon: Icons.shield_outlined,
+              iconColor: const Color(0xFF0EA5E9),
+              title: "Séquestre",
+              value: _balanceVisible ? "$blocked FCFA" : "••••",
+              subtitle: "2 commandes",
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
-            child: _QuickAction(
-              icon: Icons.send_outlined,
-              label: "Retirer",
-              color: const Color(0xFF0EA5E9),
-              onTap: () async {
-                final done = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                      builder: (_) => const WalletWithdrawPage()),
-                );
-                if (done == true) await _load();
-              },
+            child: _MiniCard(
+              icon: Icons.trending_up,
+              iconColor: AppPalette.primary,
+              title: "Mai 2026",
+              value: _balanceVisible
+                  ? "+${_topupTotal.toStringAsFixed(0)} FCFA"
+                  : "••••",
+              subtitle: "vs avril",
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _QuickAction(
-              icon: Icons.pin_outlined,
-              label: "PIN wallet",
-              color: AppPalette.warning,
-              onTap: _setWalletPin,
-            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethods() {
+    const methods = [
+      _PaymentMethod(
+        badge: "MTN",
+        badgeColor: Color(0xFFF59E0B),
+        title: "MTN Mobile Money",
+        subtitle: "Instantané · 1%",
+      ),
+      _PaymentMethod(
+        badge: "OM",
+        badgeColor: Color(0xFFEA580C),
+        title: "Orange Money",
+        subtitle: "Instantané · 1%",
+      ),
+      _PaymentMethod(
+        badge: "VISA",
+        badgeColor: Color(0xFF1D4ED8),
+        title: "Carte Visa",
+        subtitle: "3-D Secure",
+      ),
+      _PaymentMethod(
+        badge: "MC",
+        badgeColor: Color(0xFFDC2626),
+        title: "Mastercard",
+        subtitle: "3-D Secure",
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Moyens de recharge",
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 2.8,
+            children: methods.map((m) => _PaymentMethodCard(method: m)).toList(),
           ),
         ],
       ),
@@ -302,19 +387,19 @@ class _WalletPageState extends State<WalletPage> {
     }).toList();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text("Transactions",
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700)),
+              const Text(
+                "Transactions",
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
               const Spacer(),
               Text("${filtered.length} opération(s)",
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.black45)),
+                  style: const TextStyle(fontSize: 12, color: Colors.black45)),
             ],
           ),
           const SizedBox(height: 10),
@@ -399,8 +484,7 @@ class _WalletPageState extends State<WalletPage> {
           Container(
             width: 38,
             height: 38,
-            decoration:
-                BoxDecoration(color: iconBg, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
             child: Icon(
                 isTopup
                     ? Icons.south_west_outlined
@@ -427,8 +511,8 @@ class _WalletPageState extends State<WalletPage> {
                   Text(reference,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 11, color: Colors.black45)),
+                      style:
+                          const TextStyle(fontSize: 11, color: Colors.black45)),
                 ],
               ],
             ),
@@ -484,8 +568,7 @@ class _WalletPageState extends State<WalletPage> {
           keyboardType: TextInputType.number,
           maxLength: 4,
           obscureText: true,
-          decoration:
-              const InputDecoration(labelText: "PIN (4 chiffres)"),
+          decoration: const InputDecoration(labelText: "PIN (4 chiffres)"),
         ),
         actions: [
           TextButton(
@@ -520,8 +603,7 @@ class _WalletPageState extends State<WalletPage> {
     if (_reconcileStatuses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content:
-                Text("Aucun statut de réconciliation disponible.")),
+            content: Text("Aucun statut de réconciliation disponible.")),
       );
       return;
     }
@@ -539,25 +621,22 @@ class _WalletPageState extends State<WalletPage> {
             children: [
               TextField(
                 controller: txController,
-                decoration: const InputDecoration(
-                    labelText: "Transaction ID externe"),
+                decoration:
+                    const InputDecoration(labelText: "Transaction ID externe"),
               ),
               DropdownButtonFormField<String>(
                 initialValue: statusValue,
                 items: _reconcileStatuses
-                    .map((v) =>
-                        DropdownMenuItem(value: v, child: Text(v)))
+                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
                     .toList(),
                 onChanged: (v) => setDialogState(() {
                   statusValue = v ?? _reconcileStatuses.first;
                 }),
-                decoration:
-                    const InputDecoration(labelText: "Nouveau statut"),
+                decoration: const InputDecoration(labelText: "Nouveau statut"),
               ),
               TextField(
                 controller: reasonController,
-                decoration:
-                    const InputDecoration(labelText: "Raison"),
+                decoration: const InputDecoration(labelText: "Raison"),
               ),
             ],
           ),
@@ -596,96 +675,123 @@ class _WalletPageState extends State<WalletPage> {
   }
 }
 
-class _StatChip extends StatelessWidget {
-  const _StatChip({
+// ── Widgets helpers ───────────────────────────────────────────────────────────
+
+class _MiniCard extends StatelessWidget {
+  const _MiniCard({
     required this.icon,
-    required this.label,
+    required this.iconColor,
+    required this.title,
     required this.value,
+    required this.subtitle,
   });
 
   final IconData icon;
-  final String label;
+  final Color iconColor;
+  final String title;
   final String value;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white70, size: 12),
-              const SizedBox(width: 4),
-              Text(label,
+              Icon(icon, color: iconColor, size: 16),
+              const SizedBox(width: 6),
+              Text(title,
                   style: const TextStyle(
-                      color: Colors.white70, fontSize: 10)),
+                      fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600)),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 6),
           Text(value,
               style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12)),
+                  fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F1F1A))),
+          Text(subtitle,
+              style: const TextStyle(fontSize: 11, color: Colors.black38)),
         ],
       ),
     );
   }
 }
 
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
+class _PaymentMethod {
+  final String badge;
+  final Color badgeColor;
+  final String title;
+  final String subtitle;
 
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
+  const _PaymentMethod({
+    required this.badge,
+    required this.badgeColor,
+    required this.title,
+    required this.subtitle,
+  });
+}
+
+class _PaymentMethodCard extends StatelessWidget {
+  const _PaymentMethodCard({required this.method});
+
+  final _PaymentMethod method;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x0A000000),
-                blurRadius: 8,
-                offset: Offset(0, 2))
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 22),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: method.badgeColor,
+              borderRadius: BorderRadius.circular(6),
             ),
-            const SizedBox(height: 6),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600)),
-          ],
-        ),
+            child: Text(
+              method.badge,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(method.title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                Text(method.subtitle,
+                    style: const TextStyle(fontSize: 10, color: Colors.black45)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
