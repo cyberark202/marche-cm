@@ -601,8 +601,21 @@ class WalletPinView(APIView):
 
     def post(self, request):
         pin = str(request.data.get("pin") or "").strip()
-        if len(pin) != 4 or not pin.isdigit():
-            return response.Response({"detail": "PIN invalide: 4 chiffres requis."}, status=status.HTTP_400_BAD_REQUEST)
+        # Audit ref: [M-007] PIN expanded from 4 → 6 digits.
+        # 10 000 combinations (4 digits) was brute-forceable in ≈ 14 days
+        # under the per-IP rate limits we have today. 1 000 000 combinations
+        # (6 digits) pushes that horizon past 3 years even without lockout.
+        min_len = int(getattr(settings, "WALLET_PIN_MIN_LENGTH", 6))
+        if (
+            len(pin) < min_len
+            or len(pin) > 12
+            or not pin.isdigit()
+            or len(set(pin)) == 1  # reject 000000 / 111111 / etc.
+        ):
+            return response.Response(
+                {"detail": f"PIN invalide: au moins {min_len} chiffres, non triviaux."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         request.user.set_wallet_pin(pin)
         request.user.wallet_pin_failed_attempts = 0
         request.user.wallet_pin_locked_until = None
@@ -923,12 +936,38 @@ class FCMTokenView(APIView):
         registration_id = (request.data.get("registration_id") or "").strip()
         device_type = (request.data.get("type") or "android").strip()
         if not registration_id:
-            return response.Response({"detail": "registration_id requis."}, status=status.HTTP_400_BAD_REQUEST)
+            return response.Response(
+                {"detail": "registration_id requis."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if device_type not in ("android", "ios", "web"):
             device_type = "android"
+
+        # Audit ref: [NOTIF-002] previously `update_or_create(registration_id=)`
+        # silently REASSIGNED a token to whoever called the endpoint — letting
+        # an attacker with a victim's FCM registration id hijack their push
+        # notifications (incl. 2FA codes, password resets). We now reject any
+        # attempt to claim a token already bound to a different user. The
+        # legitimate device holder can DELETE first then re-register.
+        existing = FCMToken.objects.filter(registration_id=registration_id).first()
+        if existing and existing.user_id != request.user.id:
+            security_logger = __import__("logging").getLogger("security")
+            security_logger.warning(
+                "fcm.token_reassign_blocked",
+                extra={
+                    "actor_user_id": request.user.id,
+                    "owner_user_id": existing.user_id,
+                },
+            )
+            return response.Response(
+                {"detail": "Ce token est deja associe a un autre compte."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         FCMToken.objects.update_or_create(
             registration_id=registration_id,
-            defaults={"user": request.user, "type": device_type},
+            user=request.user,
+            defaults={"type": device_type},
         )
         return response.Response({"ok": True})
 

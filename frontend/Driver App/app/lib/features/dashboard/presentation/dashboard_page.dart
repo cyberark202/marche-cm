@@ -8,9 +8,44 @@ import '../../../features/auth/application/auth_notifier.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
-final _dashboardProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  final res = await DriverDioClient.dio.get('/api/wallets/driver/earnings/');
-  return res.data as Map<String, dynamic>;
+// Audit ref: [Front-Driver] no /api/wallets/driver/earnings/ exists.
+// Aggregate from wallet transactions feed (kind=DELIVERY_PAYOUT) — same
+// rollup logic as the earnings page to keep the two views consistent.
+final _dashboardProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final res = await DriverDioClient.dio.get(
+    '/api/wallets/transactions/',
+    queryParameters: {'kind': 'DELIVERY_PAYOUT'},
+  );
+  final data = res.data;
+  final List items = (data is Map && data['results'] is List)
+      ? data['results'] as List
+      : (data is List ? data : const []);
+
+  num total = 0;
+  num today = 0;
+  final now = DateTime.now();
+  for (final raw in items) {
+    if (raw is! Map) continue;
+    if ((raw['status'] ?? '') == 'FAILED') continue;
+    final amount = (num.tryParse('${raw['amount'] ?? 0}') ?? 0).abs();
+    total += amount;
+    final ts = raw['created_at'];
+    if (ts is String) {
+      final dt = DateTime.tryParse(ts);
+      if (dt != null &&
+          dt.year == now.year &&
+          dt.month == now.month &&
+          dt.day == now.day) {
+        today += amount;
+      }
+    }
+  }
+  return <String, dynamic>{
+    'total': total,
+    'today': today,
+    'deliveries': items.length,
+  };
 });
 
 // ── Page ─────────────────────────────────────────────────────────────────────

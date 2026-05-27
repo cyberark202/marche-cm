@@ -5,9 +5,21 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 
-final _vehicleProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  final res = await DriverDioClient.dio.get('/api/accounts/driver-profile/');
-  return res.data as Map<String, dynamic>;
+// Audit ref: [Front-Driver] backend exposes TransportProfileViewSet at
+// /api/transport-profiles/ (filtered to current user). The /api/accounts/
+// /driver-profile/ path does not exist server-side.
+final _vehicleProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final res = await DriverDioClient.dio.get('/api/transport-profiles/');
+  final data = res.data;
+  if (data is Map<String, dynamic> && data['results'] is List) {
+    final results = data['results'] as List;
+    if (results.isNotEmpty) return results.first as Map<String, dynamic>;
+  }
+  if (data is List && data.isNotEmpty) {
+    return data.first as Map<String, dynamic>;
+  }
+  return <String, dynamic>{};
 });
 
 class VehiclePage extends ConsumerStatefulWidget {
@@ -35,9 +47,22 @@ class _VehiclePageState extends ConsumerState<VehiclePage> {
     if (_selectedType == null) return;
     setState(() { _saving = true; _error = null; });
     try {
-      await DriverDioClient.dio.patch('/api/accounts/driver-profile/', data: {
-        'vehicle_type': _selectedType,
-      });
+      // Audit ref: [Front-Driver] transport-profiles is a regular DRF
+      // ViewSet — update by id (PATCH detail) or create the singleton if
+      // the driver has no profile yet (POST list).
+      final current = ref.read(_vehicleProvider).value ?? const {};
+      final profileId = current['id'];
+      if (profileId != null) {
+        await DriverDioClient.dio.patch(
+          '/api/transport-profiles/$profileId/',
+          data: {'vehicle_type': _selectedType},
+        );
+      } else {
+        await DriverDioClient.dio.post(
+          '/api/transport-profiles/',
+          data: {'vehicle_type': _selectedType},
+        );
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Véhicule mis à jour !')),

@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"e:\\\\project\\\\Marche CM\\\\go\\\\backend\\\" && SECRET_KEY=test-secret-key DEBUG=True python manage.py test apps.innovation.tests.InnovationHardeningTests.test_webhook_rejects_private_ip_rfc...",
-  "error": "Exit code 1\nCreating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...\r\r\nFound 5 test(s).\r\nOperations to perform:\r\n  Synchronize unmigrated apps: channels, corsheaders, daphne, messages, rest_framework, rest_framework_simplejwt, staticfiles\r\n  Apply all migrations: accounts, admin, analytics, auth, catalog, chat, contenttypes, innovation, logistics, notifications, orders, sessions, support, token_blacklist, wallets\r\nSynchronizing apps without migrations:\r\n  ...",
-  "timestamp": "2026-05-16T14:18:51.800Z",
-  "retry_count": 1
-}

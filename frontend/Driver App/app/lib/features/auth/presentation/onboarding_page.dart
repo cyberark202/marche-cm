@@ -65,7 +65,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           'back': await MultipartFile.fromFile(_backFile!.path!, filename: _backFile!.name),
         'license': await MultipartFile.fromFile(_licenseFile!.path!, filename: _licenseFile!.name),
       });
-      await DriverDioClient.dio.post('/api/accounts/driver-kyc/', data: form);
+      // Audit ref: [Front-Driver] no /api/accounts/driver-kyc/ exists.
+      // Driver KYC documents (ID, license) are uploaded as regular
+      // compliance documents — the admin reviews them and grants the
+      // TRANSIT_AGENT role on approval.
+      await DriverDioClient.dio.post('/api/compliance-documents/', data: form);
       await ref.read(authProvider.notifier).completeKyc();
     } catch (e) {
       if (mounted) {

@@ -19,13 +19,22 @@ class DriverAuthApi {
     return data;
   }
 
+  /// Audit ref: [Front-Driver] backend exposes /api/auth/register/
+  /// (config/urls.py:103). The previous /api/driver/register/ path does not
+  /// exist server-side.
+  ///
+  /// The public register endpoint creates a BUYER. The driver role
+  /// (TRANSIT_AGENT) is granted after KYC documents are reviewed and a
+  /// TransportProfile is approved by admin. The `vehicleType` provided here
+  /// is forwarded to a separate /api/transport-profiles/ call by the
+  /// onboarding flow — not to the auth endpoint.
   static Future<Map<String, dynamic>> register({
     required String name,
     required String phoneNumber,
     required String email,
     required String password,
     required String countryCode,
-    String? vehicleType,
+    String? vehicleType,  // forwarded by caller to TransportProfile creation
   }) async {
     final body = <String, dynamic>{
       'name': name,
@@ -34,10 +43,7 @@ class DriverAuthApi {
       'password': password,
       'country_code': countryCode.toUpperCase(),
     };
-    if (vehicleType != null && vehicleType.isNotEmpty) {
-      body['vehicle_type'] = vehicleType;
-    }
-    final resp = await DriverDioClient.dio.post('/api/driver/register/', data: body);
+    final resp = await DriverDioClient.dio.post('/api/auth/register/', data: body);
     final data = resp.data;
     if (resp.statusCode != 201 && resp.statusCode != 200) {
       throw Exception(data is Map ? _extractError(data) : 'Erreur lors de l\'inscription.');

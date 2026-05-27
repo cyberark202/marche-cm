@@ -41,26 +41,10 @@ logger = logging.getLogger(__name__)
 security_event_logger = logging.getLogger("security.events")
 
 
-def _client_ip(request) -> str:
-    """Extract real client IP honoring X-Forwarded-For from trusted proxies."""
-    xff = request.META.get("HTTP_X_FORWARDED_FOR", "").strip()
-    if xff:
-        candidate = xff.split(",")[0].strip()
-        import ipaddress
-        try:
-            ipaddress.ip_address(candidate)
-            return candidate
-        except ValueError:
-            pass
-    real_ip = request.META.get("HTTP_X_REAL_IP", "").strip()
-    if real_ip:
-        import ipaddress
-        try:
-            ipaddress.ip_address(real_ip)
-            return real_ip
-        except ValueError:
-            pass
-    return request.META.get("REMOTE_ADDR", "0.0.0.0")
+# Audit ref: [N-005] use the canonical TRUSTED_PROXIES-aware helper.
+# The previous local copy trusted the leftmost XFF unconditionally, letting a
+# direct attacker forge their source IP and bypass rate-limiting/fraud/audit.
+from config.middleware import _client_ip  # noqa: E402, F401
 
 
 class WalletViewSet(viewsets.ReadOnlyModelViewSet):
@@ -244,6 +228,42 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     def _compute_hmac(secret: str, body: bytes) -> str:
         return hmac.new(secret.encode("utf-8"), body or b"", hashlib.sha256).hexdigest()
 
+    def _check_webhook_timestamp(self, request, endpoint: str) -> tuple[bool, str]:
+        """Audit ref: [NEW-002] reject replays outside a 5-minute window.
+
+        NotchPay can be configured to send X-Notch-Timestamp (epoch seconds).
+        When present, we enforce |now - ts| <= WEBHOOK_TIMESTAMP_WINDOW. When
+        absent, behaviour is governed by settings.WEBHOOK_REQUIRE_TIMESTAMP:
+        production should set it to True after coordinating with the provider.
+        """
+        import time as _time
+
+        window = int(getattr(settings, "WEBHOOK_TIMESTAMP_WINDOW_SECONDS", 300))
+        require = bool(getattr(settings, "WEBHOOK_REQUIRE_TIMESTAMP", False))
+        raw = (
+            request.headers.get("X-Notch-Timestamp")
+            or request.headers.get("X-NotchPay-Timestamp")
+            or ""
+        ).strip()
+        if not raw:
+            if require:
+                security_event_logger.warning(
+                    "webhook_missing_timestamp endpoint=%s ip=%s", endpoint, _client_ip(request),
+                )
+                return False, "Webhook timestamp manquant."
+            return True, ""
+        try:
+            ts = int(raw)
+        except (TypeError, ValueError):
+            return False, "Webhook timestamp invalide."
+        if abs(int(_time.time()) - ts) > window:
+            security_event_logger.warning(
+                "webhook_timestamp_out_of_window endpoint=%s ip=%s delta=%s",
+                endpoint, _client_ip(request), abs(int(_time.time()) - ts),
+            )
+            return False, "Webhook timestamp hors fenetre."
+        return True, ""
+
     def _verify_checkout_webhook_auth(self, request) -> tuple[bool, str]:
         shared_secret = str(getattr(settings, "NOTCHPAY_CHECKOUT_WEBHOOK_SECRET", "") or "").strip()
         if not shared_secret:
@@ -253,6 +273,10 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 _client_ip(request),
             )
             return False, "Signature HMAC webhook non configuree. Contactez l'administrateur."
+
+        ts_ok, ts_err = self._check_webhook_timestamp(request, "checkout")
+        if not ts_ok:
+            return False, ts_err
 
         incoming_sig = (
             request.headers.get("X-Notch-Signature")
@@ -299,6 +323,10 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             )
             return False, "Signature HMAC webhook non configuree. Contactez l'administrateur."
 
+        ts_ok, ts_err = self._check_webhook_timestamp(request, "disburse")
+        if not ts_ok:
+            return False, ts_err
+
         incoming_sig = (
             request.headers.get("X-Notch-Signature")
             or request.headers.get("X-NotchPay-Signature")
@@ -338,8 +366,15 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             return response.Response({"detail": "Action non autorisee."}, status=status.HTTP_403_FORBIDDEN)
         return None
 
+    # Audit ref: [FIN-004] fraud engine fail-open.
+    # Actions that move money OUT of the platform OR out of the user's wallet
+    # MUST fail-closed: an unavailable fraud engine cannot become an attacker's
+    # escape hatch under a DoS / Redis outage. Pure-inbound actions (topup =
+    # credit) keep fail-open semantics to avoid blocking legitimate funding.
+    _DEBIT_ACTIONS = frozenset({"withdraw", "transfer", "payout", "release", "order", "escrow_lock"})
+
     def _check_fraud(self, request, amount, action: str):
-        """Evaluate fraud risk. Returns a 403 Response if blocked, None to proceed."""
+        """Evaluate fraud risk. Returns a Response if blocked, None to proceed."""
         ctx = RiskContext(
             user_id=request.user.id,
             amount=amount,
@@ -351,9 +386,24 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             decision = FraudEngine.evaluate(ctx, request.user)
         except Exception:
-            # Fail open — never block a legitimate transaction because the fraud
-            # engine is temporarily unavailable.
             logger.exception("fraud_engine_error user=%d action=%s", request.user.id, action)
+            if action in self._DEBIT_ACTIONS:
+                # Fail-closed for any value-out action. Surface a 503 so clients
+                # can retry, and emit an audit trail for ops triage.
+                try:
+                    from apps.accounts.security import write_audit_log
+                    write_audit_log(
+                        actor=request.user,
+                        action="fraud_engine_unavailable_blocked",
+                        action_key="wallet.fraud.fail_closed",
+                        metadata={"flow": action, "amount": str(amount)},
+                    )
+                except Exception:
+                    pass
+                return response.Response(
+                    {"detail": "Service de securite indisponible. Reessayez dans quelques instants."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
             return None
         if decision.is_blocked:
             logger.warning(
@@ -444,8 +494,18 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_423_LOCKED,
             )
         pin = str(request.data.get("pin") or "").strip()
-        if len(pin) != 4 or not pin.isdigit():
-            return response.Response({"detail": "PIN wallet invalide (4 chiffres requis)."}, status=status.HTTP_400_BAD_REQUEST)
+        # Audit ref: [N-001] verify path must accept the same PIN lengths as
+        # WalletPinView accepts on set (6-12 digits). The previous hard-coded
+        # 4 was an auto-DOS — every new PIN set under M-007 was instantly
+        # rejected here, locking users out of topup/withdraw. We accept the
+        # legacy 4-digit hashes still in DB by allowing min length down to 4
+        # on verify (backwards compatible until the migration job re-prompts).
+        min_len = max(4, int(getattr(settings, "WALLET_PIN_VERIFY_MIN_LENGTH", 4)))
+        if not pin.isdigit() or not (min_len <= len(pin) <= 12):
+            return response.Response(
+                {"detail": f"PIN wallet invalide ({min_len} a 12 chiffres)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if not request.user.check_wallet_pin(pin):
             locked = request.user.register_wallet_pin_failure(
                 max_attempts=settings.WALLET_PIN_MAX_ATTEMPTS,
@@ -508,12 +568,16 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         limit_error = self._enforce_kyc_limits(request, amount)
         if limit_error:
             return limit_error
-        fraud_error = self._check_fraud(request, amount, "topup")
-        if fraud_error:
-            return fraud_error
+        # Audit ref: [FIN-006] PIN/fraud order inversion.
+        # PIN must be validated BEFORE fraud. Otherwise an attacker can DoS the
+        # fraud engine (Redis outage) to skip the brute-force lockout counter
+        # written by register_wallet_pin_failure() and grind the 4-digit PIN.
         security_error = self._validate_wallet_security(request, amount, "TOPUP")
         if security_error:
             return security_error
+        fraud_error = self._check_fraud(request, amount, "topup")
+        if fraud_error:
+            return fraud_error
 
         idempotency_key = request.headers.get("Idempotency-Key") or str(request.data.get("idempotency_key") or "").strip()
         # Phase 1 — enhanced idempotency: request-body hash + response snapshot.
@@ -582,6 +646,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             amount=amount,
             description=f"Recharge wallet {request.user.username}",
             tx_ref=external_tx,
+            provider=provider,
             customer_name=request.user.get_full_name() or request.user.username,
             customer_email=request.user.email,
         )
@@ -667,12 +732,13 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         limit_error = self._enforce_kyc_limits(request, amount)
         if limit_error:
             return limit_error
-        fraud_error = self._check_fraud(request, amount, "withdraw")
-        if fraud_error:
-            return fraud_error
+        # Audit ref: [FIN-006] PIN/fraud order inversion — PIN first.
         security_error = self._validate_wallet_security(request, amount, "WITHDRAW")
         if security_error:
             return security_error
+        fraud_error = self._check_fraud(request, amount, "withdraw")
+        if fraud_error:
+            return fraud_error
 
         idempotency_key = request.headers.get("Idempotency-Key") or str(request.data.get("idempotency_key") or "").strip()
         idem_record = None

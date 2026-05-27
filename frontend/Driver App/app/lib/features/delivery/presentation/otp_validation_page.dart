@@ -35,8 +35,11 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
+      // Audit ref: [Front-Driver] backend exposes
+      // ShipmentViewSet.validate_delivery (logistics/views.py:451). The
+      // previous /validate-otp/ path was a 404.
       await DriverDioClient.dio.post(
-        '/api/logistics/shipments/${widget.shipmentId}/validate-otp/',
+        '/api/shipments/${widget.shipmentId}/validate_delivery/',
         data: {'otp': _otp},
       );
       if (!mounted) return;

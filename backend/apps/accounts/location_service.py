@@ -1,10 +1,59 @@
+import ipaddress
 import json
+import socket
 import urllib.parse
 import urllib.request
 from typing import TypedDict
 
 from django.conf import settings
 from django.utils import timezone
+
+
+def _is_safe_geocoder_url(url: str) -> bool:
+    """Audit ref: [M-001] reject SSRF-prone URLs.
+
+    Rules:
+      * HTTPS only.
+      * Hostname must resolve to a PUBLIC unicast IPv4/IPv6 — no loopback,
+        link-local, private, multicast, reserved, or unspecified.
+      * DEBUG=True relaxes the rule slightly (allows http://localhost) so
+        the local dev nominatim mock container keeps working.
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    scheme = (parsed.scheme or "").lower()
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+
+    debug = bool(getattr(settings, "DEBUG", False))
+    if scheme not in ("https",):
+        if not (debug and scheme == "http" and host in {"localhost", "127.0.0.1", "::1"}):
+            return False
+
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return False
+    for info in infos:
+        ip_str = info[4][0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return False
+        if (
+            ip.is_loopback
+            or ip.is_private
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            if not (debug and ip.is_loopback):
+                return False
+    return True
 
 
 class GeocodePayload(TypedDict):
@@ -64,6 +113,13 @@ def geocode_with_nominatim(*, city: str, country_code: str) -> GeocodePayload | 
     if email:
         params["email"] = email
     base_url = getattr(settings, "NOMINATIM_BASE_URL", "https://nominatim.openstreetmap.org").rstrip("/")
+    # Audit ref: [M-001] block SSRF — refuse non-HTTPS schemes and any host
+    # that resolves to a private/loopback/link-local range. Without this, a
+    # misconfigured NOMINATIM_BASE_URL pointing at e.g.
+    # http://169.254.169.254/ (cloud metadata) would let any caller of
+    # update_user_location exfiltrate instance credentials.
+    if not _is_safe_geocoder_url(base_url):
+        return None
     url = f"{base_url}/search?{urllib.parse.urlencode(params)}"
     req = urllib.request.Request(
         url,

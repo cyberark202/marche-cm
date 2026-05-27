@@ -47,29 +47,29 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDBawWwSPk9Q7d-3Euj-ToJ4dlry7F9_Qc',
-    appId: '1:713755103175:web:80986b1fd1804d302b53e2',
-    messagingSenderId: '713755103175',
-    projectId: 'market-cm-d074b',
-    authDomain: 'market-cm-d074b.firebaseapp.com',
-    storageBucket: 'market-cm-d074b.firebasestorage.app',
-    measurementId: 'G-70PCPK1NCZ',
+    apiKey: 'AIzaSyBzCpx92PnNHNgQBWmqIKgAM29JXI0G_ws',
+    appId: '1:355585940733:web:6dd74d5666cab0acb5b294',
+    messagingSenderId: '355585940733',
+    projectId: 'marche-cm',
+    authDomain: 'marche-cm.firebaseapp.com',
+    storageBucket: 'marche-cm.firebasestorage.app',
+    measurementId: 'G-9JLTN5Z60P',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBUuktBNK9jpUhV9x1JjeeylSPJEseVrZQ',
-    appId: '1:713755103175:android:a65badb4b1ed52ce2b53e2',
-    messagingSenderId: '713755103175',
-    projectId: 'market-cm-d074b',
-    storageBucket: 'market-cm-d074b.firebasestorage.app',
+    apiKey: 'AIzaSyCOFtUk82Mf-ku8tWjCl74vKGbalTAwids',
+    appId: '1:355585940733:android:a0e6e19a1818ff1cb5b294',
+    messagingSenderId: '355585940733',
+    projectId: 'marche-cm',
+    storageBucket: 'marche-cm.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA03yu915AMPZO65tTADFjUfslNL_xeCM8',
-    appId: '1:713755103175:ios:33e8ddb5549c2e6c2b53e2',
-    messagingSenderId: '713755103175',
-    projectId: 'market-cm-d074b',
-    storageBucket: 'market-cm-d074b.firebasestorage.app',
+    apiKey: 'AIzaSyCoEOv4KgXwSFkdU0dOmA5WGS2AHyJ0OWE',
+    appId: '1:355585940733:ios:7d9b222d734a933cb5b294',
+    messagingSenderId: '355585940733',
+    projectId: 'marche-cm',
+    storageBucket: 'marche-cm.firebasestorage.app',
     iosBundleId: 'com.marche.clients',
   );
 }

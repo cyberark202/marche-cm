@@ -76,8 +76,10 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
               filename: _backFile!.name),
         ));
       }
+      // Audit ref: [Front-marche_cm] backend exposes /api/compliance-documents/
+      // (config/urls.py:65). The /api/accounts/ prefix does not exist server-side.
       await SecureDioClient.dio.post(
-        '/api/accounts/compliance-documents/',
+        '/api/compliance-documents/',
         data: formData,
       );
       if (!mounted) return;

@@ -15,6 +15,13 @@ class ChatRoomSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     my_state = serializers.SerializerMethodField()
 
+    # Audit ref: [N-002] defense in depth — the same length/type validation
+    # the WS consumer enforces (apps/realtime/consumers.py) MUST also live in
+    # the REST serializer. Otherwise a client can bypass the WS hardening by
+    # POSTing directly to /api/chat/messages/.
+    MAX_CONTENT_LEN = 4000
+    ALLOWED_TYPES = {"TEXT", "IMAGE", "VIDEO", "DOCUMENT"}
+
     class Meta:
         model = Message
         fields = "__all__"
@@ -26,6 +33,20 @@ class MessageSerializer(serializers.ModelSerializer):
             return ""
         receipt = next((r for r in obj.receipts.all() if r.user_id == user.id), None)
         return receipt.state if receipt else ""
+
+    def validate_content(self, value):
+        if value and len(value) > self.MAX_CONTENT_LEN:
+            raise serializers.ValidationError(
+                f"Message trop long ({self.MAX_CONTENT_LEN} caracteres max)."
+            )
+        return value
+
+    def validate_type(self, value):
+        if value not in self.ALLOWED_TYPES:
+            raise serializers.ValidationError(
+                f"Type de message invalide. Valeurs autorisees: {sorted(self.ALLOWED_TYPES)}."
+            )
+        return value
 
     def validate_file(self, value):
         content_type = str(getattr(value, "content_type", "") or "").lower()

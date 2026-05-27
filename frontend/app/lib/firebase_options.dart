@@ -14,8 +14,6 @@ import 'package:flutter/foundation.dart'
 ///   options: DefaultFirebaseOptions.currentPlatform,
 /// );
 /// ```
-/// 
-
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -27,9 +25,15 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -43,48 +47,29 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDBawWwSPk9Q7d-3Euj-ToJ4dlry7F9_Qc',
-    appId: '1:713755103175:web:8bcdc62c4f995fa12b53e2',
-    messagingSenderId: '713755103175',
-    projectId: 'market-cm-d074b',
-    authDomain: 'market-cm-d074b.firebaseapp.com',
-    storageBucket: 'market-cm-d074b.firebasestorage.app',
-    measurementId: 'G-361LDDSY6G',
+    apiKey: 'AIzaSyBzCpx92PnNHNgQBWmqIKgAM29JXI0G_ws',
+    appId: '1:355585940733:web:6dd74d5666cab0acb5b294',
+    messagingSenderId: '355585940733',
+    projectId: 'marche-cm',
+    authDomain: 'marche-cm.firebaseapp.com',
+    storageBucket: 'marche-cm.firebasestorage.app',
+    measurementId: 'G-9JLTN5Z60P',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBUuktBNK9jpUhV9x1JjeeylSPJEseVrZQ',
-    appId: '1:713755103175:android:ba6378cdbdce06ed2b53e2',
-    messagingSenderId: '713755103175',
-    projectId: 'market-cm-d074b',
-    storageBucket: 'market-cm-d074b.firebasestorage.app',
+    apiKey: 'AIzaSyCOFtUk82Mf-ku8tWjCl74vKGbalTAwids',
+    appId: '1:355585940733:android:02a0ef78ef9729c7b5b294',
+    messagingSenderId: '355585940733',
+    projectId: 'marche-cm',
+    storageBucket: 'marche-cm.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA03yu915AMPZO65tTADFjUfslNL_xeCM8',
-    appId: '1:713755103175:ios:20950a12966993e92b53e2',
-    messagingSenderId: '713755103175',
-    projectId: 'market-cm-d074b',
-    storageBucket: 'market-cm-d074b.firebasestorage.app',
-    iosBundleId: 'com.marchecm.app',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyA03yu915AMPZO65tTADFjUfslNL_xeCM8',
-    appId: '1:713755103175:ios:20950a12966993e92b53e2',
-    messagingSenderId: '713755103175',
-    projectId: 'market-cm-d074b',
-    storageBucket: 'market-cm-d074b.firebasestorage.app',
-    iosBundleId: 'com.marchecm.app',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDBawWwSPk9Q7d-3Euj-ToJ4dlry7F9_Qc',
-    appId: '1:713755103175:web:80986b1fd1804d302b53e2',
-    messagingSenderId: '713755103175',
-    projectId: 'market-cm-d074b',
-    authDomain: 'market-cm-d074b.firebaseapp.com',
-    storageBucket: 'market-cm-d074b.firebasestorage.app',
-    measurementId: 'G-70PCPK1NCZ',
+    apiKey: 'AIzaSyCoEOv4KgXwSFkdU0dOmA5WGS2AHyJ0OWE',
+    appId: '1:355585940733:ios:075e4beaac8d413eb5b294',
+    messagingSenderId: '355585940733',
+    projectId: 'marche-cm',
+    storageBucket: 'marche-cm.firebasestorage.app',
+    iosBundleId: 'com.example.app',
   );
 }

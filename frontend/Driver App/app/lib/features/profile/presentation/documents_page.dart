@@ -7,8 +7,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 
-final _docsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final res = await DriverDioClient.dio.get('/api/accounts/compliance-documents/');
+// Audit ref: [Front-Driver] backend exposes /api/compliance-documents/
+// (config/urls.py:65). The /api/accounts/compliance-documents/ path does
+// not exist server-side.
+final _docsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final res = await DriverDioClient.dio.get('/api/compliance-documents/');
   final data = res.data;
   if (data is List) return data.cast<Map<String, dynamic>>();
   if (data is Map && data['results'] is List) {
@@ -43,7 +47,7 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
         'document_type': docType,
         'front': await MultipartFile.fromFile(file.path!, filename: file.name),
       });
-      await DriverDioClient.dio.post('/api/accounts/compliance-documents/', data: form);
+      await DriverDioClient.dio.post('/api/compliance-documents/', data: form);
       ref.invalidate(_docsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -4,6 +4,7 @@ from django.conf.urls.static import static
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 from config.health import HealthView
 from apps.accounts.views import (
@@ -52,6 +53,12 @@ from apps.innovation.views import (
 from apps.orders.views import OrderViewSet
 from apps.support.views import SupportTicketViewSet
 from apps.wallets.views import WalletViewSet
+from apps.escrow.views import EscrowHoldViewSet
+from apps.disputes.views import DisputeCaseViewSet
+from apps.fraud.views import FraudAssessmentViewSet, UserRiskProfileViewSet
+from apps.compliance.views import KYCApplicationViewSet
+from apps.audit.views import AuditEventViewSet
+from apps.ledger.views import LedgerAccountViewSet, LedgerTransactionViewSet
 
 router = DefaultRouter()
 router.register("users", UserViewSet, basename="user")
@@ -79,6 +86,14 @@ router.register("partner-api-keys", PartnerApiKeyViewSet, basename="partner-api-
 router.register("webhook-subscriptions", WebhookSubscriptionViewSet, basename="webhook-subscription")
 router.register("notifications", NotificationViewSet, basename="notification")
 router.register("support/tickets", SupportTicketViewSet, basename="support-ticket")
+router.register("escrow/holds", EscrowHoldViewSet, basename="escrow-hold")
+router.register("disputes", DisputeCaseViewSet, basename="dispute")
+router.register("fraud/assessments", FraudAssessmentViewSet, basename="fraud-assessment")
+router.register("fraud/risk-profiles", UserRiskProfileViewSet, basename="risk-profile")
+router.register("compliance/kyc", KYCApplicationViewSet, basename="kyc-application")
+router.register("audit/events", AuditEventViewSet, basename="audit-event")
+router.register("ledger/accounts", LedgerAccountViewSet, basename="ledger-account")
+router.register("ledger/transactions", LedgerTransactionViewSet, basename="ledger-transaction")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -152,6 +167,32 @@ urlpatterns = [
     ),
     path("api/", include(router.urls)),
 ]
+
+# ── OpenAPI / Swagger ─────────────────────────────────────────────────────
+urlpatterns += [
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/schema/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+]
+
+# ── Prometheus metrics ─────────────────────────────────────────────────────
+# Audit ref: [L-002] use the RBAC enum (GENERAL_ADMIN role) instead of
+# Django's is_staff flag — a seed/admin account flagged is_staff but not
+# GENERAL_ADMIN should not be able to read internal latency/error metrics.
+try:
+    from django.http import HttpResponse
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    from core.permissions.rbac import IsGeneralAdmin
+    from rest_framework.decorators import api_view, permission_classes
+
+    @api_view(["GET"])
+    @permission_classes([IsGeneralAdmin])
+    def metrics_view(request):
+        return HttpResponse(generate_latest(), content_type=CONTENT_TYPE_LATEST)
+
+    urlpatterns += [path("metrics/", metrics_view, name="prometheus-metrics")]
+except ImportError:
+    pass
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

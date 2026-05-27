@@ -36,37 +36,36 @@ class Wallet(models.Model):
         return self.available_balance + self.locked_balance + self.pending_balance
 
     def sync_legacy_balances(self):
+        """Mirror modern fields into the legacy fields (one-way).
+
+        Audit ref: [FIN-002] Wallet.save() previously had a "legacy write"
+        branch that inferred the modern fields from `balance` and
+        `blocked_balance` when the modern fields looked zero. That branch
+        corrupted state whenever a caller (admin script, test, legacy code)
+        touched the legacy fields after a successful mutation — silently
+        zeroing `pending_balance` and producing phantom losses.
+
+        The legacy fields are now strictly DERIVED from the modern fields:
+          * `blocked_balance` mirrors `locked_balance`
+          * `balance` mirrors `available + locked + pending`
+        Any direct assignment to a legacy field is overwritten on save.
+        Use WalletAccountingService.mutate_wallet() to change balances.
+        """
         self.blocked_balance = self.locked_balance
         self.balance = self.total_balance
 
     def save(self, *args, **kwargs):
-        update_fields = kwargs.get("update_fields")
-        using_legacy_write = False
-        if update_fields:
-            fields = set(update_fields)
-            using_legacy_write = bool(fields.intersection({"balance", "blocked_balance"})) and not bool(
-                fields.intersection({"available_balance", "locked_balance", "pending_balance"})
-            )
-        else:
-            using_legacy_write = (
-                Decimal(str(self.available_balance or 0)) == Decimal("0")
-                and Decimal(str(self.locked_balance or 0)) == Decimal("0")
-                and Decimal(str(self.pending_balance or 0)) == Decimal("0")
-                and (
-                    Decimal(str(self.balance or 0)) > Decimal("0")
-                    or Decimal(str(self.blocked_balance or 0)) > Decimal("0")
-                )
-            )
-        if using_legacy_write:
-            self.locked_balance = Decimal(str(self.blocked_balance or 0)).quantize(Decimal("0.01"))
-            inferred_available = Decimal(str(self.balance or 0)) - self.locked_balance - Decimal(str(self.pending_balance or 0))
-            if inferred_available < 0:
-                inferred_available = Decimal("0.00")
-            self.available_balance = inferred_available.quantize(Decimal("0.01"))
+        # Always re-derive legacy fields from modern fields (one-way mirror).
+        # The previous "legacy write" inference path is removed — see
+        # sync_legacy_balances docstring for the [FIN-002] rationale.
         self.sync_legacy_balances()
+        update_fields = kwargs.get("update_fields")
         if update_fields:
             merged = set(update_fields)
-            merged.update({"available_balance", "locked_balance", "pending_balance", "balance", "blocked_balance"})
+            # Whenever any balance moves we must also persist the derived
+            # legacy mirrors so they stay consistent on partial saves.
+            if merged & {"available_balance", "locked_balance", "pending_balance"}:
+                merged.update({"balance", "blocked_balance"})
             kwargs["update_fields"] = list(merged)
         super().save(*args, **kwargs)
 

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 import re
+import secrets
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
@@ -339,11 +340,16 @@ class RegisterSerializer(serializers.ModelSerializer):
         return normalized
 
     def validate_name(self, value):
+        # Audit ref: [H-005] enum bypass via validate_name.
+        # The previous existence check leaked whether a first_name was already
+        # registered, breaking the anti-enumeration effort done on email. The
+        # collision is now resolved silently in create() with a numeric suffix
+        # on the derived username — first_name itself stays free-form.
         name = (value or "").strip()
         if len(name) < 2:
             raise serializers.ValidationError("Nom obligatoire.")
-        if User.objects.filter(first_name__iexact=name).exists():
-            raise serializers.ValidationError("Ce nom est deja utilise. Choisissez un autre nom.")
+        if len(name) > 150:
+            raise serializers.ValidationError("Nom trop long (150 caracteres max).")
         return name
 
     def validate_phone_number(self, value):
@@ -361,9 +367,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         role = validated_data.get("role", UserRole.BUYER)
 
         base_username = re.sub(r"[^a-zA-Z0-9_]+", "_", full_name.lower()).strip("_") or "user"
+        # Audit ref: [H-005] silently disambiguate username collisions instead of
+        # leaking existence of accounts. Append a numeric suffix until free,
+        # capped at 50 attempts (then random suffix) to bound DB hits.
         username = base_username[:120]
-        if User.objects.filter(username__iexact=username).exists():
-            raise serializers.ValidationError({"name": "Ce nom de compte est deja utilise."})
+        suffix = 1
+        while User.objects.filter(username__iexact=username).exists():
+            if suffix > 50:
+                username = f"{base_username[:110]}_{secrets.token_hex(4)}"
+                break
+            suffix += 1
+            username = f"{base_username[:117]}_{suffix}"
         user = User(
             username=username,
             email=validated_data.get("email", ""),

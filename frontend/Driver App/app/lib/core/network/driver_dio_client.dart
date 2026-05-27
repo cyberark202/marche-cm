@@ -81,8 +81,12 @@ class _AuthInterceptor extends Interceptor {
         return;
       }
 
+      // Audit ref: [Front-Driver] backend exposes /api/auth/refresh/
+      // (config/urls.py:118). The previous /api/accounts/token/refresh/ path
+      // does not exist server-side — every access-token expiry would log the
+      // driver out within 15-30 min.
       final response = await Dio().post(
-        '${DriverDioClient._baseUrl}/api/accounts/token/refresh/',
+        '${DriverDioClient._baseUrl}/api/auth/refresh/',
         data: {'refresh': refreshToken},
       );
       final newAccess = (response.data['access'] ?? '').toString();

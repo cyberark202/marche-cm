@@ -1,32 +1,13 @@
 {
   "project_info": {
-    "project_number": "713755103175",
-    "project_id": "market-cm-d074b",
-    "storage_bucket": "market-cm-d074b.firebasestorage.app"
+    "project_number": "355585940733",
+    "project_id": "marche-cm",
+    "storage_bucket": "marche-cm.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:713755103175:android:ba6378cdbdce06ed2b53e2",
-        "android_client_info": {
-          "package_name": "com.example.app"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBUuktBNK9jpUhV9x1JjeeylSPJEseVrZQ"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:713755103175:android:a65badb4b1ed52ce2b53e2",
+        "mobilesdk_app_id": "1:355585940733:android:a0e6e19a1818ff1cb5b294",
         "android_client_info": {
           "package_name": "com.marche.clients"
         }
@@ -34,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBUuktBNK9jpUhV9x1JjeeylSPJEseVrZQ"
+          "current_key": "AIzaSyCOFtUk82Mf-ku8tWjCl74vKGbalTAwids"
         }
       ],
       "services": {
@@ -45,15 +26,15 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:713755103175:android:485464d53dd182032b53e2",
+        "mobilesdk_app_id": "1:355585940733:android:02a0ef78ef9729c7b5b294",
         "android_client_info": {
-          "package_name": "com.marchecm.clients"
+          "package_name": "com.marchecm.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBUuktBNK9jpUhV9x1JjeeylSPJEseVrZQ"
+          "current_key": "AIzaSyCOFtUk82Mf-ku8tWjCl74vKGbalTAwids"
         }
       ],
       "services": {

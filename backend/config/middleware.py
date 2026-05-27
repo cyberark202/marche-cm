@@ -334,21 +334,140 @@ class SuspiciousRequestMiddleware:
 _TRUSTED_PROXY_HEADERS = ("HTTP_X_FORWARDED_FOR", "HTTP_X_REAL_IP")
 
 
+def _parse_trusted_proxy_entries(raw) -> tuple[set[str], list[ipaddress.IPv4Network | ipaddress.IPv6Network]]:
+    """Split TRUSTED_PROXIES into (exact_ip_set, cidr_network_list)."""
+    if raw is None:
+        return set(), []
+    if isinstance(raw, str):
+        items = [p.strip() for p in raw.split(",") if p.strip()]
+    else:
+        items = [str(p).strip() for p in raw if p]
+    exact: set[str] = set()
+    nets: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for item in items:
+        if "/" in item:
+            try:
+                nets.append(ipaddress.ip_network(item, strict=False))
+                continue
+            except ValueError:
+                pass
+        exact.add(item)
+    return exact, nets
+
+
+def _ip_in_trusted(remote: str, exact: set[str], nets: list) -> bool:
+    if remote in exact:
+        return True
+    try:
+        ip = ipaddress.ip_address(remote)
+    except ValueError:
+        return False
+    return any(ip in net for net in nets)
+
+
+def _trust_private_proxies_enabled() -> bool:
+    """When True, RFC1918/loopback REMOTE_ADDR auto-counts as a trusted proxy.
+
+    Useful in container/PaaS environments (Render, Heroku, Fly, Docker) where
+    the inbound LB always lands on a private IP and listing the exact IP is
+    impractical. SAFE because a public attacker can never make REMOTE_ADDR
+    look private — only the platform LB can.
+    """
+    from django.conf import settings
+    return bool(getattr(settings, "TRUST_PRIVATE_PROXIES", False))
+
+
+def _proxy_psk_match(request: HttpRequest) -> bool:
+    """Pre-shared-secret header pattern.
+
+    Operators can set TRUSTED_PROXY_SECRET on the app AND configure the LB
+    to inject ``X-Internal-Proxy-Secret: <same value>`` on every forwarded
+    request. The app then trusts XFF only when the secret matches. Works on
+    any platform regardless of IP topology. Empty secret = disabled.
+    """
+    from django.conf import settings
+    expected = (getattr(settings, "TRUSTED_PROXY_SECRET", "") or "").strip()
+    if not expected:
+        return False
+    incoming = request.META.get("HTTP_X_INTERNAL_PROXY_SECRET", "").strip()
+    if not incoming:
+        return False
+    import hmac as _hmac
+    return _hmac.compare_digest(incoming, expected)
+
+
+def _is_request_from_trusted_proxy(request: HttpRequest) -> bool:
+    """Centralise the trust decision so every call site agrees."""
+    if _proxy_psk_match(request):
+        return True
+    from django.conf import settings
+    exact, nets = _parse_trusted_proxy_entries(
+        getattr(settings, "TRUSTED_PROXIES", None)
+    )
+    remote = request.META.get("REMOTE_ADDR", "")
+    if exact or nets:
+        if _ip_in_trusted(remote, exact, nets):
+            return True
+    if _trust_private_proxies_enabled():
+        try:
+            ip = ipaddress.ip_address(remote)
+        except ValueError:
+            return False
+        return ip.is_private or ip.is_loopback
+    return False
+
+
 def _client_ip(request: HttpRequest) -> str:
     """
-    Extract the real client IP, respecting X-Forwarded-For set by trusted proxies.
+    Audit ref: [N-005] return the real client IP, refusing forged X-Forwarded-For.
 
-    We only trust the LEFTMOST address in XFF (the originating client).
-    Rightmost addresses are added by each proxy hop and can be forged.
+    Trust order:
+      1. Pre-shared-secret header (TRUSTED_PROXY_SECRET) — works on any platform.
+      2. Exact-match or CIDR-range TRUSTED_PROXIES (env-configurable list).
+      3. RFC1918/loopback REMOTE_ADDR when TRUST_PRIVATE_PROXIES=True
+         (PaaS shortcut — LB always lands on a private IP).
+
+    When the request comes from a trusted proxy:
+      * Prefer Cloudflare's ``CF-Connecting-IP`` if present (single client IP,
+        not a chain — tamper-resistant when CF is in front).
+      * Else walk XFF right-to-left skipping known proxy IPs/networks.
+      * Else fall back to X-Real-IP.
+
+    When the request is NOT from a trusted proxy, XFF is attacker-controlled
+    and gets ignored entirely.
     """
-    xff = request.META.get("HTTP_X_FORWARDED_FOR", "").strip()
-    if xff:
-        candidate = xff.split(",")[0].strip()
+    remote = request.META.get("REMOTE_ADDR", "0.0.0.0")
+    if not _is_request_from_trusted_proxy(request):
+        return remote
+
+    # Cloudflare convention — a single, non-chained client IP. Cloudflare
+    # strips and rewrites this header so it cannot be spoofed by clients.
+    cf_ip = request.META.get("HTTP_CF_CONNECTING_IP", "").strip()
+    if cf_ip:
         try:
-            ipaddress.ip_address(candidate)
-            return candidate
+            ipaddress.ip_address(cf_ip)
+            return cf_ip
         except ValueError:
             pass
+
+    from django.conf import settings
+    exact, nets = _parse_trusted_proxy_entries(
+        getattr(settings, "TRUSTED_PROXIES", None)
+    )
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "").strip()
+    if xff:
+        candidates = [p.strip() for p in xff.split(",") if p.strip()]
+        # Walk RTL — last hop appends its peer, so the originating client is
+        # the leftmost address whose RIGHT neighbour was the first non-proxy.
+        for candidate in reversed(candidates):
+            if _ip_in_trusted(candidate, exact, nets):
+                continue
+            try:
+                ipaddress.ip_address(candidate)
+                return candidate
+            except ValueError:
+                continue
+
     real_ip = request.META.get("HTTP_X_REAL_IP", "").strip()
     if real_ip:
         try:
@@ -356,4 +475,4 @@ def _client_ip(request: HttpRequest) -> str:
             return real_ip
         except ValueError:
             pass
-    return request.META.get("REMOTE_ADDR", "0.0.0.0")
+    return remote

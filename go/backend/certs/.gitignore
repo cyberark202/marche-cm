@@ -1,5 +1,0 @@
-*.pem
-*.key
-*.crt
-!.gitignore
-!README.md

@@ -90,6 +90,17 @@ class NotchPayCheckoutService:
             return True
         return code_str in {"200", "201", "202"}
 
+    # Audit ref: NotchPay channel routing — buyers selecting Orange Money were
+    # locked on the MTN payment page because locked_channel hard-coded to the
+    # first entry of NOTCHPAY_CHECKOUT_CHANNELS. The map below converts the
+    # caller-side `provider` ("mtn", "orange", ...) to NotchPay's channel id.
+    _PROVIDER_TO_CHANNEL = {
+        "mtn": "cm.mtn",
+        "cm.mtn": "cm.mtn",
+        "orange": "cm.orange",
+        "cm.orange": "cm.orange",
+    }
+
     @classmethod
     def create_invoice(
         cls,
@@ -97,6 +108,7 @@ class NotchPayCheckoutService:
         amount,
         description: str,
         tx_ref: str,
+        provider: str | None = None,
         customer_name: str | None = None,
         customer_email: str | None = None,
     ) -> dict:
@@ -133,9 +145,17 @@ class NotchPayCheckoutService:
         if customer_payload:
             payload["customer"] = customer_payload
 
+        # Route to the channel that matches what the buyer picked. If the
+        # provider hint is unknown OR the configured list excludes that
+        # channel, we leave locked_channel out so NotchPay falls back to its
+        # own channel picker — that's safer than locking the wrong rail.
         channels = [channel for channel in settings.NOTCHPAY_CHECKOUT_CHANNELS if channel]
         if channels:
-            payload["locked_channel"] = channels[0]
+            mapped = cls._PROVIDER_TO_CHANNEL.get((provider or "").lower())
+            if mapped and mapped in channels:
+                payload["locked_channel"] = mapped
+            elif len(channels) == 1:
+                payload["locked_channel"] = channels[0]
 
         result = cls._post_json(f"{cls._base_url()}{cls.CREATE_PATH}", payload)
         if result.get("error"):

@@ -7,6 +7,9 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .env
+.env.*
+*.env
+marche-cm.env
 .venv/
 venv/
 *.sqlite3
@@ -20,6 +23,12 @@ venv/
 build/
 *.g.dart
 key.properties
+.kotlin/
+
+# User-uploaded media (KYC, proofs, avatars) — must live in object storage,
+# never in git. Audit ref: keeps any prior leak from re-committing.
+backend/media/
+/go/backend/media/
 
 # IDE
 .idea/

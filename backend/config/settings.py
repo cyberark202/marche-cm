@@ -99,14 +99,47 @@ if not SECRET_KEY:
     else:
         raise ImproperlyConfigured("SECRET_KEY is required when DEBUG=False.")
 
-ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "10.73.205.205, 127.0.0.1,localhost")
+# Audit ref: [N-006] development IP removed from the default. Production
+# operators MUST set ALLOWED_HOSTS explicitly via env; the default only
+# covers local-loopback hostnames for dev runs.
+ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
+
+# Audit ref: [N-005] reverse-proxy IPs that are allowed to set X-Forwarded-For.
+# Empty by default — the canonical _client_ip helper refuses XFF when REMOTE_ADDR
+# is not in this list, so an attacker connecting directly cannot forge their IP.
+TRUSTED_PROXIES = _env_list("TRUSTED_PROXIES", "")
 BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://127.0.0.1:8000")
+# Audit ref: [M-003] reject plaintext HTTP for callback URLs in production —
+# NotchPay would otherwise be told to deliver payment receipts and OAuth
+# redirects over an unencrypted channel.
+if not DEBUG and BACKEND_PUBLIC_URL.lower().startswith("http://"):
+    raise ImproperlyConfigured(
+        "BACKEND_PUBLIC_URL must use HTTPS in production. "
+        "Set it to https://<your-domain> in the deployment env."
+    )
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 DATA_ENCRYPTION_KEY = os.getenv("DATA_ENCRYPTION_KEY", "").strip()
 DATA_ENCRYPTION_FALLBACK_KEYS = _env_list("DATA_ENCRYPTION_FALLBACK_KEYS")
 AUTH_LOCKDOWN = _env_bool("AUTH_LOCKDOWN", False)
+
+# Debug authentication bypass — hardened against accidental production activation.
+# Audit ref: [H-001] DebugBypassAuthentication peut créer un superuser
+# Rules:
+#   1. The env var ENABLE_DEBUG_BYPASS=1 is REFUSED at startup if DEBUG=False.
+#   2. The auth class is NEVER registered when DEBUG=False, even if the env vars leak.
+#   3. DEBUG_BYPASS_TOKEN is REFUSED at startup if shorter than 32 chars (entropy).
+_debug_bypass_env_enabled = _env_bool("ENABLE_DEBUG_BYPASS", False)
 DEBUG_BYPASS_TOKEN = os.getenv("DEBUG_BYPASS_TOKEN", "").strip()
-ENABLE_DEBUG_BYPASS = DEBUG and _env_bool("ENABLE_DEBUG_BYPASS", False) and bool(DEBUG_BYPASS_TOKEN)
+if not DEBUG and _debug_bypass_env_enabled:
+    raise ImproperlyConfigured(
+        "ENABLE_DEBUG_BYPASS=1 is forbidden when DEBUG=False. "
+        "This switch creates an instant superuser and must NEVER be active in production."
+    )
+if _debug_bypass_env_enabled and DEBUG_BYPASS_TOKEN and len(DEBUG_BYPASS_TOKEN) < 32:
+    raise ImproperlyConfigured(
+        "DEBUG_BYPASS_TOKEN must be at least 32 characters (use secrets.token_urlsafe(32))."
+    )
+ENABLE_DEBUG_BYPASS = DEBUG and _debug_bypass_env_enabled and bool(DEBUG_BYPASS_TOKEN)
 
 # Keep common local dev hosts accepted (Android emulator, localhost variants),
 # avoiding DisallowedHost errors while testing mobile builds against local API.
@@ -125,6 +158,12 @@ if _public_host and _public_host not in ALLOWED_HOSTS:
 
 SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", not DEBUG)
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+# Audit ref: [N-013] Strict SameSite for session and CSRF cookies — Django's
+# default "Lax" still lets a top-level GET cross-site request carry the
+# session, which is insufficient for a fintech admin surface. Strict forbids
+# the cookie from riding any cross-site navigation.
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Strict")
+CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Strict")
 CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000" if not DEBUG else "0"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", not DEBUG)
@@ -176,6 +215,17 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.innovation",
     "apps.support",
+    "apps.escrow",
+    "apps.disputes",
+    "apps.ledger",
+    "apps.audit",
+    "apps.fraud",
+    "apps.compliance",
+    "apps.realtime",
+    "django_celery_beat",
+    "django_celery_results",
+    "drf_spectacular",
+    "core.events",
 ]
 
 MIDDLEWARE = [
@@ -677,16 +727,74 @@ if _jwt_verifying_key:
     SIMPLE_JWT["VERIFYING_KEY"] = _jwt_verifying_key
 
 if not DEBUG and SIMPLE_JWT.get("ALGORITHM", "HS256") == "HS256":
+    # Audit ref: [H-002] JWT HS256 par défaut + warning seulement
+    # HS256 = symmetric. A leak of SECRET_KEY (env dump, logs, backup) lets an
+    # attacker forge any token. RS256/ES256 confine the blast radius to the
+    # private signing key, which never leaves the secrets manager.
+    if not _env_bool("ALLOW_HS256_IN_PRODUCTION", False):
+        raise ImproperlyConfigured(
+            "JWT_ALGORITHM=HS256 is forbidden in production. "
+            "Generate an RSA keypair and set JWT_ALGORITHM=RS256, "
+            "JWT_SIGNING_KEY=<private PEM>, JWT_VERIFYING_KEY=<public PEM>. "
+            "Set ALLOW_HS256_IN_PRODUCTION=1 ONLY for an explicit, time-boxed migration window."
+        )
     import warnings as _warnings
     _warnings.warn(
-        "JWT_ALGORITHM=HS256 detected in production. "
-        "Migrate to RS256 (JWT_ALGORITHM, JWT_SIGNING_KEY, JWT_VERIFYING_KEY) "
-        "to limit blast radius if SECRET_KEY is ever compromised.",
+        "ALLOW_HS256_IN_PRODUCTION=1: JWT HS256 in production accepted under explicit override. "
+        "This MUST be a temporary migration setting. Migrate to RS256 ASAP.",
         stacklevel=1,
     )
+
+# RS256/ES256 require both SIGNING_KEY (private) and VERIFYING_KEY (public).
+_jwt_algo = SIMPLE_JWT.get("ALGORITHM", "HS256")
+if _jwt_algo in ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512"):
+    if not SIMPLE_JWT.get("SIGNING_KEY") or not SIMPLE_JWT.get("VERIFYING_KEY"):
+        raise ImproperlyConfigured(
+            f"JWT_ALGORITHM={_jwt_algo} requires both JWT_SIGNING_KEY (private PEM) "
+            "and JWT_VERIFYING_KEY (public PEM) to be set."
+        )
 
 # ---------------------------------------------------------------------------
 # Wallet PIN tuning — M8
 # ---------------------------------------------------------------------------
 # Configurable exponential backoff for PIN lockout to counter parallel brute-force.
 WALLET_PIN_LOCK_MINUTES_EXTENDED = _env_int("WALLET_PIN_LOCK_MINUTES_EXTENDED", 60)
+
+# ---------------------------------------------------------------------------
+# Celery — broker + result backend
+# Celery reads settings prefixed with CELERY_ (namespace="CELERY" in celery.py).
+# Defaults fall back to REDIS_URL so a single env var covers both in dev.
+# ---------------------------------------------------------------------------
+_celery_broker_default = REDIS_URL.replace("/0", "/1") if REDIS_URL else "redis://localhost:6379/1"
+_celery_result_default = REDIS_URL.replace("/0", "/2") if REDIS_URL else "redis://localhost:6379/2"
+
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", _celery_broker_default).strip()
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", _celery_result_default).strip()
+
+# ---------------------------------------------------------------------------
+# Feature flags / runtime knobs read by the remediation patches.
+# Audit refs: NEW-001/002, FIN-001, M-007, WS-002.
+# ---------------------------------------------------------------------------
+LEDGER_DOUBLE_ENTRY_ENABLED = _env_bool("LEDGER_DOUBLE_ENTRY_ENABLED", True)
+WEBHOOK_REQUIRE_TIMESTAMP = _env_bool("WEBHOOK_REQUIRE_TIMESTAMP", False)
+WEBHOOK_TIMESTAMP_WINDOW_SECONDS = _env_int("WEBHOOK_TIMESTAMP_WINDOW_SECONDS", 300)
+WALLET_PIN_MIN_LENGTH = _env_int("WALLET_PIN_MIN_LENGTH", 6)
+WALLET_PIN_VERIFY_MIN_LENGTH = _env_int("WALLET_PIN_VERIFY_MIN_LENGTH", 4)
+WS_ALLOW_TOKEN_QUERY_STRING = _env_bool("WS_ALLOW_TOKEN_QUERY_STRING", False)
+UPLOAD_SCRUB_IMAGE_METADATA = _env_bool("UPLOAD_SCRUB_IMAGE_METADATA", True)
+
+# ---------------------------------------------------------------------------
+# drf-spectacular — OpenAPI schema settings
+# ---------------------------------------------------------------------------
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Marché CM API",
+    "DESCRIPTION": (
+        "API REST du marketplace Marché CM — paiements Mobile Money (NotchPay), "
+        "escrow, litiges, logistique et notifications temps réel."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SCHEMA_PATH_PREFIX": r"/api/",
+    "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_GENERATE_CHOICE_DESCRIPTION": False,
+}

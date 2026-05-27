@@ -59,10 +59,21 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
 
   Future<void> _loadWallet() async {
     try {
-      final resp = await SecureDioClient.dio.get('/api/wallets/me/');
+      // Audit ref: [Front-marche_cm] no /api/wallets/me/ endpoint exists.
+      // WalletViewSet.list is auto-filtered to owner=request.user, so the
+      // first (and only) row is always the caller's own wallet.
+      final resp = await SecureDioClient.dio.get('/api/wallets/');
+      final data = resp.data;
+      Map<String, dynamic> wallet = {};
+      if (data is Map && data['results'] is List && (data['results'] as List).isNotEmpty) {
+        wallet = (data['results'] as List).first as Map<String, dynamic>;
+      } else if (data is List && data.isNotEmpty) {
+        wallet = data.first as Map<String, dynamic>;
+      } else if (data is Map<String, dynamic>) {
+        wallet = data;
+      }
       final balance =
-          (resp.data['available_balance'] ?? resp.data['balance'] ?? 0)
-              .toString();
+          (wallet['available_balance'] ?? wallet['balance'] ?? 0).toString();
       if (!mounted) return;
       setState(() {
         _walletBalance = _fmtBalance(balance);

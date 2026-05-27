@@ -42,8 +42,11 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
         'photo': await MultipartFile.fromFile(_photo!.path, filename: 'proof.jpg'),
         if (_noteCtrl.text.trim().isNotEmpty) 'note': _noteCtrl.text.trim(),
       });
+      // Audit ref: [Front-Driver] backend exposes
+      // ShipmentViewSet.submit_proof (logistics/views.py:422). The previous
+      // /upload-proof/ path was a 404.
       await DriverDioClient.dio.post(
-          '/api/logistics/shipments/${widget.shipmentId}/upload-proof/', data: form);
+          '/api/shipments/${widget.shipmentId}/submit_proof/', data: form);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Preuve envoyée. Validez avec l\'OTP.')),

@@ -7,10 +7,17 @@ import '../../../core/theme/driver_theme.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
+// Audit ref: [Front-Driver] backend exposes /api/shipments/ and
+// /api/transport-quotes/ (config/urls.py). The /api/logistics/* prefix does
+// not exist server-side. The ShipmentViewSet filters by current user
+// (buyer/seller/transit_agent) automatically — no extra param needed.
+
 final _activeProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final res =
-      await DriverDioClient.dio.get('/api/logistics/shipments/active/');
+  final res = await DriverDioClient.dio.get(
+    '/api/shipments/',
+    queryParameters: {'status': 'IN_TRANSIT'},
+  );
   final data = res.data;
   if (data is List) return data.cast<Map<String, dynamic>>();
   if (data is Map && data['results'] is List) {
@@ -22,7 +29,7 @@ final _activeProvider =
 final _completedProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final res = await DriverDioClient.dio
-      .get('/api/logistics/shipments/', queryParameters: {'status': 'DELIVERED'});
+      .get('/api/shipments/', queryParameters: {'status': 'DELIVERED'});
   final data = res.data;
   if (data is List) return data.cast<Map<String, dynamic>>();
   if (data is Map && data['results'] is List) {
@@ -33,7 +40,8 @@ final _completedProvider =
 
 final _myBidsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final res = await DriverDioClient.dio.get('/api/logistics/quotes/mine/');
+  // TransportQuoteViewSet auto-filters to the current user's bids.
+  final res = await DriverDioClient.dio.get('/api/transport-quotes/');
   final data = res.data;
   if (data is List) return data.cast<Map<String, dynamic>>();
   if (data is Map && data['results'] is List) {

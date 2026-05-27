@@ -44,7 +44,10 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      await DriverDioClient.dio.post('/api/wallets/driver/withdraw/', data: {
+      // Audit ref: [Front-Driver] backend exposes WalletViewSet.withdraw at
+      // /api/wallets/withdraw/ (wallets/views.py:670). The previous
+      // /api/wallets/driver/withdraw/ path was a 404.
+      await DriverDioClient.dio.post('/api/wallets/withdraw/', data: {
         'amount': amount,
         'provider': _provider,
         'phone_number': phone,

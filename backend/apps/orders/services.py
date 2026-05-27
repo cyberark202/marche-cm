@@ -68,6 +68,13 @@ class OrderFinanceService:
         if total <= ZERO:
             raise ValidationError("Le montant total a bloquer doit etre positif.")
 
+        # Audit ref: [FIN-014] derive a deterministic idempotency key when the
+        # caller didn't pass one. Two rapid "pay" clicks from a buyer used to
+        # double-lock funds because `WalletAccountingService.lock_from_available`
+        # treats an empty key as "no idempotency" and re-runs the mutation.
+        if not idempotency_key:
+            idempotency_key = f"order:{order.id}:lock_funds_v1"
+
         with transaction.atomic():
             order = Order.objects.select_for_update().select_related("buyer", "seller", "preferred_transit_agent").get(id=order.id)
             existing = list(order.escrows.all())
@@ -988,6 +995,136 @@ class OrderFinanceService:
                 metadata={"order_id": order.id, "escrow_types": released},
             )
         return released
+
+    @classmethod
+    def dispute_split_release(
+        cls,
+        *,
+        order: Order,
+        actor,
+        buyer_refund: Decimal,
+        seller_release: Decimal,
+        reason: str = "",
+    ) -> dict:
+        """
+        Audit ref: [FIN-005] dispute decision must execute the financial action.
+
+        Settle a disputed order by splitting locked escrow funds between the
+        buyer (partial refund) and the beneficiaries (partial payout).
+
+        Invariants enforced under SELECT FOR UPDATE:
+          * actor is GENERAL_ADMIN or superuser
+          * buyer_refund + seller_release == sum of still-locked escrow amounts
+          * amounts are Decimal-quantized (no float arithmetic)
+        """
+        if not actor or not actor.is_authenticated or not (
+            actor.is_superuser or getattr(actor, "role", None) == UserRole.GENERAL_ADMIN
+        ):
+            raise ValidationError("Action reservee a l'administration.")
+
+        buyer_refund = quantize_money(buyer_refund or ZERO)
+        seller_release = quantize_money(seller_release or ZERO)
+        if buyer_refund < ZERO or seller_release < ZERO:
+            raise ValidationError("Montants negatifs interdits dans un split.")
+        if buyer_refund == ZERO and seller_release == ZERO:
+            raise ValidationError("Au moins un montant doit etre strictement positif.")
+
+        with transaction.atomic():
+            order = Order.objects.select_for_update().select_related("buyer").get(id=order.id)
+            escrows = list(order.escrows.select_for_update().all())
+
+            active = [
+                e for e in escrows
+                if e.status not in {EscrowLifecycleStatus.RELEASED, EscrowLifecycleStatus.REFUNDED}
+            ]
+            total_locked = quantize_money(
+                sum((quantize_money(e.amount - e.released_amount) for e in active), ZERO)
+            )
+            requested = quantize_money(buyer_refund + seller_release)
+            if requested != total_locked:
+                raise ValidationError(
+                    f"Somme buyer_refund + seller_release ({requested}) "
+                    f"doit egaler le total verrouille ({total_locked})."
+                )
+
+            # ---- Buyer refund: unlock to available balance ----------------
+            if buyer_refund > ZERO:
+                buyer_wallet = WalletAccountingService.get_wallet_for_update(user=order.buyer)
+                WalletAccountingService.unlock_to_available(
+                    wallet=buyer_wallet,
+                    amount=buyer_refund,
+                    entry_type=LedgerEntryType.REFUND,
+                    reference=f"order:{order.id}:dispute_split_refund",
+                    order=order,
+                    created_by=actor,
+                    metadata={"dispute_split": True, "reason": reason[:240]},
+                )
+
+            # ---- Seller release: distribute across beneficiary escrows ----
+            remaining_release = seller_release
+            now = timezone.now()
+            for escrow in active:
+                avail = quantize_money(escrow.amount - escrow.released_amount)
+                if avail <= ZERO:
+                    continue
+                # Cap each escrow at its own ceiling.
+                portion_to_beneficiary = min(remaining_release, avail) if remaining_release > ZERO else ZERO
+                portion_to_buyer = quantize_money(avail - portion_to_beneficiary)
+
+                if portion_to_beneficiary > ZERO and escrow.beneficiary_id:
+                    ben_wallet = WalletAccountingService.get_wallet_for_update(user=escrow.beneficiary)
+                    cls._queue_payout_transaction(
+                        beneficiary_wallet=ben_wallet,
+                        amount=portion_to_beneficiary,
+                        order=order,
+                        kind="DISPUTE_RELEASE",
+                        escrow=escrow,
+                    )
+                    escrow.released_amount = quantize_money(escrow.released_amount + portion_to_beneficiary)
+                    remaining_release = quantize_money(remaining_release - portion_to_beneficiary)
+
+                # If anything remains as buyer share for this escrow, it was
+                # already unlocked above via the global buyer_refund call,
+                # so we just mark the escrow's lifecycle here.
+                if portion_to_beneficiary >= avail:
+                    escrow.status = EscrowLifecycleStatus.RELEASED
+                    escrow.released_at = now
+                elif portion_to_beneficiary > ZERO:
+                    escrow.status = EscrowLifecycleStatus.PARTIALLY_RELEASED if hasattr(EscrowLifecycleStatus, "PARTIALLY_RELEASED") else EscrowLifecycleStatus.REFUNDED
+                    escrow.refunded_at = now
+                else:
+                    escrow.status = EscrowLifecycleStatus.REFUNDED
+                    escrow.refunded_at = now
+                escrow.save(update_fields=[
+                    "released_amount", "status", "released_at", "refunded_at", "updated_at",
+                ])
+
+            cls._refresh_order_escrow_status(order)
+            if order.escrow_status == EscrowStatus.RELEASED:
+                order.status = OrderStatus.COMPLETED
+            elif order.escrow_status == EscrowStatus.REFUNDED:
+                order.status = OrderStatus.REFUNDED
+            else:
+                order.status = OrderStatus.DISPUTED
+            order.save(update_fields=["status", "escrow_status", "updated_at"])
+
+            write_audit_log(
+                actor=actor,
+                action="Litige split settlement",
+                action_key="orders.dispute.split",
+                metadata={
+                    "order_id": order.id,
+                    "buyer_refund": str(buyer_refund),
+                    "seller_release": str(seller_release),
+                    "total_locked": str(total_locked),
+                    "reason": reason[:240],
+                },
+            )
+        return {
+            "buyer_refund": buyer_refund,
+            "seller_release": seller_release,
+            "total_locked": total_locked,
+        }
 
     @classmethod
     def _refresh_order_escrow_status(cls, order: Order) -> str:

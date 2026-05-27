@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "355585940733",
+    "project_id": "marche-cm",
+    "storage_bucket": "marche-cm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:355585940733:android:a0e6e19a1818ff1cb5b294",
+        "android_client_info": {
+          "package_name": "com.marche.clients"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOFtUk82Mf-ku8tWjCl74vKGbalTAwids"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:355585940733:android:02a0ef78ef9729c7b5b294",
+        "android_client_info": {
+          "package_name": "com.marchecm.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOFtUk82Mf-ku8tWjCl74vKGbalTAwids"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:355585940733:android:9c966924475e6378b5b294",
+        "android_client_info": {
+          "package_name": "com.marchecm.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOFtUk82Mf-ku8tWjCl74vKGbalTAwids"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

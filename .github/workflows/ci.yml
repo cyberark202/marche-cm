@@ -1,0 +1,99 @@
+name: CI — Marché CM Backend
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: "3.12"
+  DATABASE_URL: "postgresql://marche:marche_secret@localhost:5432/marche_cm_test"
+  REDIS_URL: "redis://localhost:6379/0"
+  SECRET_KEY: "ci-test-secret-key-not-for-production"
+  DEBUG: "1"
+
+jobs:
+  test:
+    name: Tests & Lint
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: marche_cm_test
+          POSTGRES_USER: marche
+          POSTGRES_PASSWORD: marche_secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run migrations
+        run: python manage.py migrate --no-input
+
+      - name: Run tests
+        run: python manage.py test --verbosity=2 --parallel
+
+      - name: Check for missing migrations
+        run: python manage.py migrate --check
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install bandit safety
+      - name: Bandit security scan
+        run: bandit -r apps/ config/ core/ -ll --skip B101,B601
+      - name: Safety dependency check
+        run: safety check -r requirements.txt --ignore 70612
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [test]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t marche-cm-backend:${{ github.sha }} .

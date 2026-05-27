@@ -25,14 +25,33 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    # Audit ref: [CHAT-001] disallow PATCH/PUT/DELETE — rewriting another
+    # participant's message would destroy dispute evidence. Append-only chat.
+    http_method_names = ["get", "post", "head", "options"]
+
     def get_queryset(self):
-        queryset = Message.objects.filter(room__participants=self.request.user).select_related("sender", "room")
+        queryset = (
+            Message.objects.filter(room__participants=self.request.user)
+            .select_related("sender", "room")
+        )
         room_id = self.request.query_params.get("room")
         if room_id:
             queryset = queryset.filter(room_id=room_id)
-        term = (self.request.query_params.get("q") or "").strip()
-        if term:
-            queryset = queryset.filter(content__icontains=term)
+        # Audit ref: [CHAT-002] q-filter hardening — bound length, escape SQL
+        # LIKE wildcards (% and _), require room_id when searching.
+        raw_term = (self.request.query_params.get("q") or "").strip()
+        if raw_term:
+            if not room_id:
+                # Cross-room full-text search is forbidden: a single attacker
+                # in one room could otherwise harvest every message containing
+                # tokens like "password" across all their rooms.
+                raise PermissionDenied("Le parametre `room` est obligatoire pour rechercher.")
+            if len(raw_term) < 3 or len(raw_term) > 80:
+                # Reject too-short (matches "all") and too-long (DoS) terms.
+                queryset = queryset.none()
+            else:
+                term = raw_term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                queryset = queryset.filter(content__icontains=term)
         return queryset.prefetch_related("receipts")
 
     def perform_create(self, serializer):

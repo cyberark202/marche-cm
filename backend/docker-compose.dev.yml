@@ -1,0 +1,191 @@
+version: "3.9"
+
+services:
+  # ── Databases ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: marche_cm
+      POSTGRES_USER: marche
+      POSTGRES_PASSWORD: marche_secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marche -d marche_cm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Backend (ASGI/Daphne) ──────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=dev-only-secret-key-change-before-production
+      - DATABASE_URL=postgresql://marche:marche_secret@postgres:5432/marche_cm
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - DJANGO_SETTINGS_MODULE=config.settings
+    volumes:
+      - .:/app
+      - media_files:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Celery Worker — default queue ──────────────────────────────────────────
+  celery-default:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A celery_app worker -Q default -c 4 --loglevel=info
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=dev-only-secret-key-change-before-production
+      - DATABASE_URL=postgresql://marche:marche_secret@postgres:5432/marche_cm
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - DJANGO_SETTINGS_MODULE=config.settings
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Celery Worker — financial queue (single thread) ────────────────────────
+  celery-financial:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A celery_app worker -Q financial -c 1 --loglevel=info
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=dev-only-secret-key-change-before-production
+      - DATABASE_URL=postgresql://marche:marche_secret@postgres:5432/marche_cm
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - DJANGO_SETTINGS_MODULE=config.settings
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Celery Worker — outbox queue ───────────────────────────────────────────
+  celery-outbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A celery_app worker -Q outbox -c 2 --loglevel=info
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=dev-only-secret-key-change-before-production
+      - DATABASE_URL=postgresql://marche:marche_secret@postgres:5432/marche_cm
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - DJANGO_SETTINGS_MODULE=config.settings
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Celery Beat (scheduler) ────────────────────────────────────────────────
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A celery_app beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
+    environment:
+      - DEBUG=1
+      - SECRET_KEY=dev-only-secret-key-change-before-production
+      - DATABASE_URL=postgresql://marche:marche_secret@postgres:5432/marche_cm
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - DJANGO_SETTINGS_MODULE=config.settings
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Flower (Celery monitoring) ─────────────────────────────────────────────
+  flower:
+    image: mher/flower:2.0
+    command: celery flower --broker=redis://redis:6379/1 --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_files:
+  prometheus_data:
+  grafana_data:

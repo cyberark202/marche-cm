@@ -2,9 +2,11 @@ import logging
 from urllib.parse import parse_qs
 
 from asgiref.sync import sync_to_async
+from django.conf import settings
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 logger = logging.getLogger(__name__)
+security_logger = logging.getLogger("security")
 
 
 def _extract_token_from_subprotocols(scope) -> str:
@@ -20,6 +22,11 @@ def _extract_token_from_subprotocols(scope) -> str:
     if len(subprotocols) >= 2 and subprotocols[0].strip().lower() == "bearer":
         return subprotocols[1].strip()
     return ""
+
+
+def _peer_ip(scope) -> str:
+    client = scope.get("client") or ()
+    return client[0] if client else ""
 
 
 def _extract_token_from_headers(scope) -> str:
@@ -44,16 +51,32 @@ def authenticate_scope_user(scope):
 
     token = _extract_token_from_subprotocols(scope) or _extract_token_from_headers(scope)
     if not token:
-        # Fallback de compatibilite ascendante: query string. A retirer une
-        # fois tous les clients migres vers le subprotocole/header.
-        raw_query = scope.get("query_string", b"").decode()
-        token = parse_qs(raw_query).get("token", [""])[0].strip()
-        if token:
-            logger.warning(
-                "websocket_auth.token_in_query_string: client utilise un canal "
-                "obsolete (token visible dans les logs proxy). Migrer vers "
-                "Sec-WebSocket-Protocol: bearer, <token>."
-            )
+        # Audit ref: [WS-002] JWT exposé dans la query string.
+        # In production the query-string fallback is REFUSED. It leaks the
+        # bearer token into nginx/Render/Cloudflare access logs, APM products,
+        # and browser history. Allowed only in DEBUG to keep local dev flows.
+        debug = bool(getattr(settings, "DEBUG", False))
+        allow_qs = bool(getattr(settings, "WS_ALLOW_TOKEN_QUERY_STRING", False))
+        if debug or allow_qs:
+            raw_query = scope.get("query_string", b"").decode()
+            token = parse_qs(raw_query).get("token", [""])[0].strip()
+            if token:
+                security_logger.warning(
+                    "ws_auth.token_in_query_string",
+                    extra={
+                        "remote": _peer_ip(scope),
+                        "path": scope.get("path", ""),
+                        "debug": debug,
+                        "override": allow_qs,
+                    },
+                )
+        else:
+            raw_query = scope.get("query_string", b"") or b""
+            if b"token=" in raw_query:
+                security_logger.error(
+                    "ws_auth.token_in_query_string_blocked",
+                    extra={"remote": _peer_ip(scope), "path": scope.get("path", "")},
+                )
     if not token:
         return None
 

@@ -7,8 +7,13 @@ import '../../../core/theme/driver_theme.dart';
 
 final _missionsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final res =
-      await DriverDioClient.dio.get('/api/logistics/missions/available/');
+  // Audit ref: [Front-Driver] no /api/logistics/missions/available/ endpoint
+  // exists. Backend exposes /api/shipments/ (router) — we filter to status
+  // PENDING with no transit_agent assigned to surface assignable missions.
+  final res = await DriverDioClient.dio.get(
+    '/api/shipments/',
+    queryParameters: {'status': 'PENDING', 'assignable': '1'},
+  );
   final data = res.data;
   if (data is List) return data.cast<Map<String, dynamic>>();
   if (data is Map && data['results'] is List) {

@@ -162,7 +162,8 @@ def register_device_if_new(user, request) -> bool:
 
 
 def _client_ip(request) -> str:
-    xff = request.META.get("HTTP_X_FORWARDED_FOR", "").strip()
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "0.0.0.0")
+    # Audit ref: [N-005] route every call site through the canonical helper
+    # that honours settings.TRUSTED_PROXIES. Keeping a thin wrapper here
+    # avoids breaking the public symbol used by accounts.security/middleware.
+    from config.middleware import _client_ip as _canonical_client_ip
+    return _canonical_client_ip(request)

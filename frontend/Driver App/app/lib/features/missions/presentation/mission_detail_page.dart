@@ -7,7 +7,9 @@ import '../../../core/theme/driver_theme.dart';
 
 final _missionDetailProvider =
     FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) async {
-  final res = await DriverDioClient.dio.get('/api/logistics/missions/$id/');
+  // Audit ref: [Front-Driver] /api/logistics/missions/<id>/ does not exist.
+  // Missions == Shipments backend-side.
+  final res = await DriverDioClient.dio.get('/api/shipments/$id/');
   return res.data as Map<String, dynamic>;
 });
 
@@ -25,7 +27,10 @@ class _MissionDetailPageState extends ConsumerState<MissionDetailPage> {
   Future<void> _accept() async {
     setState(() => _accepting = true);
     try {
-      await DriverDioClient.dio.post('/api/logistics/missions/${widget.missionId}/accept/');
+      // Audit ref: [Front-Driver] backend exposes ShipmentViewSet.accept_quote
+      // (logistics/views.py:357). The previous /accept/ path was a 404.
+      await DriverDioClient.dio.post(
+          '/api/shipments/${widget.missionId}/accept_quote/');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mission acceptée ! Bonne livraison.')),

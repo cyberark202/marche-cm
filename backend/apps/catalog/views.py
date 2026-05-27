@@ -512,8 +512,11 @@ class VideoCommentViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user, product=product)
 
     def perform_destroy(self, instance):
+        # Audit ref: [NEW-004] enum comparison instead of string literal.
+        from apps.accounts.models import UserRole
         if instance.user_id != self.request.user.id and not (
-            self.request.user.is_superuser or self.request.user.role == "GENERAL_ADMIN"
+            self.request.user.is_superuser
+            or getattr(self.request.user, "role", None) == UserRole.GENERAL_ADMIN
         ):
             raise PermissionDenied("Suppression reservee a l'auteur du commentaire.")
         instance.delete()

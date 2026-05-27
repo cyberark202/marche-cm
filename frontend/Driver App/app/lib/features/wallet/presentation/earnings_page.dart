@@ -6,11 +6,43 @@ import 'package:intl/intl.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 
+// Audit ref: [Front-Driver] no /api/wallets/driver/earnings/ endpoint exists
+// server-side. Earnings are now aggregated client-side from the wallet
+// transactions feed (kind=DELIVERY_PAYOUT). A dedicated backend endpoint
+// can be added later for performance.
 final _earningsProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  final res =
-      await DriverDioClient.dio.get('/api/wallets/driver/earnings/');
-  return res.data as Map<String, dynamic>;
+  final res = await DriverDioClient.dio.get(
+    '/api/wallets/transactions/',
+    queryParameters: {'kind': 'DELIVERY_PAYOUT'},
+  );
+  final data = res.data;
+  final List items = (data is Map && data['results'] is List)
+      ? data['results'] as List
+      : (data is List ? data : const []);
+
+  num total = 0;
+  num thisMonth = 0;
+  final now = DateTime.now();
+  for (final raw in items) {
+    if (raw is! Map) continue;
+    final amount = num.tryParse('${raw['amount'] ?? 0}') ?? 0;
+    if ((raw['status'] ?? '') == 'FAILED') continue;
+    total += amount.abs();
+    final ts = raw['created_at'];
+    if (ts is String) {
+      final dt = DateTime.tryParse(ts);
+      if (dt != null && dt.year == now.year && dt.month == now.month) {
+        thisMonth += amount.abs();
+      }
+    }
+  }
+  return <String, dynamic>{
+    'total': total,
+    'month': thisMonth,
+    'count': items.length,
+    'transactions': items,
+  };
 });
 
 class EarningsPage extends ConsumerWidget {

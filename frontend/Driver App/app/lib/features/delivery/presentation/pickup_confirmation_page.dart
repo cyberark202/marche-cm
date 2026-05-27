@@ -32,11 +32,15 @@ class _PickupConfirmationPageState extends State<PickupConfirmationPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
+      // Audit ref: [Front-Driver] backend exposes ShipmentViewSet.update_status
+      // (logistics/views.py:384). The previous /confirm-pickup/ path was a 404.
+      // The status transition PICKED_UP is the canonical "pickup confirmed" event.
       final form = FormData.fromMap({
+        'status': 'PICKED_UP',
         'photo': await MultipartFile.fromFile(_photo!.path, filename: 'pickup.jpg'),
       });
       await DriverDioClient.dio.post(
-          '/api/logistics/shipments/${widget.shipmentId}/confirm-pickup/', data: form);
+          '/api/shipments/${widget.shipmentId}/update_status/', data: form);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enlèvement confirmé !')),
