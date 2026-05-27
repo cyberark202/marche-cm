@@ -653,12 +653,26 @@ class _ShopTabState extends State<ShopTab> {
               ),
               const SizedBox(width: 8),
               const Expanded(
-                child: Text(
-                  "Boutique",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Catalogue",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 19,
+                          letterSpacing: -0.3),
+                    ),
+                    Text(
+                      "Marché.cm — fournisseurs vérifiés",
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ],
                 ),
               ),
               Badge(
@@ -1060,148 +1074,283 @@ class _ProductCard extends StatelessWidget {
   final VoidCallback onFavorite;
   final VoidCallback onAddToCart;
 
+  bool get _hasPromo => product.priceMax > product.priceMin &&
+      product.priceMin > 0 &&
+      ((product.priceMax - product.priceMin) / product.priceMax) >= 0.05;
+
+  int get _discountPct => _hasPromo
+      ? (((product.priceMax - product.priceMin) / product.priceMax) * 100)
+          .round()
+      : 0;
+
+  String _sellerInitials() {
+    final src = product.sellerDisplayName.trim();
+    if (src.isEmpty) return "·";
+    final parts = src.split(RegExp(r"\s+"));
+    if (parts.length == 1) {
+      return parts.first.substring(0, parts.first.length.clamp(0, 2)).toUpperCase();
+    }
+    return (parts[0].isNotEmpty ? parts[0][0] : "") +
+        (parts[1].isNotEmpty ? parts[1][0] : "");
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x10000000), blurRadius: 8, offset: Offset(0, 2))
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(14)),
-                  child: imageUrl.isEmpty
-                      ? Container(
-                          height: 130,
-                          color: const Color(0xFFF3F4F6),
-                          child: const Center(
-                              child: Icon(Icons.image_not_supported_outlined,
-                                  color: Colors.black26)),
-                        )
-                      : Image.network(
-                          imageUrl,
-                          height: 130,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            height: 130,
-                            color: const Color(0xFFF3F4F6),
-                            child: const Center(
-                                child: Icon(Icons.broken_image_outlined,
-                                    color: Colors.black26)),
-                          ),
-                        ),
-                ),
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: GestureDetector(
-                    onTap: onFavorite,
-                    child: Container(
-                      padding: const EdgeInsets.all(5),
-                      decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                                color: Color(0x18000000), blurRadius: 4)
-                          ]),
-                      child: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        size: 16,
-                        color: isFavorite ? Colors.red : Colors.black54,
-                      ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppPalette.card,
+            borderRadius: BorderRadius.circular(AppRadii.lg),
+            border: Border.all(color: AppPalette.borderSoft),
+            boxShadow: AppPalette.shadowSoft,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(AppRadii.lg)),
+                    child: AspectRatio(
+                      aspectRatio: 1.05,
+                      child: imageUrl.isEmpty
+                          ? Container(
+                              color: AppPalette.bgSoft,
+                              child: const Center(
+                                child: Icon(Icons.image_outlined,
+                                    color: AppPalette.textFaint, size: 32),
+                              ),
+                            )
+                          : Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: AppPalette.bgSoft,
+                                child: const Center(
+                                  child: Icon(Icons.broken_image_outlined,
+                                      color: AppPalette.textFaint, size: 28),
+                                ),
+                              ),
+                            ),
                     ),
                   ),
-                ),
-                if (product.sellerVerified)
+                  if (product.sellerVerified)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppPalette.primary,
+                          borderRadius:
+                              BorderRadius.circular(AppRadii.pill),
+                          boxShadow: AppPalette.shadowSoft,
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.verified,
+                                color: Colors.white, size: 10),
+                            SizedBox(width: 3),
+                            Text("KYC",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (_hasPromo)
+                    Positioned(
+                      top: 8,
+                      right: 44,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppPalette.secondary,
+                          borderRadius:
+                              BorderRadius.circular(AppRadii.pill),
+                          boxShadow: AppPalette.shadowSoft,
+                        ),
+                        child: Text(
+                          "-$_discountPct%",
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
                   Positioned(
                     top: 6,
-                    left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppPalette.primary,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.verified, color: Colors.white, size: 10),
-                          SizedBox(width: 2),
-                          Text("Vérifié",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600)),
-                        ],
+                    right: 6,
+                    child: InkWell(
+                      onTap: onFavorite,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: AppPalette.shadowSoft,
+                        ),
+                        child: Icon(
+                          isFavorite
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          size: 15,
+                          color: isFavorite
+                              ? AppPalette.danger
+                              : AppPalette.textMuted,
+                        ),
                       ),
                     ),
                   ),
-              ],
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppPalette.primarySoft,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _sellerInitials(),
+                            style: const TextStyle(
+                                color: AppPalette.primaryDark,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            product.sellerDisplayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: AppPalette.textMuted,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
                     Text(
                       product.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 12),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      product.sellerDisplayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 11, color: Colors.black54),
-                    ),
-                    const Spacer(),
-                    Text(
-                      "${product.priceMin} – ${product.priceMax} FCFA",
-                      style: TextStyle(
-                          color: AppPalette.primary,
                           fontWeight: FontWeight.w700,
-                          fontSize: 12),
+                          fontSize: 13,
+                          height: 1.25,
+                          color: AppPalette.text),
                     ),
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 28,
-                      child: FilledButton(
-                        onPressed: onAddToCart,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppPalette.secondary,
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.star_rounded,
+                            color: AppPalette.accent, size: 13),
+                        const SizedBox(width: 2),
+                        Text(
+                          product.sellerTrustScore.toStringAsFixed(1),
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppPalette.text),
                         ),
-                        child: const Text("+ Panier",
-                            style: TextStyle(fontSize: 11)),
-                      ),
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: const BoxDecoration(
+                              color: AppPalette.textFaint,
+                              shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            product.category,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppPalette.textMuted),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_hasPromo)
+                                Text(
+                                  "${product.priceMax} FCFA",
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppPalette.textFaint,
+                                      decoration:
+                                          TextDecoration.lineThrough),
+                                ),
+                              Text(
+                                "${product.priceMin} FCFA",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppPalette.primaryDark,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14.5,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        InkWell(
+                          onTap: onAddToCart,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: AppPalette.primary,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: AppPalette.shadowSoft,
+                            ),
+                            child: const Icon(Icons.add_shopping_cart,
+                                color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
