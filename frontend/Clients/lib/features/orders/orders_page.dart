@@ -8,6 +8,7 @@ import '../../core/app_theme.dart';
 import '../../core/backend_ui_config_service.dart';
 import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
+import 'order_tracking_page.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -445,6 +446,7 @@ class _OrdersPageState extends State<OrdersPage> {
     }
 
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -453,24 +455,37 @@ class _OrdersPageState extends State<OrdersPage> {
               color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))
         ],
       ),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Icône produit
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF8E1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.shopping_bag_outlined,
-                    color: Color(0xFFF5B400), size: 22),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => OrderTrackingPage(
+                order: order,
+                shipment: shipment,
               ),
+            ),
+          ),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    // Icône produit
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF8E1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.shopping_bag_outlined,
+                          color: Color(0xFFF5B400), size: 22),
+                    ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -584,7 +599,10 @@ class _OrdersPageState extends State<OrdersPage> {
               steps: _orderTimelineSteps,
             ),
           ],
-        ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
