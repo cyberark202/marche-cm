@@ -17,7 +17,7 @@ psycopg2-binary==2.9.10
 # ── Cache / task queue ───────────────────────────────────────────────────────
 redis==5.0.8
 celery==5.3.6
-django-celery-beat==2.6.0
+django-celery-beat==2.7.0
 django-celery-results==2.5.1
 
 # ── Async HTTP ───────────────────────────────────────────────────────────────
