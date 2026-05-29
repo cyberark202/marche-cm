@@ -65,7 +65,7 @@ def resolve_provider_real_balance() -> tuple[Decimal | None, str, str]:
     try:
         req = urllib.request.Request(endpoint, data=body, headers=headers, method=method)
         timeout = max(3, int(getattr(settings, "FINOPS_PROVIDER_BALANCE_TIMEOUT_SECONDS", 15)))
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - endpoint from FINOPS_PROVIDER_BALANCE settings (server-configured)
             raw = resp.read().decode("utf-8")
     except Exception as exc:
         logger.warning("Provider balance fetch failed: %s", type(exc).__name__)

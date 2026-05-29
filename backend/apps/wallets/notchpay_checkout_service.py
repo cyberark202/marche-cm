@@ -32,7 +32,7 @@ class NotchPayCheckoutService:
         encoded = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=encoded, headers=cls._headers(), method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - URL is NOTCHPAY_API_BASE (server-configured HTTPS)
                 body = resp.read().decode("utf-8")
             return json.loads(body) if body else {}
         except urllib.error.HTTPError as exc:
@@ -53,7 +53,7 @@ class NotchPayCheckoutService:
     def _get_json(cls, url: str) -> dict:
         req = urllib.request.Request(url, headers=cls._headers(), method="GET")
         try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - URL is NOTCHPAY_API_BASE (server-configured HTTPS)
                 body = resp.read().decode("utf-8")
             return json.loads(body) if body else {}
         except urllib.error.HTTPError as exc:

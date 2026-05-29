@@ -436,7 +436,7 @@ def _client_ip(request: HttpRequest) -> str:
     When the request is NOT from a trusted proxy, XFF is attacker-controlled
     and gets ignored entirely.
     """
-    remote = request.META.get("REMOTE_ADDR", "0.0.0.0")
+    remote = request.META.get("REMOTE_ADDR", "0.0.0.0")  # nosec B104 - fallback string for a missing client IP, not a socket bind
     if not _is_request_from_trusted_proxy(request):
         return remote
 
