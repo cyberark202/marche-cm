@@ -76,7 +76,7 @@ class OrderFinanceService:
             idempotency_key = f"order:{order.id}:lock_funds_v1"
 
         with transaction.atomic():
-            order = Order.objects.select_for_update().select_related("buyer", "seller", "preferred_transit_agent").get(id=order.id)
+            order = Order.objects.select_for_update(of=("self",)).select_related("buyer", "seller", "preferred_transit_agent").get(id=order.id)
             existing = list(order.escrows.all())
             if existing:
                 return existing
@@ -183,7 +183,7 @@ class OrderFinanceService:
     @classmethod
     def register_supplier_confirmation(cls, *, order: Order, actor):
         with transaction.atomic():
-            order = Order.objects.select_for_update().select_related("shipment", "seller", "buyer").get(id=order.id)
+            order = Order.objects.select_for_update(of=("self",)).select_related("shipment", "seller", "buyer").get(id=order.id)
             if order.order_type != OrderType.INTERNATIONAL:
                 raise ValidationError("Cette action est reservee aux commandes internationales.")
             if not hasattr(order, "shipment") or order.shipment.transit_agent_id != actor.id:
@@ -221,7 +221,7 @@ class OrderFinanceService:
     @classmethod
     def register_supplier_purchase_proof(cls, *, order: Order, actor, proof_file):
         with transaction.atomic():
-            order = Order.objects.select_for_update().select_related("shipment", "seller", "buyer").get(id=order.id)
+            order = Order.objects.select_for_update(of=("self",)).select_related("shipment", "seller", "buyer").get(id=order.id)
             if order.order_type != OrderType.INTERNATIONAL:
                 raise ValidationError("Cette action est reservee aux commandes internationales.")
             if not hasattr(order, "shipment") or order.shipment.transit_agent_id != actor.id:
@@ -770,7 +770,7 @@ class OrderFinanceService:
     @classmethod
     def release_logistics_escrow_after_buyer_confirmation(cls, *, order: Order, actor):
         with transaction.atomic():
-            order = Order.objects.select_for_update().select_related("buyer", "preferred_transit_agent").get(id=order.id)
+            order = Order.objects.select_for_update(of=("self",)).select_related("buyer", "preferred_transit_agent").get(id=order.id)
             # Verification d'autorisation AVANT toute mutation: la confirmation
             # finale est strictement reservee a l'acheteur de la commande.
             if order.buyer_id != getattr(actor, "id", None):
@@ -938,7 +938,7 @@ class OrderFinanceService:
         with transaction.atomic():
             order = Order.objects.select_for_update().select_related("buyer").get(id=order.id)
             buyer_wallet = WalletAccountingService.get_wallet_for_update(user=order.buyer)
-            escrows = list(order.escrows.select_for_update().select_related("beneficiary"))
+            escrows = list(order.escrows.select_for_update(of=("self",)).select_related("beneficiary"))
             released = []
             for escrow in escrows:
                 if escrow_types and escrow.escrow_type not in escrow_types:
