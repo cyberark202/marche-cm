@@ -135,7 +135,7 @@ def geocode_with_nominatim(*, city: str, country_code: str) -> GeocodePayload | 
     )
     timeout = max(int(getattr(settings, "NOMINATIM_TIMEOUT_SECONDS", 10)), 1)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - base_url validated by _is_safe_geocoder_url (M-001 SSRF guard)
             raw = resp.read().decode("utf-8")
         payload = json.loads(raw)
     except Exception:

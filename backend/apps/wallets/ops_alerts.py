@@ -46,7 +46,7 @@ def send_finops_alert(*, title: str, body: str, metadata: dict | None = None) ->
                 headers={"Content-Type": "application/json", "Accept": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=timeout):
+            with urllib.request.urlopen(req, timeout=timeout):  # nosec B310 - webhook_url from FINOPS settings (server-configured)
                 pass
             delivered["webhook"] = True
         except Exception:
