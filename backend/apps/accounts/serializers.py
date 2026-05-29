@@ -149,6 +149,16 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
         "CERT_INSURANCE",
     }
 
+    # KYC identity documents (transitaire / driver onboarding).
+    DRIVER_DOC_TYPES = {
+        "CNI",
+        "CNI_VERSO",
+        "PASSPORT",
+        "DRIVER_LICENSE",
+    }
+
+    ALLOWED_DOC_TYPES = CERTIFICATION_TYPES | DRIVER_DOC_TYPES
+
     class Meta:
         model = ComplianceDocument
         fields = (
@@ -174,8 +184,8 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
         )
 
     def validate_doc_type(self, value):
-        if value not in self.CERTIFICATION_TYPES:
-            raise serializers.ValidationError(_("Le document doit être une certification valide."))
+        if value not in self.ALLOWED_DOC_TYPES:
+            raise serializers.ValidationError(_("Type de document invalide."))
         request = self.context.get("request")
         if request and request.user and request.user.is_authenticated:
             exists = ComplianceDocument.objects.filter(user=request.user, doc_type=value)
