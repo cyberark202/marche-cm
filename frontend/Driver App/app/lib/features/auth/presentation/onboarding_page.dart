@@ -58,18 +58,22 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      final form = FormData.fromMap({
-        'document_type': _docType,
-        'front': await MultipartFile.fromFile(_frontFile!.path!, filename: _frontFile!.name),
-        if (_backFile != null)
-          'back': await MultipartFile.fromFile(_backFile!.path!, filename: _backFile!.name),
-        'license': await MultipartFile.fromFile(_licenseFile!.path!, filename: _licenseFile!.name),
-      });
       // Audit ref: [Front-Driver] no /api/accounts/driver-kyc/ exists.
       // Driver KYC documents (ID, license) are uploaded as regular
       // compliance documents — the admin reviews them and grants the
-      // TRANSIT_AGENT role on approval.
-      await DriverDioClient.dio.post('/api/compliance-documents/', data: form);
+      // TRANSIT_AGENT role on approval. The backend stores one file per
+      // document, so each photo is posted as its own compliance document.
+      Future<void> upload(String docType, PlatformFile file) async {
+        final form = FormData.fromMap({
+          'doc_type': docType,
+          'file': await MultipartFile.fromFile(file.path!, filename: file.name),
+        });
+        await DriverDioClient.dio.post('/api/compliance-documents/', data: form);
+      }
+
+      await upload(_docType, _frontFile!);
+      if (_backFile != null) await upload('CNI_VERSO', _backFile!);
+      await upload('DRIVER_LICENSE', _licenseFile!);
       await ref.read(authProvider.notifier).completeKyc();
     } catch (e) {
       if (mounted) {

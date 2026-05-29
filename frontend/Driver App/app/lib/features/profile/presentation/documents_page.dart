@@ -44,8 +44,8 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
     setState(() => _uploading = true);
     try {
       final form = FormData.fromMap({
-        'document_type': docType,
-        'front': await MultipartFile.fromFile(file.path!, filename: file.name),
+        'doc_type': docType,
+        'file': await MultipartFile.fromFile(file.path!, filename: file.name),
       });
       await DriverDioClient.dio.post('/api/compliance-documents/', data: form);
       ref.invalidate(_docsProvider);
@@ -139,7 +139,7 @@ class _DocCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final type = doc['document_type'] as String? ?? '';
+    final type = doc['doc_type'] as String? ?? '';
     final status = doc['status'] as String? ?? 'PENDING';
     final info = _statusInfo[status] ?? ('Inconnu', DriverPalette.textMuted, Icons.help_outline);
 
