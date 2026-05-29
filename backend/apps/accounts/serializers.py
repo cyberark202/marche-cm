@@ -188,11 +188,14 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(_("Type de document invalide."))
         request = self.context.get("request")
         if request and request.user and request.user.is_authenticated:
-            exists = ComplianceDocument.objects.filter(user=request.user, doc_type=value)
-            if self.instance:
-                exists = exists.exclude(id=self.instance.id)
-            if exists.exists():
-                raise serializers.ValidationError(_("Une certification de ce type existe déjà pour cet utilisateur."))
+            # Driver KYC documents can be replaced (overwrite old ones)
+            # Business certifications are unique per user.
+            if value not in self.DRIVER_DOC_TYPES:
+                exists = ComplianceDocument.objects.filter(user=request.user, doc_type=value)
+                if self.instance:
+                    exists = exists.exclude(id=self.instance.id)
+                if exists.exists():
+                    raise serializers.ValidationError(_("Une certification de ce type existe déjà pour cet utilisateur."))
         return value
 
     def validate_file(self, value):
