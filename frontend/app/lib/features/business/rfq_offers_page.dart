@@ -513,7 +513,7 @@ class _Empty extends StatelessWidget {
               width: 84,
               height: 84,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppPalette.primarySoft,
                 shape: BoxShape.circle,
               ),

@@ -569,7 +569,7 @@ class _FeedPageState extends State<FeedPage> {
                         videos: payload.videos, canPublishAds: canPublishAds),
                     const ChatHubPage(),
                     const OrdersPage(),
-                    ProfileHubPage(onRefresh: () => _reload(session.token)),
+                    const ProfileHubPage(),
                   ];
                   return pages[_currentIndex];
                 },

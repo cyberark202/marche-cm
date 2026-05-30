@@ -72,10 +72,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       );
       context.go('/login');
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _busy = false;
       });
+      }
     }
   }
 

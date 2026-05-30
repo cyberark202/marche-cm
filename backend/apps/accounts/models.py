@@ -115,6 +115,13 @@ class ComplianceDocument(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    # KYC handwritten signature + legal consent of record (catalogue screen 46).
+    # The signature engages the user legally; it must be stored and auditable
+    # server-side, not merely captured client-side.
+    signature_image = models.ImageField(upload_to="compliance/signatures/", blank=True, null=True)
+    consent_accepted_at = models.DateTimeField(null=True, blank=True)
+    consent_version = models.CharField(max_length=20, blank=True, default="")
+
     class Meta:
         ordering = ["-created_at"]
         constraints = [

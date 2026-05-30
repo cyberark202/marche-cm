@@ -115,11 +115,11 @@ class _SupplierRevenuePageState extends State<SupplierRevenuePage> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: "REVENUS · 7 DERNIERS JOURS"),
+                  const _SectionLabel(label: "REVENUS · 7 DERNIERS JOURS"),
                   const SizedBox(height: 10),
                   _ChartCard(values: week),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: "HISTORIQUE PAIEMENTS"),
+                  const _SectionLabel(label: "HISTORIQUE PAIEMENTS"),
                   const SizedBox(height: 10),
                   if (_loading)
                     const Center(child: CircularProgressIndicator())
@@ -355,9 +355,9 @@ class _ChartCard extends StatelessWidget {
                                 const Duration(milliseconds: 380),
                             height: math.max(
                                 4, (values[i] / maxVal) * 100),
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               gradient: AppPalette.gradientPrimary,
-                              borderRadius: const BorderRadius.vertical(
+                              borderRadius: BorderRadius.vertical(
                                 top: Radius.circular(6),
                               ),
                             ),

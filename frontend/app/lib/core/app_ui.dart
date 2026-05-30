@@ -985,26 +985,26 @@ class AppSkeletonCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+      child: const Padding(
+        padding: EdgeInsets.all(14),
         child: Row(
           children: [
-            const AppSkeletonBox(width: 44, height: 44, radius: 10),
-            const SizedBox(width: 12),
+            AppSkeletonBox(width: 44, height: 44, radius: 10),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const AppSkeletonBox(height: 13),
-                  const SizedBox(height: 7),
-                  const AppSkeletonBox(width: 180, height: 11),
-                  const SizedBox(height: 5),
-                  const AppSkeletonBox(width: 100, height: 10),
+                  AppSkeletonBox(height: 13),
+                  SizedBox(height: 7),
+                  AppSkeletonBox(width: 180, height: 11),
+                  SizedBox(height: 5),
+                  AppSkeletonBox(width: 100, height: 10),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            const AppSkeletonBox(width: 48, height: 22, radius: 12),
+            SizedBox(width: 8),
+            AppSkeletonBox(width: 48, height: 22, radius: 12),
           ],
         ),
       ),

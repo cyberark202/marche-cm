@@ -26,8 +26,12 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
 
   @override
   void dispose() {
-    for (final c in _otp) c.dispose();
-    for (final f in _otpFocus) f.dispose();
+    for (final c in _otp) {
+      c.dispose();
+    }
+    for (final f in _otpFocus) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -112,7 +116,7 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
                     _ErrorBanner(message: _error!),
                     const SizedBox(height: 12),
                   ],
-                  _StepLabel(num: 1, text: "PHOTO DU COLIS LIVRÉ"),
+                  const _StepLabel(num: 1, text: "PHOTO DU COLIS LIVRÉ"),
                   const SizedBox(height: 10),
                   InkWell(
                     onTap: _pickPhoto,
@@ -183,7 +187,7 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
                                   width: 56,
                                   height: 56,
                                   alignment: Alignment.center,
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     color: T.accentSoft,
                                     shape: BoxShape.circle,
                                   ),
@@ -209,7 +213,7 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _StepLabel(num: 2, text: "CODE DE CONFIRMATION ACHETEUR"),
+                  const _StepLabel(num: 2, text: "CODE DE CONFIRMATION ACHETEUR"),
                   const SizedBox(height: 8),
                   const Text(
                     "Demandez à l'acheteur son code à 4 chiffres reçu par SMS.",
@@ -346,7 +350,7 @@ class _StepLabel extends StatelessWidget {
           width: 22,
           height: 22,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: T.primary,
             shape: BoxShape.circle,
           ),

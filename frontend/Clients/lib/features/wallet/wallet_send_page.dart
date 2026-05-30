@@ -319,7 +319,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                 children: [
-                  _SectionLabel(label: "MÉTHODE"),
+                  const _SectionLabel(label: "MÉTHODE"),
                   const SizedBox(height: 10),
                   if (_providerChoices.isEmpty)
                     Container(
@@ -368,7 +368,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
                       },
                     ),
                   const SizedBox(height: AppSpacing.xl),
-                  _SectionLabel(label: "MONTANT À RECHARGER"),
+                  const _SectionLabel(label: "MONTANT À RECHARGER"),
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),

@@ -68,9 +68,12 @@ class WalletFlowTests(APITestCase):
 
     def test_withdraw_paypal_accepts_email_destination(self):
         wallet, _ = Wallet.objects.get_or_create(owner=self.user)
+        # Withdraw debits available_balance; fund it (and keep balance consistent
+        # with the balance==components invariant).
+        wallet.available_balance = Decimal("5000.00")
         wallet.balance = Decimal("5000.00")
         wallet.blocked_balance = Decimal("0.00")
-        wallet.save(update_fields=["balance", "blocked_balance", "updated_at"])
+        wallet.save(update_fields=["available_balance", "balance", "blocked_balance", "updated_at"])
         _otp_code = "123456"
         challenge = SensitiveActionChallenge.objects.create(
             user=self.user,

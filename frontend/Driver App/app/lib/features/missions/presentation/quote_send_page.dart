@@ -181,7 +181,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: "VÉHICULE"),
+                  const _SectionLabel(label: "VÉHICULE"),
                   const SizedBox(height: 10),
                   Row(
                     children: [
@@ -217,7 +217,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: "VOTRE PRIX PROPOSÉ"),
+                  const _SectionLabel(label: "VOTRE PRIX PROPOSÉ"),
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
@@ -300,7 +300,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: "DÉLAI DE LIVRAISON"),
+                  const _SectionLabel(label: "DÉLAI DE LIVRAISON"),
                   const SizedBox(height: 10),
                   Container(
                     padding:
@@ -341,7 +341,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: "OPTIONS"),
+                  const _SectionLabel(label: "OPTIONS"),
                   const SizedBox(height: 10),
                   _OptionTile(
                     title: "Assurance incluse",

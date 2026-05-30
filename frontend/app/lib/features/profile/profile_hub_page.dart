@@ -412,8 +412,8 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                             // Stats
                             Row(
                               children: [
-                                Expanded(
-                                  child: const _StatBadge(
+                                const Expanded(
+                                  child: _StatBadge(
                                     value: '—',
                                     label: 'Commandes',
                                   ),

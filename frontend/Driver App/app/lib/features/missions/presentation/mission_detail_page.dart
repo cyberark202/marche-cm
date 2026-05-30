@@ -60,10 +60,10 @@ class _MissionDetailPageState extends ConsumerState<MissionDetailPage> {
       ),
       body: missionAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
+        error: (e, _) => const Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.error_outline, size: 48, color: DriverPalette.textMuted),
-            const SizedBox(height: 12),
+            Icon(Icons.error_outline, size: 48, color: DriverPalette.textMuted),
+            SizedBox(height: 12),
             Text('Impossible de charger la mission',
                 style: TextStyle(color: DriverPalette.textSecondary)),
           ]),
@@ -124,7 +124,7 @@ class _MissionDetail extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                _SectionTitle('Adresses'),
+                const _SectionTitle('Adresses'),
                 _AddressRow(icon: Icons.circle, color: Colors.green,
                     label: 'Enlèvement', address: pickupAddr),
                 const SizedBox(height: 8),
@@ -132,7 +132,7 @@ class _MissionDetail extends StatelessWidget {
                     label: 'Livraison', address: deliveryAddr),
                 const SizedBox(height: 20),
 
-                _SectionTitle('Colis'),
+                const _SectionTitle('Colis'),
                 _InfoTile(label: 'Description', value: packageDesc),
                 if (weight != null) _InfoTile(label: 'Poids', value: '$weight kg'),
                 if (notes != null && notes.isNotEmpty)

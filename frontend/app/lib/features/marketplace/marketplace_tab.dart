@@ -686,24 +686,24 @@ class _SkeletonCard extends StatelessWidget {
           Expanded(
             flex: 5,
             child: Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppPalette.bgSoft,
-                borderRadius: const BorderRadius.vertical(
+                borderRadius: BorderRadius.vertical(
                     top: Radius.circular(AppRadii.lg)),
               ),
             ),
           ),
-          Expanded(
+          const Expanded(
             flex: 4,
             child: Padding(
-              padding: const EdgeInsets.all(10),
+              padding: EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _SkeletonBox(width: double.infinity, height: 12),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   _SkeletonBox(width: 80, height: 12),
-                  const Spacer(),
+                  Spacer(),
                   _SkeletonBox(width: double.infinity, height: 28),
                 ],
               ),

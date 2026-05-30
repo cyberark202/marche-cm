@@ -1061,7 +1061,7 @@ class _StickyBottomBar extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: AppPalette.shadowFloating,
-          border: Border(
+          border: const Border(
               top: BorderSide(color: AppPalette.borderSoft, width: 1)),
         ),
         child: Row(

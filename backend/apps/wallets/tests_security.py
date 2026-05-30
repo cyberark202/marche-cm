@@ -284,8 +284,11 @@ class H1ErrorSanitizationTests(APITestCase):
     def test_withdraw_provider_error_not_exposed(self):
         """Raw NotchPay disburse error must not appear in the withdraw response."""
         self.wallet, _ = Wallet.objects.get_or_create(owner=self.user)
+        # Withdraw debits available_balance; fund it (and keep balance consistent
+        # with the balance==components invariant).
+        self.wallet.available_balance = Decimal("10000.00")
         self.wallet.balance = Decimal("10000.00")
-        self.wallet.save(update_fields=["balance", "updated_at"])
+        self.wallet.save(update_fields=["available_balance", "balance", "updated_at"])
 
         sensitive_error = "X-Grant: pk_live_PRIVATE_KEY_ABC"
         mock_transfer = {"error": sensitive_error, "mode": "LIVE"}

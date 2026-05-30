@@ -1420,9 +1420,10 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
     @decorators.action(detail=False, methods=["get"])
     def transactions(self, request):
-        wallet = Wallet.objects.filter(owner=request.user).first()
-        if not wallet:
-            return response.Response({"detail": "Portefeuille introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        # Auto-provision the per-user wallet (consistent with the rest of the
+        # wallet API, which uses get_or_create) so a brand-new authenticated
+        # user sees an empty list instead of a spurious 404.
+        wallet, _ = Wallet.objects.get_or_create(owner=request.user)
         queryset = wallet.transactions.all().order_by("-created_at")
 
         status_filter = str(request.query_params.get("status") or "").strip().upper()

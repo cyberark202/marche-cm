@@ -567,7 +567,7 @@ class _AuthPageState extends State<AuthPage> {
               child: _QuickRegisterBtn(
                 label: 'Acheteur',
                 icon: Icons.shopping_bag_outlined,
-                colors: [AppPalette.primary, Color(0xFF059669)],
+                colors: const [AppPalette.primary, Color(0xFF059669)],
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const BuyerRegisterPage())),
               ),
@@ -577,7 +577,7 @@ class _AuthPageState extends State<AuthPage> {
               child: _QuickRegisterBtn(
                 label: 'Vendeur / Pro',
                 icon: Icons.store_outlined,
-                colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                colors: const [Color(0xFF4F46E5), Color(0xFF7C3AED)],
                 onTap: () => Navigator.push(context,
                     MaterialPageRoute(builder: (_) => const SellerRegisterPage())),
               ),

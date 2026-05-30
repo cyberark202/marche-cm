@@ -428,6 +428,68 @@ class ComplianceDocumentViewSet(viewsets.ModelViewSet):
         return response.Response({"detail": "Document revise."})
 
 
+class BuyerKycSubmitView(APIView):
+    """
+    Dedicated identity-KYC submission for any authenticated user — notably
+    BUYERS, who cannot use the compliance-actor-only ComplianceDocumentViewSet
+    (`perform_create` rejects non-compliance roles).
+
+    Accepts (multipart): doc_type ∈ {CNI, CNI_VERSO, PASSPORT}, file, and the
+    optional handwritten `signature` + `consent_accepted` (catalogue screen 46).
+    A re-submission replaces the existing document of the same type and resets
+    it to PENDING.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    IDENTITY_DOC_TYPES = {"CNI", "CNI_VERSO", "PASSPORT"}
+
+    def post(self, request):
+        doc_type = str(request.data.get("doc_type") or "").strip().upper()
+        if doc_type not in self.IDENTITY_DOC_TYPES:
+            return response.Response(
+                {"detail": "Type de document KYC invalide (CNI, CNI_VERSO ou PASSPORT)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing = ComplianceDocument.objects.filter(
+            user=request.user, doc_type=doc_type
+        ).first()
+        serializer = ComplianceDocumentSerializer(
+            instance=existing, data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        document = serializer.save(user=request.user)
+
+        # Any (re)submission re-enters the review queue.
+        document.status = "PENDING"
+        document.reviewed_by = None
+        document.reviewed_at = None
+        document.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+
+        if document.user.is_verified:
+            document.user.is_verified = False
+            document.user.save(update_fields=["is_verified"])
+
+        generate_compliance_preview(document)
+        broadcast_event(
+            "compliance",
+            "document_created",
+            {"id": document.id, "user_id": document.user_id, "doc_type": document.doc_type},
+        )
+        write_audit_log(
+            actor=request.user,
+            action="Soumission KYC acheteur",
+            action_key="kyc.buyer.submit",
+            metadata={"document_id": document.id, "doc_type": document.doc_type},
+        )
+        return response.Response(
+            ComplianceDocumentSerializer(document, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "register"

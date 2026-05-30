@@ -131,12 +131,12 @@ class _PickupConfirmationPageState extends State<PickupConfirmationPage> {
                           child: Image.network(_photo!.path, width: double.infinity,
                               height: 200, fit: BoxFit.cover),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(8),
+                        const Padding(
+                          padding: EdgeInsets.all(8),
                           child: CircleAvatar(
                             radius: 14,
                             backgroundColor: DriverPalette.primary,
-                            child: const Icon(Icons.check, color: Colors.white, size: 16),
+                            child: Icon(Icons.check, color: Colors.white, size: 16),
                           ),
                         ),
                       ])

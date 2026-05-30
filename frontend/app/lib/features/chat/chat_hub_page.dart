@@ -33,7 +33,7 @@ class _ChatHubPageState extends State<ChatHubPage> {
   int? _selectedRoomId;
   int _page = 1;
   bool _hasMore = true;
-  String _query = '';
+  final String _query = '';
   bool _sending = false;
 
   String? _safePlatformFilePath(PlatformFile file) {
@@ -276,20 +276,20 @@ class _ChatHubPageState extends State<ChatHubPage> {
                         ),
                       )
                     : _rooms.isEmpty
-                        ? Center(
+                        ? const Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.chat_bubble_outline,
+                                Icon(Icons.chat_bubble_outline,
                                     size: 64, color: AppPalette.textFaint),
-                                const SizedBox(height: 12),
-                                const Text('Aucune discussion',
+                                SizedBox(height: 12),
+                                Text('Aucune discussion',
                                     style: TextStyle(
                                         color: AppPalette.textMuted,
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 6),
-                                const Text(
+                                SizedBox(height: 6),
+                                Text(
                                     'Démarrez une conversation depuis une commande.',
                                     style: TextStyle(
                                         color: AppPalette.textFaint,
@@ -504,13 +504,13 @@ class _MessageBubble extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (type == 'DOCUMENT')
-                    Row(
+                    const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.attach_file_rounded,
+                        Icon(Icons.attach_file_rounded,
                             size: 16, color: AppPalette.textMuted),
-                        const SizedBox(width: 4),
-                        const Text('Pièce jointe',
+                        SizedBox(width: 4),
+                        Text('Pièce jointe',
                             style: TextStyle(
                                 color: AppPalette.textMuted, fontSize: 13)),
                       ],

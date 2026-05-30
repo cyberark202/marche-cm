@@ -155,7 +155,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                     eta: etaDate,
                   ),
                   const SizedBox(height: 16),
-                  _SectionLabel(label: "ÉTAPES DE LA COMMANDE"),
+                  const _SectionLabel(label: "ÉTAPES DE LA COMMANDE"),
                   const SizedBox(height: 10),
                   _TimelineList(
                     statusUpper: _statusUpper,
@@ -694,12 +694,12 @@ class _TimelineList extends StatelessWidget {
             (shipment?["delivery_city"]?.toString() ?? "Trajet en cours"),
         icon: Icons.local_shipping_outlined,
       ),
-      _TimelineStep(
+      const _TimelineStep(
         title: "Preuve de livraison",
         subtitle: "Photo + code 4 chiffres à valider",
         icon: Icons.photo_camera_outlined,
       ),
-      _TimelineStep(
+      const _TimelineStep(
         title: "Libération séquestre",
         subtitle: "Fonds débloqués pour le vendeur et le transitaire",
         icon: Icons.lock_open_outlined,

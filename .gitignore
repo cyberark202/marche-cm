@@ -41,3 +41,8 @@ Thumbs.db
 
 # Logs
 *.log
+
+# CI / tooling artifacts (never commit)
+logs_*/
+error.md
+httpsdocs.*.txt

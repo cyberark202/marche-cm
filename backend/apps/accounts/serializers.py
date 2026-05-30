@@ -3,6 +3,7 @@ from rest_framework.exceptions import AuthenticationFailed
 import re
 import secrets
 from django.conf import settings
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .location_service import update_user_location
@@ -139,6 +140,12 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 class ComplianceDocumentSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
     preview_url = serializers.SerializerMethodField()
+    signature_url = serializers.SerializerMethodField()
+    # Write-only KYC consent inputs (catalogue screen 46). The PNG signature is
+    # stored as `signature_image`; accepting the consent stamps a server-side
+    # timestamp + version (legal proof of record).
+    signature = serializers.ImageField(write_only=True, required=False)
+    consent_accepted = serializers.BooleanField(write_only=True, required=False, default=False)
 
     CERTIFICATION_TYPES = {
         "CERT_BUSINESS_REGISTRATION",
@@ -173,6 +180,11 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
             "reviewed_by",
             "created_at",
             "reviewed_at",
+            "signature",
+            "signature_url",
+            "consent_accepted",
+            "consent_accepted_at",
+            "consent_version",
         )
         read_only_fields = (
             "user",
@@ -181,6 +193,8 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
             "created_at",
             "reviewed_at",
             "preview_image",
+            "consent_accepted_at",
+            "consent_version",
         )
 
     def validate_doc_type(self, value):
@@ -217,6 +231,44 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
             allowed_content_types={"application/pdf"},
         )
         return value
+
+    def validate_signature(self, value):
+        validate_uploaded_file(
+            value,
+            field_label="Signature",
+            allowed_extensions={".png", ".jpg", ".jpeg"},
+            max_mb=settings.MAX_UPLOAD_IMAGE_MB,
+            allowed_content_types={"image/png", "image/jpeg"},
+        )
+        return scrub_image_metadata(value)
+
+    def _apply_consent(self, validated_data):
+        # Map the write-only consent inputs onto the model. Accepting consent
+        # stamps a server-side timestamp + version for legal proof of record.
+        signature = validated_data.pop("signature", None)
+        consent = bool(validated_data.pop("consent_accepted", False))
+        if signature is not None:
+            validated_data["signature_image"] = signature
+        if consent:
+            validated_data["consent_accepted_at"] = timezone.now()
+            validated_data["consent_version"] = getattr(
+                settings, "KYC_CONSENT_VERSION", "1.0"
+            )
+        return validated_data
+
+    def create(self, validated_data):
+        return super().create(self._apply_consent(validated_data))
+
+    def update(self, instance, validated_data):
+        return super().update(instance, self._apply_consent(validated_data))
+
+    def get_signature_url(self, obj):
+        if not obj.signature_image:
+            return ""
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.signature_image.url)
+        return obj.signature_image.url
 
     def get_file_url(self, obj):
         if not obj.file:

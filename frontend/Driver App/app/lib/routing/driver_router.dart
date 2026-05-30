@@ -49,15 +49,18 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
       // ── Auth ─────────────────────────────────────────────
       GoRoute(
         path: '/login',
-        pageBuilder: (_, __) => const NoTransitionPage(child: LoginPage()),
+        pageBuilder: (_, state) =>
+            NoTransitionPage(key: state.pageKey, child: const LoginPage()),
       ),
       GoRoute(
         path: '/register',
-        pageBuilder: (_, __) => const MaterialPage(child: RegisterPage()),
+        pageBuilder: (_, state) =>
+            MaterialPage(key: state.pageKey, child: const RegisterPage()),
       ),
       GoRoute(
         path: '/onboarding',
-        pageBuilder: (_, __) => const MaterialPage(child: OnboardingPage()),
+        pageBuilder: (_, state) =>
+            MaterialPage(key: state.pageKey, child: const OnboardingPage()),
       ),
 
       // ── Main shell ────────────────────────────────────────
@@ -66,17 +69,18 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/dashboard',
-            pageBuilder: (_, __) =>
-                const NoTransitionPage(child: DashboardPage()),
+            pageBuilder: (_, state) => NoTransitionPage(
+                key: state.pageKey, child: const DashboardPage()),
           ),
           GoRoute(
             path: '/missions',
-            pageBuilder: (_, __) =>
-                const NoTransitionPage(child: MissionsListPage()),
+            pageBuilder: (_, state) => NoTransitionPage(
+                key: state.pageKey, child: const MissionsListPage()),
             routes: [
               GoRoute(
                 path: ':id',
                 pageBuilder: (_, state) => MaterialPage(
+                    key: state.pageKey,
                     child: MissionDetailPage(
                         missionId: state.pathParameters['id']!)),
               ),
@@ -84,30 +88,34 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/active',
-            pageBuilder: (_, __) =>
-                const NoTransitionPage(child: ActiveDeliveryPage()),
+            pageBuilder: (_, state) => NoTransitionPage(
+                key: state.pageKey, child: const ActiveDeliveryPage()),
             routes: [
               GoRoute(
                 path: 'pickup/:shipmentId',
                 pageBuilder: (_, state) => MaterialPage(
+                    key: state.pageKey,
                     child: PickupConfirmationPage(
                         shipmentId: state.pathParameters['shipmentId']!)),
               ),
               GoRoute(
                 path: 'proof/:shipmentId',
                 pageBuilder: (_, state) => MaterialPage(
+                    key: state.pageKey,
                     child: DeliveryProofPage(
                         shipmentId: state.pathParameters['shipmentId']!)),
               ),
               GoRoute(
                 path: 'otp/:shipmentId',
                 pageBuilder: (_, state) => MaterialPage(
+                    key: state.pageKey,
                     child: OtpValidationPage(
                         shipmentId: state.pathParameters['shipmentId']!)),
               ),
               GoRoute(
                 path: 'tracking/:shipmentId',
                 pageBuilder: (_, state) => MaterialPage(
+                    key: state.pageKey,
                     child: TrackingPage(
                         shipmentId: state.pathParameters['shipmentId']!)),
               ),
@@ -115,32 +123,32 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/wallet',
-            pageBuilder: (_, __) =>
-                const NoTransitionPage(child: DriverWalletPage()),
+            pageBuilder: (_, state) => NoTransitionPage(
+                key: state.pageKey, child: const DriverWalletPage()),
             routes: [
               GoRoute(
                   path: 'earnings',
-                  pageBuilder: (_, __) =>
-                      const MaterialPage(child: EarningsPage())),
+                  pageBuilder: (_, state) => MaterialPage(
+                      key: state.pageKey, child: const EarningsPage())),
               GoRoute(
                   path: 'withdraw',
-                  pageBuilder: (_, __) =>
-                      const MaterialPage(child: WithdrawalPage())),
+                  pageBuilder: (_, state) => MaterialPage(
+                      key: state.pageKey, child: const WithdrawalPage())),
             ],
           ),
           GoRoute(
             path: '/profile',
-            pageBuilder: (_, __) =>
-                const NoTransitionPage(child: ProfilePage()),
+            pageBuilder: (_, state) => NoTransitionPage(
+                key: state.pageKey, child: const ProfilePage()),
             routes: [
               GoRoute(
                   path: 'documents',
-                  pageBuilder: (_, __) =>
-                      const MaterialPage(child: DocumentsPage())),
+                  pageBuilder: (_, state) => MaterialPage(
+                      key: state.pageKey, child: const DocumentsPage())),
               GoRoute(
                   path: 'vehicle',
-                  pageBuilder: (_, __) =>
-                      const MaterialPage(child: VehiclePage())),
+                  pageBuilder: (_, state) => MaterialPage(
+                      key: state.pageKey, child: const VehiclePage())),
             ],
           ),
         ],

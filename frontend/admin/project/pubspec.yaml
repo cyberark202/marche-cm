@@ -1,0 +1,32 @@
+name: project
+description: "Marché CM — Console d'administration (app dédiée)."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # ── State management ─────────────────────────────────────────────────────
+  provider: ^6.1.2
+
+  # ── Networking (shared security stack with the other apps) ───────────────
+  # Interceptors: device binding, correlation IDs, nonce, reactive refresh.
+  dio: ^5.7.0
+  # Used only for the token-refresh call (no auth header dependency).
+  http: ^1.2.2
+  # Tokens stored in Android Keystore / iOS Keychain — never SharedPreferences.
+  flutter_secure_storage: ^9.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

@@ -189,6 +189,7 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
       allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'mp4', 'mov'],
     );
     if (result == null || result.files.isEmpty) return;
+    if (!mounted) return;
     setState(() => _uploadingEvidence = true);
     final token = context.read<SessionStore>().token;
     try {
@@ -592,7 +593,7 @@ class _SlaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final due = DateTime.tryParse(slaAt);
-    final remaining = due != null ? due.difference(DateTime.now()) : null;
+    final remaining = due?.difference(DateTime.now());
     final expired = remaining != null && remaining.isNegative;
     return Card(
       color: expired ? Colors.red.shade50 : Colors.blue.shade50,
@@ -693,15 +694,19 @@ class _CustodyChainLoaderState extends State<_CustodyChainLoader> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Padding(
+    if (_loading) {
+      return const Padding(
       padding: EdgeInsets.all(16),
       child: CircularProgressIndicator(),
     );
-    if (_events.isEmpty) return const Padding(
+    }
+    if (_events.isEmpty) {
+      return const Padding(
       padding: EdgeInsets.all(16),
       child: Text('Aucun evenement de garde enregistre.',
           style: TextStyle(color: Colors.grey)),
     );
+    }
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -974,7 +979,7 @@ class _AdminPanel extends StatelessWidget {
             const SizedBox(height: 16),
             // Decision selector
             DropdownButtonFormField<String>(
-              value: adminDecision,
+              initialValue: adminDecision,
               decoration: const InputDecoration(
                 labelText: 'Decision',
                 border: OutlineInputBorder(),

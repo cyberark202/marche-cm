@@ -152,7 +152,7 @@ class _SupplierOrderDetailPageState extends State<SupplierOrderDetailPage> {
                       qty: qty,
                       unitPrice: unitPrice),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: "ACTIONS À FAIRE"),
+                  const _SectionLabel(label: "ACTIONS À FAIRE"),
                   const SizedBox(height: 10),
                   _ActionStepper(
                     statusUpper: statusUpper,
@@ -566,17 +566,17 @@ class _ActionStepper extends StatelessWidget {
                 label: "Envoyer la demande", onTap: onRequestQuote)
             : null,
       ),
-      _Step(
+      const _Step(
         title: "Préparer la marchandise",
         subtitle: "Emballage et conformité de l'envoi",
         icon: Icons.inventory_outlined,
       ),
-      _Step(
+      const _Step(
         title: "Remettre au transitaire",
         subtitle: "Scanner le QR du transitaire à l'enlèvement",
         icon: Icons.qr_code_scanner,
       ),
-      _Step(
+      const _Step(
         title: "Libération séquestre",
         subtitle: "Fonds versés sur votre wallet",
         icon: Icons.lock_open_outlined,
