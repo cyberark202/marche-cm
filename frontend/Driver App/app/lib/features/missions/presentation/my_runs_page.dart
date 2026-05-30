@@ -17,7 +17,7 @@ final _runsProvider =
     DriverDioClient.dio.get("/api/shipments/?driver_status=DELIVERED"),
   ]);
 
-  List<Map<String, dynamic>> _cast(dynamic data) {
+  List<Map<String, dynamic>> cast(dynamic data) {
     if (data is List) return data.cast<Map<String, dynamic>>();
     if (data is Map && data['results'] is List) {
       return (data['results'] as List).cast<Map<String, dynamic>>();
@@ -26,9 +26,9 @@ final _runsProvider =
   }
 
   return {
-    "quotes": _cast(results[0].data),
-    "active": _cast(results[1].data),
-    "delivered": _cast(results[2].data),
+    "quotes": cast(results[0].data),
+    "active": cast(results[1].data),
+    "delivered": cast(results[2].data),
   };
 });
 
@@ -478,7 +478,7 @@ class _Empty extends StatelessWidget {
               width: 80,
               height: 80,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: T.primarySoft,
                 shape: BoxShape.circle,
               ),

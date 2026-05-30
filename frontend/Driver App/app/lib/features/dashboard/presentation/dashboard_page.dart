@@ -120,7 +120,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                               fontWeight: FontWeight.w700,
                                               color: Colors.white)),
                                       const SizedBox(width: 6),
-                                      _Pill(label: '★ 4,8', dark: true),
+                                      const _Pill(label: '★ 4,8', dark: true),
                                     ]),
                                   ],
                                 ),
@@ -279,9 +279,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
             // ── KPI grid (overlaps header) ─────────────────────────────────
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, -18, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
               sliver: SliverToBoxAdapter(
-                child: GridView.count(
+                child: Transform.translate(
+                  offset: const Offset(0, -18),
+                  child: GridView.count(
                   crossAxisCount: 2,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
@@ -307,14 +309,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       actionLabel: 'Carte',
                       onAction: () => context.go('/active'),
                     ),
-                    _KpiCard(
+                    const _KpiCard(
                       icon: Icons.inventory_2_outlined,
                       tone: 'success',
                       value: '148',
                       label: 'Livrées',
                       sub: 'ce mois',
                     ),
-                    _KpiCard(
+                    const _KpiCard(
                       icon: Icons.emoji_events_outlined,
                       tone: 'coral',
                       value: '98 %',
@@ -322,6 +324,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       sub: 'taux',
                     ),
                   ],
+                ),
                 ),
               ),
             ),
@@ -648,7 +651,7 @@ class _BidCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: urgent ? T.accent : T.line, width: urgent ? 1.5 : 1),
           boxShadow: urgent
-              ? [BoxShadow(color: T.accentSoft, blurRadius: 0, spreadRadius: 3)]
+              ? [const BoxShadow(color: T.accentSoft, blurRadius: 0, spreadRadius: 3)]
               : null,
         ),
         child: Column(
@@ -806,7 +809,7 @@ class _CourseCard extends StatelessWidget {
             const SizedBox(height: 10),
             Row(children: [
               Expanded(
-                child: Text('$kind',
+                child: Text(kind,
                     style: const TextStyle(fontSize: 11.5, color: T.ink3),
                     overflow: TextOverflow.ellipsis),
               ),

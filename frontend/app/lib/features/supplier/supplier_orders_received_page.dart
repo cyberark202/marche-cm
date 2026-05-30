@@ -399,7 +399,7 @@ class _OrderCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        "$productTitle · ${qty} unités",
+                        "$productTitle · $qty unités",
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -481,7 +481,7 @@ class _Empty extends StatelessWidget {
               width: 78,
               height: 78,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppPalette.primarySoft,
                 shape: BoxShape.circle,
               ),

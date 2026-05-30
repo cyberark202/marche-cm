@@ -234,10 +234,10 @@ class _MissionCard extends StatelessWidget {
             // Badge row + fee
             Row(children: [
               if (isUrgent) ...[
-                _Badge(
+                const _Badge(
                     label: 'URGENT',
                     bg: T.accent,
-                    fg: const Color(0xFF1a0f00)),
+                    fg: Color(0xFF1a0f00)),
                 const SizedBox(width: 6),
               ],
               if (vehicleType.isNotEmpty)

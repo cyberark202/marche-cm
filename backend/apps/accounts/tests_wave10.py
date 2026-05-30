@@ -55,6 +55,10 @@ class MigrateWalletPinTests(TestCase):
 class VerifyAuditChainTests(TestCase):
     def test_clean_chain_reports_no_fork(self):
         from apps.audit.models import AuditEvent
+        # Verify a clean chain in isolation: the verifier scans the whole table
+        # by cohort, so start from an empty table to stay independent of other
+        # suites that may have left audit events behind (test-order robustness).
+        AuditEvent.objects.all().delete()
         AuditEvent.objects.create(
             category="AUTH", event_type="x", entity_type="Test", entity_id="1",
             payload={"a": 1},

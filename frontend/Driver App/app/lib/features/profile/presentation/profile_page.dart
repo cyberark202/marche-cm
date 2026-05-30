@@ -80,11 +80,11 @@ class ProfilePage extends ConsumerWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            _Stat(value: '4,8', label: 'Note'),
+                            const _Stat(value: '4,8', label: 'Note'),
                             _Divider(),
-                            _Stat(value: '148', label: 'Livraisons'),
+                            const _Stat(value: '148', label: 'Livraisons'),
                             _Divider(),
-                            _Stat(value: '98 %', label: 'Ponctualité'),
+                            const _Stat(value: '98 %', label: 'Ponctualité'),
                           ],
                         ),
                       ),

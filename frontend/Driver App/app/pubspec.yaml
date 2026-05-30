@@ -51,8 +51,12 @@ dependencies:
   country_picker: ^2.0.27
 
   # Utils
-  intl: ^0.19.0
+  intl: ^0.20.2
   crypto: ^3.0.6
+
+  # Localization (MaterialLocalizations / CupertinoLocalizations fr)
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:

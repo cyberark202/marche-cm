@@ -90,18 +90,18 @@ class ActiveDeliveryPage extends ConsumerWidget {
               // ── Tabs ─────────────────────────────────────────────────────
               Container(
                 color: T.surface,
-                child: TabBar(
+                child: const TabBar(
                   labelColor: T.ink,
                   unselectedLabelColor: T.ink3,
-                  labelStyle: const TextStyle(
+                  labelStyle: TextStyle(
                       fontSize: 13.5, fontWeight: FontWeight.w700),
-                  unselectedLabelStyle: const TextStyle(
+                  unselectedLabelStyle: TextStyle(
                       fontSize: 13.5, fontWeight: FontWeight.w500),
                   indicatorColor: T.accent,
                   indicatorWeight: 2.5,
                   indicatorSize: TabBarIndicatorSize.label,
                   dividerColor: T.line2,
-                  tabs: const [
+                  tabs: [
                     Tab(text: 'En cours'),
                     Tab(text: 'Livrées'),
                     Tab(text: 'Mes devis'),

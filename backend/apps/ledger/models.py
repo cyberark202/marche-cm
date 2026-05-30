@@ -87,6 +87,9 @@ class LedgerAccount(models.Model):
     cached_balance_updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        # Short names (≤30 chars) — the original migration names exceeded
+        # Django's index-name limit (models.E034); a rename migration aligns
+        # the existing DB.
         indexes = [
             models.Index(fields=["sub_type", "owner"], name="idx_lacct_subtype_owner"),
             models.Index(fields=["account_type", "is_active"], name="idx_lacct_type_active"),

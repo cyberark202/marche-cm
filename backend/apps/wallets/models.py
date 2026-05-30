@@ -29,6 +29,21 @@ class Wallet(models.Model):
             models.CheckConstraint(check=models.Q(available_balance__gte=0), name="wallet_available_gte_zero"),
             models.CheckConstraint(check=models.Q(locked_balance__gte=0), name="wallet_locked_gte_zero"),
             models.CheckConstraint(check=models.Q(pending_balance__gte=0), name="wallet_pending_gte_zero"),
+            # [FIN-002] Balance invariants (migration 0012). Declared on the model
+            # so model ↔ migrations stay consistent (do not drop — these are
+            # enforced at the DB level and covered by tests_wave3).
+            models.CheckConstraint(
+                condition=models.Q(blocked_balance=models.F("locked_balance")),
+                name="wallet_blocked_eq_locked",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    balance=models.F("available_balance")
+                    + models.F("locked_balance")
+                    + models.F("pending_balance")
+                ),
+                name="wallet_balance_eq_components",
+            ),
         ]
 
     @property
@@ -105,6 +120,18 @@ class WalletTransaction(models.Model):
                 fields=["external_transaction_id"],
                 condition=~models.Q(external_transaction_id=""),
                 name="uniq_wallet_external_transaction_id",
+            ),
+        ]
+        # Performance indexes (migration 0010) — declared on the model to keep
+        # model ↔ migrations consistent. The composite index is renamed to ≤30
+        # chars (the original name violated Django's models.E034 limit); a
+        # rename migration aligns the existing DB.
+        indexes = [
+            models.Index(fields=["wallet", "created_at"], name="idx_wallettx_wallet_created"),
+            models.Index(fields=["status", "created_at"], name="idx_wallettx_status_created"),
+            models.Index(
+                fields=["wallet", "status", "created_at"],
+                name="idx_wtx_wallet_status_created",
             ),
         ]
 
@@ -296,8 +323,8 @@ class FraudEvent(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["user", "decision", "resolved"]),
-            models.Index(fields=["risk_score", "resolved"]),
+            models.Index(fields=["user", "decision", "resolved"], name="fraud_user_decision_idx"),
+            models.Index(fields=["risk_score", "resolved"], name="fraud_score_idx"),
         ]
 
     def __str__(self) -> str:

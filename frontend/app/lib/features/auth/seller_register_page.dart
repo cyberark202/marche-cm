@@ -237,7 +237,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.public, color: AppPalette.primary, size: 20),
+                                  const Icon(Icons.public, color: AppPalette.primary, size: 20),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(

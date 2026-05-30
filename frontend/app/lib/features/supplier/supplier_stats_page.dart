@@ -157,7 +157,7 @@ class _SupplierStatsPageState extends State<SupplierStatsPage> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: "PRODUITS PERFORMANTS"),
+                  const _SectionLabel(label: "PRODUITS PERFORMANTS"),
                   const SizedBox(height: 10),
                   if (_loading)
                     const Center(child: CircularProgressIndicator())
@@ -403,9 +403,9 @@ class _ChartCard extends StatelessWidget {
                           duration: const Duration(milliseconds: 380),
                           height: math.max(
                               4, (values[i] / maxVal) * 120),
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             gradient: AppPalette.gradientPrimary,
-                            borderRadius: const BorderRadius.vertical(
+                            borderRadius: BorderRadius.vertical(
                               top: Radius.circular(4),
                             ),
                           ),

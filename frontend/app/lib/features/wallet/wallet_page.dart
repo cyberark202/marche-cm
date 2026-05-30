@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../../core/app_ui.dart';
-import '../../core/backend_ui_config_service.dart';
 import '../../core/transaction_state.dart';
 import '../../core/wallet_cache_service.dart';
 import '../auth/session_store.dart';
@@ -26,8 +25,6 @@ class _WalletPageState extends State<WalletPage> {
   String? _error;
   Map<String, dynamic> _wallet = const {};
   List<Map<String, dynamic>> _transactions = const [];
-  List<String> _reconcileStatuses = const [];
-  String _defaultReconcileReason = '';
   String _statusFilter = 'ALL';
   String _kindFilter = 'ALL';
   bool _balanceVisible = true;
@@ -36,23 +33,7 @@ class _WalletPageState extends State<WalletPage> {
   @override
   void initState() {
     super.initState();
-    _loadUiConfig();
     _load();
-  }
-
-  Future<void> _loadUiConfig() async {
-    try {
-      final config = await BackendUiConfigService.instance.load();
-      if (!mounted) return;
-      setState(() {
-        _reconcileStatuses = BackendUiConfigService.instance
-            .readStringList(config, ['choices', 'wallet_reconcile_statuses']);
-        _defaultReconcileReason = BackendUiConfigService.instance
-            .readString(config, ['defaults', 'wallet_reconcile_reason']);
-      });
-    } catch (e) {
-      debugPrint('[WalletPage] _loadUiConfig error: $e');
-    }
   }
 
   Future<void> _load() async {
@@ -141,10 +122,6 @@ class _WalletPageState extends State<WalletPage> {
                           _buildQuickActions(context),
                           const SizedBox(height: 24),
                           _buildTransactions(),
-                          if (session.role == UserRole.generalAdmin) ...[
-                            const SizedBox(height: 16),
-                            _buildAdminSection(),
-                          ],
                         ]),
                       ),
                     ],
@@ -562,30 +539,6 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  // ─── Admin section ────────────────────────────────────────────────────────
-
-  Widget _buildAdminSection() {
-    return AppSectionCard(
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppPalette.warning.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(AppRadii.sm),
-          ),
-          child: const Icon(Icons.admin_panel_settings_outlined,
-              color: AppPalette.warning, size: 20),
-        ),
-        title: const Text('Réconciliation transaction'),
-        subtitle: const Text('Forcer SUCCESS/FAILED sur une transaction.'),
-        trailing: const Icon(Icons.chevron_right_rounded, size: 18),
-        onTap: _openReconcileDialog,
-      ),
-    );
-  }
-
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   static String _formatDate(String raw) {
@@ -640,74 +593,6 @@ class _WalletPageState extends State<WalletPage> {
     }
   }
 
-  Future<void> _openReconcileDialog() async {
-    if (_reconcileStatuses.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Aucun statut de réconciliation disponible.')));
-      return;
-    }
-    final txController = TextEditingController();
-    final reasonController =
-        TextEditingController(text: _defaultReconcileReason);
-    String statusValue = _reconcileStatuses.first;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Réconciliation wallet'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: txController,
-                decoration:
-                    const InputDecoration(labelText: 'Transaction ID externe'),
-              ),
-              DropdownButtonFormField<String>(
-                initialValue: statusValue,
-                items: _reconcileStatuses
-                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                    .toList(),
-                onChanged: (v) => setDialogState(
-                    () => statusValue = v ?? _reconcileStatuses.first),
-                decoration: const InputDecoration(labelText: 'Nouveau statut'),
-              ),
-              TextField(
-                controller: reasonController,
-                decoration: const InputDecoration(labelText: 'Raison'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Annuler')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Exécuter')),
-          ],
-        ),
-      ),
-    );
-    if (confirm != true || !mounted) return;
-    final token = context.read<SessionStore>().token;
-    try {
-      await _api.post('/api/wallets/reconcile/', {
-        'transaction_id': txController.text.trim(),
-        'status': statusValue,
-        'reason': reasonController.text.trim(),
-      }, token: token);
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Réconciliation effectuée.')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_api.toUserMessage(e))));
-    }
-  }
 }
 
 // ─── Reusable widgets ─────────────────────────────────────────────────────────

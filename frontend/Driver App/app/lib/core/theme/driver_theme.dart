@@ -125,7 +125,7 @@ class DriverPalette {
   static const Color accentDark  = T.accentDark;
   static const Color accentSoft  = T.accentSoft;
 
-  static final LinearGradient driverHeaderGradient = T.gradientDriverHeader;
+  static const LinearGradient driverHeaderGradient = T.gradientDriverHeader;
 }
 
 class DriverRadii {

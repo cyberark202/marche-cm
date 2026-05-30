@@ -1059,7 +1059,7 @@ class _CartEmpty extends StatelessWidget {
               width: 96,
               height: 96,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppPalette.primarySoft,
                 shape: BoxShape.circle,
               ),

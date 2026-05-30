@@ -164,7 +164,7 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 children: [
-                  _SectionLabel(label: "PHOTOS & VIDÉO"),
+                  const _SectionLabel(label: "PHOTOS & VIDÉO"),
                   const SizedBox(height: 10),
                   _MediaGrid(),
                   const SizedBox(height: 20),
@@ -200,7 +200,7 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      _SectionLabel(label: "PRIX PAR PALIERS B2B"),
+                      const _SectionLabel(label: "PRIX PAR PALIERS B2B"),
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -209,9 +209,9 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
                           color: AppPalette.primarySoft,
                           borderRadius: BorderRadius.circular(AppRadii.pill),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
+                          children: [
                             Icon(Icons.add,
                                 size: 13, color: AppPalette.primaryDark),
                             SizedBox(width: 3),
@@ -352,7 +352,7 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: "STOCK"),
+                  const _SectionLabel(label: "STOCK"),
                   const SizedBox(height: 10),
                   Row(
                     children: [

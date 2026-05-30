@@ -414,19 +414,19 @@ class _ChatHubPageState extends State<ChatHubPage> {
                       fontWeight: FontWeight.w600, fontSize: 14),
                 ),
               ),
-              Text(
+              const Text(
                 "Maintenant",
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11, color: Color(0xFF9E9E9E)),
               ),
             ],
           ),
           subtitle: Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text(
                   "Touchez pour ouvrir la conversation",
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12, color: Color(0xFF9E9E9E)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

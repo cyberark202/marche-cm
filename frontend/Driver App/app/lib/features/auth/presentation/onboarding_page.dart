@@ -191,13 +191,13 @@ class _StepWelcome extends StatelessWidget {
         const Text('Bienvenue chez Market CM Driver !',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: DriverPalette.textPrimary)),
         const SizedBox(height: 12),
-        Text(
+        const Text(
           'Pour commencer à accepter des missions, nous devons vérifier votre identité. '
           'Cette vérification est obligatoire pour assurer la sécurité de la plateforme.',
           style: TextStyle(fontSize: 14, color: DriverPalette.textSecondary, height: 1.5),
         ),
         const SizedBox(height: 24),
-        _InfoCard(icon: Icons.credit_card, title: "Pièce d'identité",
+        const _InfoCard(icon: Icons.credit_card, title: "Pièce d'identité",
             desc: "CNI ou Passeport valide"),
         const SizedBox(height: 10),
         const _InfoCard(icon: Icons.drive_eta, title: "Permis de conduire",

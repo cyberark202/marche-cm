@@ -360,6 +360,10 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {},   # Rates live in throttle class definitions.
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    # OpenAPI schema generator. Required by drf-spectacular — without it the
+    # generator raises E001 on every APIView (e.g. the CSV AuditLogExportView)
+    # because DRF's stock AutoSchema is incompatible.
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # Never expose internal Python exception details to clients.
     "EXCEPTION_HANDLER": "config.exceptions.security_exception_handler",
 }
