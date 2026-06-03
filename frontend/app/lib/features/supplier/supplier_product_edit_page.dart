@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
+import 'product_request_model.dart';
 
 /// Éditer / créer un produit fournisseur (PDF 16).
 class SupplierProductEditPage extends StatefulWidget {
@@ -29,6 +30,7 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
   final _maxQty = TextEditingController();
   final _priceMin = TextEditingController();
   final _priceMax = TextEditingController();
+  final _weight = TextEditingController();
   final _stockAvailable = TextEditingController();
   final _stockReserved = TextEditingController();
   bool _busy = false;
@@ -51,6 +53,7 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
       _priceMax.text = (p["price_max"] ?? p["price_for_min_qty"] ?? "").toString();
       _stockAvailable.text = (p["available_qty"] ?? p["stock"] ?? "").toString();
       _stockReserved.text = (p["min_stock"] ?? "").toString();
+      _weight.text = (p["weight_kg"] ?? "").toString();
     }
     for (final c in [_minQty, _maxQty, _priceMin, _priceMax]) {
       c.addListener(() => setState(() {}));
@@ -68,6 +71,7 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
       _maxQty,
       _priceMin,
       _priceMax,
+      _weight,
       _stockAvailable,
       _stockReserved,
     ]) {
@@ -78,27 +82,34 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
 
   Future<void> _save() async {
     if (_busy) return;
-    final title = _title.text.trim();
-    if (title.isEmpty) {
+    // C-1: build the canonical payload via the shared ProductRequestModel.
+    // Price mapping follows the form labels: "_priceMin" is the bulk/high-volume
+    // price (=> price_for_max_qty) and "_priceMax" is the low-volume price
+    // (=> price_for_min_qty).
+    final stock = int.tryParse(_stockAvailable.text.trim());
+    final model = ProductRequestModel(
+      title: _title.text,
+      brand: _brand.text,
+      categoryName: _category.text,
+      description: _description.text,
+      minOrderQty: int.tryParse(_minQty.text.trim()) ?? 0,
+      maxOrderQty: int.tryParse(_maxQty.text.trim()) ?? 0,
+      priceForMinQty: num.tryParse(_priceMax.text.trim()) ?? 0,
+      priceForMaxQty: num.tryParse(_priceMin.text.trim()) ?? 0,
+      weightKg: num.tryParse(_weight.text.trim()) ?? 0,
+      availableQty: stock != null && stock > 0 ? stock : null,
+    );
+    final validationError = model.validate();
+    if (validationError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Le nom du produit est obligatoire.")),
+        SnackBar(content: Text(validationError)),
       );
       return;
     }
     setState(() => _busy = true);
     final token = context.read<SessionStore>().token;
     try {
-      final body = {
-        "title": title,
-        "brand": _brand.text.trim(),
-        "category": _category.text.trim(),
-        "description": _description.text.trim(),
-        "min_qty": int.tryParse(_minQty.text) ?? 0,
-        "max_qty": int.tryParse(_maxQty.text) ?? 0,
-        "price_for_max_qty": int.tryParse(_priceMin.text) ?? 0,
-        "price_for_min_qty": int.tryParse(_priceMax.text) ?? 0,
-        "available_qty": int.tryParse(_stockAvailable.text) ?? 0,
-      };
+      final body = model.toJson();
       if (_isEdit) {
         final id = widget.product!["id"];
         await _api.patch("/api/products/$id/", body, token: token);
@@ -196,6 +207,13 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
                     hint:
                         "Composition, conditionnement, certification, conseils d'usage…",
                     minLines: 4,
+                  ),
+                  const SizedBox(height: 12),
+                  _Field(
+                    label: "Poids unitaire (kg)",
+                    controller: _weight,
+                    hint: "Ex : 20",
+                    numeric: true,
                   ),
                   const SizedBox(height: 20),
                   Row(

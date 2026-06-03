@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   const AppConfig._();
 
+  // Build-time injection: --dart-define=API_BASE_URL=http://localhost:8000
+  // The key MUST be the identifier "API_BASE_URL", not a URL literal.
   static const String _apiBaseUrlFromEnv = String.fromEnvironment(
-    "https://marche-cm.onrender.com",
+    "API_BASE_URL",
     defaultValue: "https://marche-cm.onrender.com",
   );
 

@@ -46,3 +46,16 @@ Thumbs.db
 logs_*/
 error.md
 httpsdocs.*.txt
+
+# QA E2E run artifacts — request/response logs contain JWT tokens & PII, never commit
+qa_e2e/artifacts/
+qa_e2e/*.rar
+qa_e2e/*.zip
+qa_e2e/rapports&artifacts/
+# Scratch / diagnostic output (never commit)
+backend/*_out.txt
+backend/health_check.txt
+frontend/*.txt
+frontend/diag*
+frontend/shot.py
+frontend/seed_out.txt

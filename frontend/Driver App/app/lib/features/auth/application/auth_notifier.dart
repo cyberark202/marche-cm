@@ -39,6 +39,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         ? payload['user'] as Map<String, dynamic>
         : <String, dynamic>{};
 
+    // ISOLATION: Market CM Driver est réservée aux chauffeurs (TRANSIT_AGENT).
+    // Tout autre rôle est rejeté ici, même si l'authentification a réussi.
+    final role = (user['role'] ?? '').toString();
+    if (role != 'TRANSIT_AGENT') {
+      await DriverSecureStorage.clearAll();
+      throw Exception(
+          "Ce compte n'est pas un compte chauffeur. Utilisez l'application correspondant à votre rôle.");
+    }
+
     await DriverSecureStorage.saveTokens(
         access: access, refresh: refresh.isNotEmpty ? refresh : '');
     final userId = user['id'] is int ? user['id'] as int : null;

@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Marché CM — Central Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #F8F6F1;
+    --surface: #FFFFFF;
+    --surface-2: #F3EFE7;
+    --ink: #0F1B17;
+    --ink-2: #3A4A44;
+    --ink-3: #6B7A74;
+    --line: #E6E0D2;
+    --line-2: #EDE8DC;
+    --primary: #0E6B4E;
+    --primary-700: #0A5A40;
+    --primary-50: #E6F1EC;
+    --accent: #E8A33C;
+    --accent-700: #C68426;
+    --danger: #C2410C;
+    --success: #15803D;
+    --info: #2563EB;
+    --shadow-sm: 0 1px 2px rgba(15, 27, 23, .04), 0 1px 1px rgba(15, 27, 23, .03);
+    --shadow-md: 0 4px 12px -2px rgba(15, 27, 23, .06), 0 2px 4px -1px rgba(15, 27, 23, .04);
+    --shadow-lg: 0 12px 28px -8px rgba(15, 27, 23, .10), 0 4px 10px -2px rgba(15, 27, 23, .05);
+    --radius-sm: 8px;
+    --radius: 14px;
+    --radius-lg: 22px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  a { color: inherit; text-decoration: none; }
+  img { display: block; max-width: 100%; }
+  input, textarea { font-family: inherit; }
+
+  /* ====== Layout shell ====== */
+  .shell { display: grid; min-height: 100vh; grid-template-columns: 1fr; }
+  @media (min-width: 1024px) {
+    .shell { grid-template-columns: 264px 1fr; }
+  }
+
+  /* ====== Sidebar (desktop) ====== */
+  .sidebar {
+    display: none;
+    border-right: 1px solid var(--line);
+    background: var(--surface);
+    padding: 22px 18px;
+    position: sticky; top: 0;
+    height: 100vh;
+    flex-direction: column;
+  }
+  @media (min-width: 1024px) { .sidebar { display: flex; } }
+  .brand {
+    display: flex; align-items: center; gap: 10px; padding: 4px 6px 22px;
+  }
+  .brand-mark {
+    width: 38px; height: 38px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary) 0%, #0E8A5E 100%);
+    display: grid; place-items: center; color: #fff;
+    box-shadow: 0 6px 14px -4px rgba(14,107,78,.45);
+  }
+  .brand-name { font-weight: 800; font-size: 18px; letter-spacing: -0.01em; }
+  .brand-sub { font-size: 11px; color: var(--ink-3); margin-top: 1px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .nav-group { margin-top: 18px; }
+  .nav-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); padding: 0 12px 8px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 10px;
+    font-size: 14.5px; font-weight: 500; color: var(--ink-2);
+    margin: 2px 0; transition: background .15s, color .15s;
+  }
+  .nav-item:hover { background: var(--surface-2); color: var(--ink); }
+  .nav-item.active {
+    background: var(--primary-50); color: var(--primary-700); font-weight: 600;
+  }
+  .nav-item .badge { margin-left: auto; font-size: 11px; background: var(--accent); color: #fff; border-radius: 999px; padding: 2px 8px; font-weight: 700; }
+  .nav-item.active svg { color: var(--primary-700); }
+  .sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line-2); }
+  .user-chip {
+    display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; background: var(--surface-2);
+  }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg,#0E6B4E,#1FA372); color: #fff;
+    display: grid; place-items: center; font-weight: 700; font-size: 13px;
+  }
+  .user-chip .name { font-size: 13.5px; font-weight: 600; }
+  .user-chip .role { font-size: 11px; color: var(--ink-3); }
+
+  /* ====== Main ====== */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+
+  /* ====== Top bar ====== */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(248,246,241,.85);
+    backdrop-filter: saturate(160%) blur(12px);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+    border-bottom: 1px solid var(--line-2);
+    padding: 12px 16px;
+  }
+  @media (min-width: 768px) { .topbar { padding: 14px 28px; } }
+  .topbar-row { display: flex; align-items: center; gap: 12px; }
+  .topbar .brand-mobile { display: flex; align-items: center; gap: 8px; }
+  @media (min-width: 1024px) { .topbar .brand-mobile { display: none; } }
+  .brand-mobile .brand-mark { width: 32px; height: 32px; border-radius: 10px; }
+  .brand-mobile .brand-name { font-size: 16px; }
+
+  .search {
+    flex: 1; display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 9px 12px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .search:focus-within {
+    border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-50);
+  }
+  .search input { flex: 1; border: none; outline: none; background: transparent; font-size: 14px; color: var(--ink); }
+  .search input::placeholder { color: var(--ink-3); }
+  .search .kbd {
+    display: none; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; font-size: 11px; color: var(--ink-3); font-family: 'Inter', monospace;
+  }
+  @media (min-width: 768px) { .search .kbd { display: inline-block; } }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: var(--surface); border: 1px solid var(--line);
+    display: grid; place-items: center; color: var(--ink-2);
+    position: relative; transition: background .15s, border-color .15s;
+  }
+  .icon-btn:hover { background: var(--surface-2); }
+  .icon-btn .dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; border: 2px solid var(--surface); }
+  .topbar-cart { display: flex; align-items: center; gap: 6px; padding: 0 12px; height: 40px; border-radius: 11px; background: var(--ink); color: #fff; font-weight: 600; font-size: 13.5px; }
+  .topbar-cart .count { background: var(--accent); color: #fff; border-radius: 999px; padding: 1px 7px; font-size: 11px; }
+
+  /* ====== Page content ====== */
+  .page { padding: 16px; padding-bottom: 100px; }
+  @media (min-width: 768px) { .page { padding: 28px; padding-bottom: 40px; } }
+  @media (min-width: 1024px) { .page { padding: 32px 40px; } }
+
+  /* ====== Hero ====== */
+  .hero {
+    border-radius: var(--radius-lg);
+    padding: 28px 22px;
+    color: #fff;
+    background:
+      radial-gradient(120% 100% at 100% 0%, rgba(232,163,60,.35) 0%, transparent 50%),
+      radial-gradient(80% 100% at 0% 100%, rgba(31,163,114,.5) 0%, transparent 50%),
+      linear-gradient(135deg, #0A3B2A 0%, #0E6B4E 60%, #0E8A5E 100%);
+    position: relative; overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+  @media (min-width: 768px) { .hero { padding: 40px 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; } }
+  .hero h1 {
+    font-size: clamp(26px, 4vw, 40px); line-height: 1.1; margin: 0 0 12px;
+    font-weight: 800; letter-spacing: -0.02em; text-wrap: balance;
+  }
+  .hero p { margin: 0 0 22px; opacity: .88; font-size: 15px; line-height: 1.55; max-width: 46ch; }
+  .hero-cta { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--accent); color: #1a0f00; font-weight: 700;
+    padding: 12px 18px; border-radius: 12px; font-size: 14px;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: transform .12s, background .15s, box-shadow .15s;
+    box-shadow: 0 8px 18px -6px rgba(232,163,60,.5);
+  }
+  .btn-primary:hover { background: var(--accent-700); }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-ghost-light {
+    background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.2);
+    padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600;
+    backdrop-filter: blur(4px);
+    transition: background .15s;
+  }
+  .btn-ghost-light:hover { background: rgba(255,255,255,.18); }
+  .hero-stats { display: flex; gap: 24px; margin-top: 28px; flex-wrap: wrap; }
+  .hero-stat .v { font-size: 22px; font-weight: 800; font-feature-settings: "tnum"; }
+  .hero-stat .l { font-size: 12px; opacity: .75; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+  .hero-card {
+    display: none;
+  }
+  @media (min-width: 768px) { .hero-card { display: block; } }
+  .hero-card-inner {
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: var(--radius);
+    padding: 18px;
+    backdrop-filter: blur(8px);
+  }
+  .hero-card h4 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; opacity: .8; font-weight: 600; }
+  .escrow-step { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.12); }
+  .escrow-step:first-of-type { border-top: none; }
+  .escrow-step .n { width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,.15); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  .escrow-step.done .n { background: var(--accent); color: #1a0f00; }
+  .escrow-step .t { font-size: 14px; font-weight: 600; }
+  .escrow-step .s { font-size: 12px; opacity: .7; }
+
+  /* ====== Section ====== */
+  .section { margin-top: 32px; }
+  .section-head { display: flex; align-items: end; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+  .section-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+  .section-head .sub { font-size: 13px; color: var(--ink-3); margin-top: 2px; }
+  .section-head .link { font-size: 13px; color: var(--primary); font-weight: 600; }
+
+  /* ====== Categories ====== */
+  .cats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  @media (min-width: 540px) { .cats { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 768px) { .cats { grid-template-columns: repeat(6, 1fr); gap: 12px; } }
+  .cat {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px;
+    display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
+    transition: transform .15s, border-color .15s, box-shadow .15s;
+  }
+  .cat:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: var(--shadow-md); }
+  .cat-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--primary-50); color: var(--primary-700); }
+  .cat .n { font-size: 13px; font-weight: 600; }
+  .cat .c { font-size: 11px; color: var(--ink-3); font-feature-settings: "tnum"; }
+
+  /* ====== Products grid ====== */
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 640px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1024px) { .grid { grid-template-columns: repeat(4, 1fr); gap: 16px; } }
+  .product {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden;
+    transition: transform .15s, box-shadow .15s, border-color .15s;
+    display: flex; flex-direction: column;
+  }
+  .product:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: #D8D0BC; }
+  .product-img {
+    aspect-ratio: 1 / 1; position: relative; background: var(--surface-2);
+    overflow: hidden;
+  }
+  .product-img .ph {
+    width: 100%; height: 100%;
+    display: grid; place-items: center; color: rgba(15,27,23,.18);
+  }
+  .product-img .badge {
+    position: absolute; top: 10px; left: 10px;
+    background: var(--ink); color: #fff; font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 4px 8px; border-radius: 6px;
+  }
+  .product-img .badge.gros { background: var(--primary); }
+  .product-img .badge.promo { background: var(--accent); color: #1a0f00; }
+  .product-img .fav {
+    position: absolute; top: 10px; right: 10px;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,.9); color: var(--ink-2);
+    display: grid; place-items: center; border: 1px solid var(--line);
+  }
+  .product-img .fav:hover { color: var(--danger); }
+  .product-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .product .vendor { font-size: 11px; color: var(--ink-3); display: flex; align-items: center; gap: 4px; }
+  .product .vendor svg { color: var(--primary); }
+  .product .name { font-size: 14px; font-weight: 600; line-height: 1.35; margin-top: 2px; min-height: 38px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .product .meta { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .product .price { font-size: 15.5px; font-weight: 800; font-feature-settings: "tnum"; }
+  .product .price .unit { font-size: 11px; color: var(--ink-3); font-weight: 500; margin-left: 2px; }
+  .product .price-range { font-size: 11px; color: var(--ink-3); margin-top: 2px; font-feature-settings: "tnum"; }
+  .product .add {
+    width: 32px; height: 32px; border-radius: 9px; background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+    transition: background .15s, transform .12s;
+  }
+  .product .add:hover { background: var(--primary); }
+  .product .add:active { transform: scale(.94); }
+
+  /* ====== Bottom nav (mobile) ====== */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+    background: rgba(255,255,255,.96);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 1024px) { .bottom-nav { display: none; } }
+  .bn-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 6px 4px; border-radius: 10px; color: var(--ink-3); font-size: 10.5px; font-weight: 600;
+    transition: color .15s;
+  }
+  .bn-item.active { color: var(--primary-700); }
+  .bn-item.active svg { color: var(--primary); }
+  .bn-item .bn-icon { position: relative; }
+  .bn-item .bn-icon .dot { position: absolute; top: -2px; right: -4px; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+
+  /* ====== Product page ====== */
+  .pdp { display: grid; gap: 24px; }
+  @media (min-width: 900px) { .pdp { grid-template-columns: 1.1fr 1fr; gap: 36px; } }
+  .pdp-gallery { display: flex; flex-direction: column; gap: 10px; }
+  .pdp-hero {
+    aspect-ratio: 4 / 3; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    display: grid; place-items: center; color: rgba(15,27,23,.15); position: relative; overflow: hidden;
+  }
+  .pdp-hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(60% 60% at 50% 40%, rgba(232,163,60,.08) 0%, transparent 70%);
+  }
+  .pdp-thumbs { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pdp-thumb { width: 64px; height: 64px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; color: rgba(15,27,23,.2); }
+  .pdp-thumb.active { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-50); }
+  .pdp-info h1 { font-size: 26px; margin: 4px 0 8px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.15; text-wrap: balance; }
+  .pdp-info .breadcrumb { font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+  .pdp-info .breadcrumb a:hover { color: var(--primary); }
+  .pdp-supplier {
+    margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .pdp-supplier .av { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg,#1FA372,#0E6B4E); color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .pdp-supplier .meta { line-height: 1.3; }
+  .pdp-supplier .meta .n { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .pdp-supplier .meta .s { font-size: 12px; color: var(--ink-3); }
+  .pdp-supplier .verified { background: var(--primary-50); color: var(--primary-700); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+  .pdp-supplier .chat-btn { margin-left: auto; padding: 8px 14px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .pdp-pricing {
+    margin-top: 16px; padding: 18px;
+    background: linear-gradient(135deg, #FDF7EA 0%, #F9EFD9 100%);
+    border: 1px solid #F0E2BB; border-radius: var(--radius);
+  }
+  .pdp-pricing .lbl { font-size: 11px; color: #7A5C0E; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+  .pdp-pricing .v { font-size: 30px; font-weight: 800; margin-top: 2px; font-feature-settings: "tnum"; letter-spacing: -0.01em; }
+  .pdp-pricing .v .unit { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-left: 4px; }
+  .pdp-pricing .range { font-size: 12px; color: var(--ink-2); margin-top: 4px; font-feature-settings: "tnum"; }
+  .pdp-pricing table { width: 100%; margin-top: 14px; border-collapse: collapse; font-size: 13px; }
+  .pdp-pricing th { text-align: left; font-weight: 600; font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 0; border-bottom: 1px solid rgba(122,92,14,.2); }
+  .pdp-pricing td { padding: 7px 0; border-bottom: 1px dashed rgba(122,92,14,.15); font-feature-settings: "tnum"; }
+  .pdp-pricing tr:last-child td { border-bottom: none; }
+
+  .pdp-actions { margin-top: 18px; display: grid; gap: 10px; }
+  .qty {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid var(--line); border-radius: 12px; padding: 4px;
+    background: var(--surface);
+  }
+  .qty-btn { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--ink-2); }
+  .qty-btn:hover { background: var(--surface-2); }
+  .qty input { width: 60px; text-align: center; border: none; outline: none; font-size: 15px; font-weight: 700; background: transparent; font-family: inherit; font-feature-settings: "tnum"; }
+  .qty .lbl { padding-left: 10px; font-size: 12px; color: var(--ink-3); }
+  .pdp-buttons { display: flex; gap: 10px; }
+  .btn-solid {
+    flex: 1; height: 50px; border-radius: 12px;
+    background: var(--primary); color: #fff;
+    font-weight: 700; font-size: 15px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 8px 18px -6px rgba(14,107,78,.45);
+    transition: background .15s, transform .12s;
+  }
+  .btn-solid:hover { background: var(--primary-700); }
+  .btn-solid:active { transform: translateY(1px); }
+  .btn-outline {
+    flex: 1; height: 50px; border-radius: 12px;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line); font-weight: 700; font-size: 15px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .15s;
+  }
+  .btn-outline:hover { background: var(--surface-2); }
+
+  .pdp-trust { margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .trust-item { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .trust-item .ic { color: var(--primary); margin-bottom: 8px; }
+  .trust-item .t { font-size: 12px; font-weight: 700; }
+  .trust-item .d { font-size: 11px; color: var(--ink-3); margin-top: 2px; line-height: 1.4; }
+
+  /* ====== Wallet page ====== */
+  .wallet-grid { display: grid; gap: 18px; }
+  @media (min-width: 900px) { .wallet-grid { grid-template-columns: 1fr 1fr; } }
+  .wallet-card {
+    border-radius: var(--radius-lg); padding: 24px; color: #fff; position: relative; overflow: hidden;
+    background:
+      radial-gradient(120% 100% at 100% 0%, rgba(232,163,60,.4) 0%, transparent 50%),
+      linear-gradient(135deg, #0A3B2A 0%, #0E6B4E 100%);
+    box-shadow: var(--shadow-lg);
+    min-height: 210px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .wallet-card .pattern { position: absolute; right: -30px; bottom: -30px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 70%); }
+  .wallet-card .label { font-size: 12px; opacity: .8; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .wallet-card .balance { font-size: 38px; font-weight: 800; margin-top: 6px; font-feature-settings: "tnum"; letter-spacing: -0.01em; }
+  .wallet-card .balance .ccy { font-size: 16px; font-weight: 600; opacity: .8; margin-left: 6px; }
+  .wallet-card .actions { display: flex; gap: 10px; margin-top: 22px; }
+  .wallet-card .actions button {
+    flex: 1; padding: 11px 14px; border-radius: 12px; font-weight: 700; font-size: 13.5px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .wallet-card .actions .primary { background: var(--accent); color: #1a0f00; }
+  .wallet-card .actions .primary:hover { background: var(--accent-700); }
+  .wallet-card .actions .ghost { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.2); }
+  .wallet-card .actions .ghost:hover { background: rgba(255,255,255,.2); }
+  .wallet-meta { display: flex; gap: 18px; margin-top: 16px; }
+  .wallet-meta .m { font-size: 11px; opacity: .8; }
+  .wallet-meta .v { font-size: 14px; font-weight: 700; font-feature-settings: "tnum"; }
+
+  .escrow-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px;
+  }
+  .escrow-card h3 { margin: 0 0 4px; font-size: 16px; font-weight: 700; }
+  .escrow-card .sub { font-size: 12.5px; color: var(--ink-3); margin-bottom: 16px; }
+  .escrow-amount { font-size: 26px; font-weight: 800; font-feature-settings: "tnum"; }
+  .escrow-amount .ccy { font-size: 13px; color: var(--ink-3); margin-left: 4px; font-weight: 600; }
+  .escrow-state { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #FFF4D6; color: #92590E; border-radius: 999px; font-size: 11px; font-weight: 700; margin-top: 4px; }
+  .escrow-list { margin-top: 16px; display: grid; gap: 10px; }
+  .escrow-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--surface-2); border-radius: 10px; }
+  .escrow-row .ic { width: 32px; height: 32px; border-radius: 8px; background: var(--surface); display: grid; place-items: center; color: var(--primary); border: 1px solid var(--line); }
+  .escrow-row .t { font-size: 13px; font-weight: 600; }
+  .escrow-row .s { font-size: 11px; color: var(--ink-3); }
+  .escrow-row .v { margin-left: auto; font-weight: 700; font-feature-settings: "tnum"; }
+
+  /* ====== Topup methods ====== */
+  .methods { margin-top: 24px; }
+  .methods-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  @media (min-width: 540px) { .methods-grid { grid-template-columns: repeat(4, 1fr); } }
+  .method {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+    display: flex; flex-direction: column; gap: 8px; transition: border-color .15s, transform .15s;
+  }
+  .method:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .method-logo { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; color: #fff; font-size: 12px; letter-spacing: 0.02em; }
+  .method-logo.mtn { background: #FFCC00; color: #1a1a1a; }
+  .method-logo.om { background: #FF6600; }
+  .method-logo.visa { background: #1A1F71; }
+  .method-logo.mc { background: linear-gradient(90deg, #EB001B 0%, #EB001B 50%, #F79E1B 50%, #F79E1B 100%); }
+  .method .n { font-size: 13px; font-weight: 700; }
+  .method .d { font-size: 11px; color: var(--ink-3); }
+
+  /* ====== Transactions ====== */
+  .tx-list { margin-top: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+  .tx-row { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--line-2); }
+  .tx-row:last-child { border-bottom: none; }
+  .tx-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+  .tx-icon.in { background: var(--primary-50); color: var(--primary-700); }
+  .tx-icon.out { background: #FEEDD6; color: #B45309; }
+  .tx-icon.escrow { background: #E0E7FF; color: #4338CA; }
+  .tx-icon.refund { background: #FCE7F3; color: #BE185D; }
+  .tx-body { flex: 1; min-width: 0; }
+  .tx-body .t { font-size: 14px; font-weight: 600; }
+  .tx-body .s { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .tx-amount { text-align: right; font-feature-settings: "tnum"; flex-shrink: 0; }
+  .tx-amount .v { font-size: 14px; font-weight: 700; }
+  .tx-amount .v.pos { color: var(--success); }
+  .tx-amount .v.neg { color: var(--ink); }
+  .tx-amount .st { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+  /* ====== Orders / tracking ====== */
+  .orders-grid { display: grid; gap: 16px; }
+  @media (min-width: 900px) { .orders-grid { grid-template-columns: 1.2fr 1fr; } }
+  .tracking-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 22px;
+  }
+  .tracking-head { display: flex; align-items: flex-start; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line-2); flex-wrap: wrap; }
+  .tracking-head .ph { width: 76px; height: 76px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; color: rgba(15,27,23,.2); flex-shrink: 0; }
+  .tracking-head .info { flex: 1; min-width: 0; }
+  .tracking-head .oid { font-size: 11px; color: var(--ink-3); font-family: 'Inter', monospace; letter-spacing: 0.04em; }
+  .tracking-head h3 { font-size: 17px; font-weight: 700; margin: 4px 0 4px; }
+  .tracking-head .meta { display: flex; gap: 12px; font-size: 12px; color: var(--ink-3); flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .pill.transit { background: #FEF3C7; color: #92590E; }
+  .pill.delivered { background: var(--primary-50); color: var(--primary-700); }
+  .pill.escrow { background: #E0E7FF; color: #4338CA; }
+  .timeline { margin-top: 18px; position: relative; padding-left: 18px; }
+  .timeline::before {
+    content: ""; position: absolute; left: 9px; top: 6px; bottom: 6px; width: 2px;
+    background: linear-gradient(to bottom, var(--primary) 0%, var(--primary) 60%, var(--line) 60%, var(--line) 100%);
+  }
+  .tl-item { display: flex; gap: 14px; padding: 8px 0; position: relative; }
+  .tl-dot {
+    position: absolute; left: -18px; top: 12px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--surface); border: 3px solid var(--line); display: grid; place-items: center;
+  }
+  .tl-item.done .tl-dot { background: var(--primary); border-color: var(--primary); }
+  .tl-item.done .tl-dot::after { content: ""; width: 6px; height: 6px; background: #fff; border-radius: 50%; }
+  .tl-item.active .tl-dot { background: var(--accent); border-color: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(232,163,60,.5); } 50% { box-shadow: 0 0 0 8px rgba(232,163,60,0); } }
+  .tl-content { padding: 4px 0; }
+  .tl-content .t { font-size: 14px; font-weight: 600; }
+  .tl-content .s { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .tl-item.pending .tl-content .t { color: var(--ink-3); font-weight: 500; }
+
+  .agent-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px;
+  }
+  .agent-card h4 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); font-weight: 700; }
+  .agent-row { display: flex; align-items: center; gap: 12px; }
+  .agent-row .av {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: linear-gradient(135deg, #1A8050, #0E6B4E); color: #fff;
+    display: grid; place-items: center; font-weight: 800;
+  }
+  .agent-row .meta { flex: 1; }
+  .agent-row .n { font-weight: 700; font-size: 15px; }
+  .agent-row .s { font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+  .stars { color: var(--accent); display: inline-flex; gap: 1px; align-items: center; }
+  .agent-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .agent-actions .btn { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .agent-actions .btn:hover { background: var(--bg); }
+  .agent-actions .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .agent-actions .btn.primary:hover { background: #1F2A26; }
+
+  .order-actions { margin-top: 16px; display: grid; gap: 10px; }
+  .order-actions .btn-solid { width: 100%; }
+  .order-actions .dispute {
+    text-align: center; font-size: 12.5px; color: var(--ink-3); padding: 8px;
+  }
+  .order-actions .dispute a { color: var(--danger); font-weight: 600; }
+
+  /* ====== Chat ====== */
+  .chat {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    overflow: hidden; height: calc(100vh - 200px); min-height: 520px;
+    display: grid; grid-template-columns: 1fr;
+  }
+  @media (min-width: 768px) { .chat { grid-template-columns: 280px 1fr; } }
+  .chat-rooms {
+    border-right: 1px solid var(--line); display: none; flex-direction: column;
+  }
+  @media (min-width: 768px) { .chat-rooms { display: flex; } }
+  .chat-rooms-head { padding: 16px; border-bottom: 1px solid var(--line-2); }
+  .chat-rooms-head h3 { margin: 0; font-size: 15px; font-weight: 700; }
+  .chat-rooms-list { overflow-y: auto; }
+  .chat-room {
+    display: flex; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line-2); align-items: center;
+  }
+  .chat-room:hover { background: var(--surface-2); }
+  .chat-room.active { background: var(--primary-50); }
+  .chat-room .av { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .chat-room .av.supplier { background: linear-gradient(135deg, #1FA372, #0E6B4E); }
+  .chat-room .av.transit { background: linear-gradient(135deg, #E8A33C, #C68426); }
+  .chat-room .body { flex: 1; min-width: 0; }
+  .chat-room .top { display: flex; justify-content: space-between; gap: 6px; }
+  .chat-room .n { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-room .time { font-size: 11px; color: var(--ink-3); }
+  .chat-room .last { font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .chat-room .unread { background: var(--accent); color: #1a0f00; font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px; margin-left: 6px; }
+
+  .chat-thread { display: flex; flex-direction: column; min-width: 0; }
+  .chat-head { padding: 14px 18px; border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: 12px; }
+  .chat-head .av { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #1FA372, #0E6B4E); color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .chat-head .n { font-size: 14.5px; font-weight: 700; }
+  .chat-head .s { font-size: 11.5px; color: var(--success); display: flex; align-items: center; gap: 5px; }
+  .chat-head .s::before { content: ""; width: 7px; height: 7px; background: var(--success); border-radius: 50%; }
+  .chat-head .actions { margin-left: auto; display: flex; gap: 4px; }
+  .chat-head .actions .icon-btn { width: 36px; height: 36px; }
+
+  .chat-body {
+    flex: 1; padding: 16px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+    background:
+      radial-gradient(60% 80% at 20% 0%, rgba(232,163,60,.04), transparent 60%),
+      radial-gradient(60% 80% at 80% 100%, rgba(14,107,78,.04), transparent 60%);
+  }
+  .chat-date { text-align: center; font-size: 11px; color: var(--ink-3); margin: 6px 0; }
+  .msg { max-width: 78%; padding: 10px 13px; border-radius: 14px; font-size: 14px; line-height: 1.42; position: relative; }
+  .msg .time { font-size: 10px; opacity: .65; margin-top: 4px; display: inline-flex; align-items: center; gap: 3px; }
+  .msg.them { background: var(--surface-2); color: var(--ink); align-self: flex-start; border-bottom-left-radius: 4px; }
+  .msg.me { background: var(--primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+  .msg.system {
+    align-self: center; background: #FFF4D6; color: #7A5C0E; font-size: 12px; padding: 6px 12px; border-radius: 999px; font-weight: 600;
+    max-width: 100%; text-align: center;
+  }
+  .msg.quote {
+    background: #fff; border: 1px solid var(--line);
+    align-self: flex-start; color: var(--ink); max-width: 86%;
+    padding: 14px; border-radius: 14px; border-bottom-left-radius: 4px;
+  }
+  .msg.quote .h { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+  .msg.quote .v { font-size: 22px; font-weight: 800; margin-top: 4px; font-feature-settings: "tnum"; }
+  .msg.quote .v .ccy { font-size: 12px; color: var(--ink-3); font-weight: 600; margin-left: 4px; }
+  .msg.quote .meta { font-size: 12px; color: var(--ink-3); margin-top: 4px; }
+  .msg.quote .qa { display: flex; gap: 8px; margin-top: 12px; }
+  .msg.quote .qa button { flex: 1; padding: 9px; border-radius: 9px; font-weight: 700; font-size: 13px; }
+  .msg.quote .qa .accept { background: var(--primary); color: #fff; }
+  .msg.quote .qa .decline { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+
+  .chat-input {
+    border-top: 1px solid var(--line-2); padding: 12px 14px;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface);
+  }
+  .chat-input .field {
+    flex: 1; background: var(--surface-2); border-radius: 22px; padding: 10px 16px;
+    display: flex; align-items: center; gap: 10px; border: 1px solid transparent;
+    transition: border-color .15s, background .15s;
+  }
+  .chat-input .field:focus-within { background: #fff; border-color: var(--primary); }
+  .chat-input input { flex: 1; border: none; outline: none; background: transparent; font-size: 14px; }
+  .chat-input .send {
+    width: 42px; height: 42px; border-radius: 50%; background: var(--primary); color: #fff;
+    display: grid; place-items: center;
+    box-shadow: 0 4px 10px -2px rgba(14,107,78,.4);
+  }
+  .chat-input .send:hover { background: var(--primary-700); }
+
+  /* ====== Tabs (segment) ====== */
+  .segment { display: inline-flex; padding: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; gap: 2px; }
+  .segment button { padding: 7px 14px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  .segment button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+  /* ====== Pretty scrollbars ====== */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #D8D0BC; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #B8AE94; }
+
+  /* Filter chips */
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { white-space: nowrap; padding: 8px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  .chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- =================== SIDEBAR =================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-4.5A2 2 0 0 1 6.4 3h11.2a2 2 0 0 1 1.9 1.5L21 9"/><path d="M3 9h18v2a3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1-3 3 3 3 0 0 1-3-3V9z"/><path d="M5 14v7h14v-7"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Marché CM</div>
+        <div class="brand-sub">Central Market</div>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Espace acheteur</div>
+      <a class="nav-item" data-target="home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12L12 3l9 9"/><path d="M5 10v10a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1V10"/></svg>
+        Accueil
+      </a>
+      <a class="nav-item" data-target="catalog">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Catalogue
+      </a>
+      <a class="nav-item active" data-target="product">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Produit
+      </a>
+      <a class="nav-item" data-target="wallet">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 1-2-2 2 2 0 0 1 2-2h14v4"/><circle cx="17" cy="13" r="1.2" fill="currentColor"/></svg>
+        Portefeuille
+      </a>
+      <a class="nav-item" data-target="orders">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 14l2 2 4-4"/></svg>
+        Commandes <span class="badge">2</span>
+      </a>
+      <a class="nav-item" data-target="chat">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        Messagerie
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Plus</div>
+      <a class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+        Demandes RFQ
+      </a>
+      <a class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Paramètres
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar">AK</div>
+        <div>
+          <div class="name">Awa Kamga</div>
+          <div class="role">Acheteur · Douala</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- =================== MAIN =================== -->
+  <main class="main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-row">
+        <div class="brand-mobile">
+          <div class="brand-mark">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-4.5A2 2 0 0 1 6.4 3h11.2a2 2 0 0 1 1.9 1.5L21 9"/><path d="M3 9h18v2a3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1-3 3 3 3 0 0 1-3-3V9z"/><path d="M5 14v7h14v-7"/></svg>
+          </div>
+          <div class="brand-name">Marché CM</div>
+        </div>
+        <div class="search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink-3)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Rechercher produits, fournisseurs, RFQ…" />
+          <span class="kbd">⌘ K</span>
+        </div>
+        <button class="icon-btn" aria-label="Notifications">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="dot"></span>
+        </button>
+        <button class="topbar-cart" aria-label="Panier">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
+          <span>3</span>
+          <span class="count">FCFA</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ============ PAGE: PRODUCT DETAIL (shown by default) ============ -->
+    <section class="page" id="page-product">
+
+      <!-- Hero strip -->
+      <div class="hero">
+        <div>
+          <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; margin-bottom:16px;">
+            <span style="width:6px; height:6px; background:var(--accent); border-radius:50%;"></span>
+            Paiement séquestré · Livraison garantie
+          </div>
+          <h1>Le marché B2B/B2C d'Afrique centrale, sécurisé du paiement à la livraison.</h1>
+          <p>Catalogue de gros et détail, paiement Mobile Money, séquestre escrow automatique, et choix de transitaire avec preuve de livraison.</p>
+          <div class="hero-cta">
+            <button class="btn-primary">
+              Explorer le catalogue
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+            <button class="btn-ghost-light">Publier une RFQ</button>
+          </div>
+          <div class="hero-stats">
+            <div class="hero-stat"><div class="v">2 400+</div><div class="l">Fournisseurs</div></div>
+            <div class="hero-stat"><div class="v">18 000</div><div class="l">Produits</div></div>
+            <div class="hero-stat"><div class="v">99,2 %</div><div class="l">Livraisons OK</div></div>
+          </div>
+        </div>
+        <div class="hero-card">
+          <div class="hero-card-inner">
+            <h4>Flux escrow</h4>
+            <div class="escrow-step done">
+              <div class="n">1</div>
+              <div><div class="t">Paiement séquestré</div><div class="s">Fonds bloqués par la plateforme</div></div>
+            </div>
+            <div class="escrow-step done">
+              <div class="n">2</div>
+              <div><div class="t">Devis transitaire accepté</div><div class="s">Expédition en cours</div></div>
+            </div>
+            <div class="escrow-step">
+              <div class="n">3</div>
+              <div><div class="t">Preuve de livraison</div><div class="s">Le transitaire dépose photo + code</div></div>
+            </div>
+            <div class="escrow-step">
+              <div class="n">4</div>
+              <div><div class="t">Libération automatique</div><div class="s">Vendeur + transitaire + commission</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categories -->
+      <div class="section">
+        <div class="section-head">
+          <div>
+            <h2>Catégories</h2>
+            <div class="sub">Parcourir par filière</div>
+          </div>
+          <a class="link" href="#">Tout voir →</a>
+        </div>
+        <div class="cats">
+          <a class="cat">
+            <div class="cat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
+            <div class="n">Agroalimentaire</div><div class="c">3 280 produits</div>
+          </a>
+          <a class="cat">
+            <div class="cat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
+            <div class="n">Textile & mode</div><div class="c">2 154 produits</div>
+          </a>
+          <a class="cat">
+            <div class="cat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10H3z"/><path d="M3 9l3-6h12l3 6"/><line x1="12" y1="3" x2="12" y2="19"/></svg></div>
+            <div class="n">Électronique</div><div class="c">1 902 produits</div>
+          </a>
+          <a class="cat">
+            <div class="cat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+            <div class="n">Cosmétique</div><div class="c">1 488 produits</div>
+          </a>
+          <a class="cat">
+            <div class="cat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/><path d="M2 7l10 5 10-5L12 2 2 7z"/></svg></div>
+            <div class="n">BTP & matériaux</div><div class="c">2 871 produits</div>
+          </a>
+          <a class="cat">
+            <div class="cat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+            <div class="n">Import/Export</div><div class="c">986 produits</div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Product Detail (PDP) -->
+      <div class="section">
+        <div class="section-head">
+          <div>
+            <h2>Détail produit</h2>
+            <div class="sub">Aperçu d'une fiche fournisseur</div>
+          </div>
+        </div>
+
+        <div class="pdp">
+          <!-- Gallery -->
+          <div class="pdp-gallery">
+            <div class="pdp-hero">
+              <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l1.5-4.5A2 2 0 0 1 6.4 3h11.2a2 2 0 0 1 1.9 1.5L21 9"/>
+                <path d="M3 9h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9z"/>
+                <path d="M9 13h6"/>
+              </svg>
+            </div>
+            <div class="pdp-thumbs">
+              <div class="pdp-thumb active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div>
+              <div class="pdp-thumb"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/></svg></div>
+              <div class="pdp-thumb"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12,3 22,21 2,21"/></svg></div>
+              <div class="pdp-thumb"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5,3 19,12 5,21"/></svg></div>
+            </div>
+          </div>
+
+          <!-- Info -->
+          <div class="pdp-info">
+            <div class="breadcrumb">
+              <a href="#">Agroalimentaire</a>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <a href="#">Huile végétale</a>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <span>SAVON SA-22</span>
+            </div>
+            <h1>Huile de palme raffinée — bidon 20 L, marque Tropical</h1>
+
+            <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:8px;">
+              <div class="stars">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                <span style="font-size:12px; color:var(--ink-2); margin-left:4px; font-weight:600;">4,2 · 218 avis</span>
+              </div>
+              <span style="font-size:12px; color:var(--ink-3);">·</span>
+              <span style="font-size:12px; color:var(--ink-3);">SKU SA-22-TROP</span>
+            </div>
+
+            <!-- Supplier -->
+            <div class="pdp-supplier">
+              <div class="av">TF</div>
+              <div class="meta">
+                <div class="n">Tropical Foods SARL <span class="verified">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  KYC validé
+                </span></div>
+                <div class="s">Grossiste · Douala · Réponse en 2 h</div>
+              </div>
+              <button class="chat-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                Contacter
+              </button>
+            </div>
+
+            <!-- Pricing -->
+            <div class="pdp-pricing">
+              <div class="lbl">Prix unitaire à partir de</div>
+              <div class="v">14 500<span class="unit">FCFA / bidon</span></div>
+              <div class="range">Fourchette : 12 800 — 16 200 FCFA · Quantité 50 — 5 000</div>
+
+              <table>
+                <thead>
+                  <tr><th>Quantité</th><th>Prix unitaire</th><th>Remise</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>50 — 199 bidons</td><td>16 200 FCFA</td><td>—</td></tr>
+                  <tr><td>200 — 999 bidons</td><td>14 500 FCFA</td><td>−10 %</td></tr>
+                  <tr><td>1 000 — 5 000 bidons</td><td>12 800 FCFA</td><td>−21 %</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Quantity + Buttons -->
+            <div class="pdp-actions">
+              <div class="qty">
+                <span class="lbl">Quantité</span>
+                <div style="display:flex; align-items:center;">
+                  <button class="qty-btn" aria-label="Diminuer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                  <input type="text" value="200" />
+                  <button class="qty-btn" aria-label="Augmenter"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                </div>
+                <span style="font-size:12px; color:var(--ink-3); padding-right:10px;">Total : <strong style="color:var(--ink); font-feature-settings:'tnum';">2 900 000 FCFA</strong></span>
+              </div>
+              <div class="pdp-buttons">
+                <button class="btn-outline">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
+                  Ajouter au panier
+                </button>
+                <button class="btn-solid">
+                  Commander avec séquestre
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Trust badges -->
+            <div class="pdp-trust">
+              <div class="trust-item">
+                <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                <div class="t">Séquestre escrow</div>
+                <div class="d">Fonds bloqués jusqu'à la livraison confirmée.</div>
+              </div>
+              <div class="trust-item">
+                <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7"/><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/></svg></div>
+                <div class="t">Choix transitaire</div>
+                <div class="d">Devis comparables avec note et preuve.</div>
+              </div>
+              <div class="trust-item">
+                <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="t">KYC vérifié</div>
+                <div class="d">Documents validés par l'admin général.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Similar products -->
+      <div class="section">
+        <div class="section-head">
+          <div>
+            <h2>Produits similaires</h2>
+            <div class="sub">Mêmes catégorie & filière</div>
+          </div>
+          <div class="segment">
+            <button class="active">Pertinence</button>
+            <button>Prix ↑</button>
+            <button>Note</button>
+          </div>
+        </div>
+
+        <div class="chips" style="margin-bottom:14px;">
+          <button class="chip active">Tous</button>
+          <button class="chip">Bidons 20 L</button>
+          <button class="chip">Pack 5 L ×4</button>
+          <button class="chip">Vrac 200 L</button>
+          <button class="chip">Bio certifié</button>
+          <button class="chip">Marque Tropical</button>
+        </div>
+
+        <div class="grid">
+          <article class="product">
+            <div class="product-img">
+              <span class="badge gros">Gros</span>
+              <button class="fav" aria-label="Favoris">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              </button>
+              <div class="ph"><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 8h6"/></svg></div>
+            </div>
+            <div class="product-body">
+              <div class="vendor"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Cocoa Cameroon</div>
+              <div class="name">Huile palme bio — bidon 20 L, marque Naturelle</div>
+              <div class="meta">
+                <div>
+                  <div class="price">15 200<span class="unit">FCFA</span></div>
+                  <div class="price-range">à partir de 50 unités</div>
+                </div>
+                <button class="add" aria-label="Ajouter">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article class="product">
+            <div class="product-img">
+              <span class="badge promo">−15 %</span>
+              <button class="fav"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+              <div class="ph"><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 7h18l-2 13H5z"/><path d="M8 7V5a4 4 0 1 1 8 0v2"/></svg></div>
+            </div>
+            <div class="product-body">
+              <div class="vendor"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> SARL Yaoundé Foods</div>
+              <div class="name">Sac riz long grain 50 kg, qualité supérieure</div>
+              <div class="meta">
+                <div>
+                  <div class="price">28 500<span class="unit">FCFA</span></div>
+                  <div class="price-range">à partir de 20 sacs</div>
+                </div>
+                <button class="add"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              </div>
+            </div>
+          </article>
+
+          <article class="product">
+            <div class="product-img">
+              <button class="fav"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+              <div class="ph"><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg></div>
+            </div>
+            <div class="product-body">
+              <div class="vendor"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> AfricaTrade</div>
+              <div class="name">Cacao en fèves séchées, sac 60 kg, origine SO</div>
+              <div class="meta">
+                <div>
+                  <div class="price">42 000<span class="unit">FCFA</span></div>
+                  <div class="price-range">à partir de 10 sacs</div>
+                </div>
+                <button class="add"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              </div>
+            </div>
+          </article>
+
+          <article class="product">
+            <div class="product-img">
+              <span class="badge gros">Gros</span>
+              <button class="fav"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+              <div class="ph"><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 8l7-5 7 5v13H5z"/><path d="M5 13h14"/></svg></div>
+            </div>
+            <div class="product-body">
+              <div class="vendor"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Bafoussam Industries</div>
+              <div class="name">Carton huile cuisson 1 L ×20 unités, prêt export</div>
+              <div class="meta">
+                <div>
+                  <div class="price">11 200<span class="unit">FCFA</span></div>
+                  <div class="price-range">à partir de 30 cartons</div>
+                </div>
+                <button class="add"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- Wallet preview block (compact, end of page) -->
+      <div class="section" id="wallet-section">
+        <div class="section-head">
+          <div>
+            <h2>Portefeuille</h2>
+            <div class="sub">Solde, séquestre et recharges</div>
+          </div>
+          <a class="link" href="#">Voir transactions →</a>
+        </div>
+
+        <div class="wallet-grid">
+          <!-- Wallet card -->
+          <div class="wallet-card">
+            <div class="pattern"></div>
+            <div>
+              <div class="label">Solde disponible</div>
+              <div class="balance">1 248 500 <span class="ccy">FCFA</span></div>
+              <div class="wallet-meta">
+                <div>
+                  <div class="m">Wallet ID</div>
+                  <div class="v" style="font-family:'Inter',monospace;">CM·8A4F2E1B</div>
+                </div>
+                <div>
+                  <div class="m">PIN</div>
+                  <div class="v">•••• actif</div>
+                </div>
+              </div>
+            </div>
+            <div class="actions">
+              <button class="primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Recharger
+              </button>
+              <button class="ghost">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 5 12 12 19"/></svg>
+                Retirer
+              </button>
+            </div>
+          </div>
+
+          <!-- Escrow card -->
+          <div class="escrow-card">
+            <h3>Séquestre actif</h3>
+            <div class="sub">Fonds bloqués sur commandes en cours</div>
+            <div>
+              <div class="escrow-amount">2 900 000<span class="ccy">FCFA</span></div>
+              <span class="escrow-state">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
+                HELD · 2 commandes
+              </span>
+            </div>
+            <div class="escrow-list">
+              <div class="escrow-row">
+                <div class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                <div>
+                  <div class="t">CMD #84F2E1 · Huile palme</div>
+                  <div class="s">Tropical Foods · livré à 65 %</div>
+                </div>
+                <div class="v">2 320 000</div>
+              </div>
+              <div class="escrow-row">
+                <div class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                <div>
+                  <div class="t">CMD #71A09C · Riz long grain</div>
+                  <div class="s">Yaoundé Foods · expédié</div>
+                </div>
+                <div class="v">580 000</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Methods -->
+        <div class="methods">
+          <div class="section-head" style="margin-bottom:10px;">
+            <div>
+              <h2 style="font-size:16px;">Moyens de recharge</h2>
+              <div class="sub">Via NotchPay · OTP + PIN requis</div>
+            </div>
+          </div>
+          <div class="methods-grid">
+            <a class="method">
+              <div class="method-logo mtn">MTN</div>
+              <div class="n">MTN Mobile Money</div>
+              <div class="d">Instantané · 1 % frais</div>
+            </a>
+            <a class="method">
+              <div class="method-logo om">OM</div>
+              <div class="n">Orange Money</div>
+              <div class="d">Instantané · 1 % frais</div>
+            </a>
+            <a class="method">
+              <div class="method-logo visa">VISA</div>
+              <div class="n">Carte Visa</div>
+              <div class="d">3-D Secure</div>
+            </a>
+            <a class="method">
+              <div class="method-logo mc"></div>
+              <div class="n">Mastercard</div>
+              <div class="d">3-D Secure</div>
+            </a>
+          </div>
+        </div>
+
+        <!-- Transactions -->
+        <div class="tx-list">
+          <div class="tx-row">
+            <div class="tx-icon in"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></div>
+            <div class="tx-body">
+              <div class="t">Recharge MTN Mobile Money</div>
+              <div class="s">+237 6•• ••• 482 · ref NCH·48A2 · 09:42</div>
+            </div>
+            <div class="tx-amount">
+              <div class="v pos">+ 500 000 FCFA</div>
+              <div class="st">SUCCESS</div>
+            </div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon escrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+            <div class="tx-body">
+              <div class="t">Séquestre · CMD #84F2E1</div>
+              <div class="s">Huile palme · 200 bidons · Tropical Foods</div>
+            </div>
+            <div class="tx-amount">
+              <div class="v neg">− 2 320 000 FCFA</div>
+              <div class="st">HELD</div>
+            </div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
+            <div class="tx-body">
+              <div class="t">Frais transitaire</div>
+              <div class="s">Express Logistics · livraison Douala → Yaoundé</div>
+            </div>
+            <div class="tx-amount">
+              <div class="v neg">− 85 000 FCFA</div>
+              <div class="st">PENDING</div>
+            </div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon refund"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></div>
+            <div class="tx-body">
+              <div class="t">Remboursement litige</div>
+              <div class="s">CMD #62B1F0 · décision admin</div>
+            </div>
+            <div class="tx-amount">
+              <div class="v pos">+ 140 000 FCFA</div>
+              <div class="st">SUCCESS</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Orders / tracking -->
+      <div class="section" id="orders-section">
+        <div class="section-head">
+          <div>
+            <h2>Suivi de commande</h2>
+            <div class="sub">Logistique, transitaire et preuves de livraison</div>
+          </div>
+          <div class="segment">
+            <button class="active">En cours</button>
+            <button>Livrées</button>
+            <button>Litiges</button>
+          </div>
+        </div>
+
+        <div class="orders-grid">
+          <!-- Tracking card -->
+          <div class="tracking-card">
+            <div class="tracking-head">
+              <div class="ph"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 8h6"/></svg></div>
+              <div class="info">
+                <div class="oid">CMD #84F2E1B · 12 mai 2026</div>
+                <h3>Huile palme 20 L × 200 — Tropical Foods</h3>
+                <div class="meta">
+                  <span>Douala → Yaoundé</span>
+                  <span>·</span>
+                  <span>Express Logistics</span>
+                  <span>·</span>
+                  <span>2 320 000 FCFA</span>
+                </div>
+                <div style="display:flex; gap:6px; margin-top:10px;">
+                  <span class="pill transit">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
+                    En transit
+                  </span>
+                  <span class="pill escrow">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Séquestre HELD
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="timeline">
+              <div class="tl-item done">
+                <div class="tl-dot"></div>
+                <div class="tl-content">
+                  <div class="t">Commande passée et payée</div>
+                  <div class="s">12 mai · 09:42 · 2 320 000 FCFA séquestrés</div>
+                </div>
+              </div>
+              <div class="tl-item done">
+                <div class="tl-dot"></div>
+                <div class="tl-content">
+                  <div class="t">Devis transitaire accepté</div>
+                  <div class="s">12 mai · 10:18 · Express Logistics · 85 000 FCFA</div>
+                </div>
+              </div>
+              <div class="tl-item done">
+                <div class="tl-dot"></div>
+                <div class="tl-content">
+                  <div class="t">Colis pris en charge</div>
+                  <div class="s">13 mai · 07:30 · Entrepôt Douala</div>
+                </div>
+              </div>
+              <div class="tl-item active">
+                <div class="tl-dot"></div>
+                <div class="tl-content">
+                  <div class="t">En route vers Yaoundé</div>
+                  <div class="s">Position : Edéa · arrivée estimée 18 mai</div>
+                </div>
+              </div>
+              <div class="tl-item pending">
+                <div class="tl-dot"></div>
+                <div class="tl-content">
+                  <div class="t">Preuve de livraison</div>
+                  <div class="s">Photo + code 4 chiffres à valider</div>
+                </div>
+              </div>
+              <div class="tl-item pending">
+                <div class="tl-dot"></div>
+                <div class="tl-content">
+                  <div class="t">Libération séquestre</div>
+                  <div class="s">Vendeur 92 % · Transitaire 5 % · Plateforme 3 %</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Side: agent + actions -->
+          <div>
+            <div class="agent-card">
+              <h4>Transitaire</h4>
+              <div class="agent-row">
+                <div class="av">EL</div>
+                <div class="meta">
+                  <div class="n">Express Logistics</div>
+                  <div class="s">
+                    <span class="stars">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.7 5.8,21 7,14 2,9.3 9,8.5"/></svg>
+                    </span>
+                    <span>· 4,8 · 1 240 livraisons</span>
+                  </div>
+                </div>
+              </div>
+              <div class="agent-actions">
+                <button class="btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  Appeler
+                </button>
+                <button class="btn primary">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                  Message
+                </button>
+              </div>
+            </div>
+
+            <div class="agent-card" style="margin-top:14px;">
+              <h4>Actions</h4>
+              <div class="order-actions">
+                <button class="btn-solid">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  Confirmer la livraison
+                </button>
+                <button class="btn-outline">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.7 5.8 21 7 14 2 9.3 9 8.5"/></svg>
+                  Noter le transitaire
+                </button>
+                <div class="dispute">
+                  Un problème ? <a href="#">Ouvrir un litige</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat (full module) -->
+      <div class="section" id="chat-section">
+        <div class="section-head">
+          <div>
+            <h2>Messagerie</h2>
+            <div class="sub">Temps réel · fournisseurs, transitaires et support</div>
+          </div>
+        </div>
+
+        <div class="chat">
+          <!-- Rooms list -->
+          <div class="chat-rooms">
+            <div class="chat-rooms-head">
+              <h3>Conversations</h3>
+            </div>
+            <div class="chat-rooms-list">
+              <div class="chat-room active">
+                <div class="av supplier">TF</div>
+                <div class="body">
+                  <div class="top"><span class="n">Tropical Foods</span><span class="time">il y a 2 min</span></div>
+                  <div class="last">Le devis transitaire est prêt, vous… <span class="unread">3</span></div>
+                </div>
+              </div>
+              <div class="chat-room">
+                <div class="av transit">EL</div>
+                <div class="body">
+                  <div class="top"><span class="n">Express Logistics</span><span class="time">11:42</span></div>
+                  <div class="last">Colis en route, ETA 18 mai</div>
+                </div>
+              </div>
+              <div class="chat-room">
+                <div class="av supplier">YF</div>
+                <div class="body">
+                  <div class="top"><span class="n">Yaoundé Foods</span><span class="time">hier</span></div>
+                  <div class="last">Merci pour la commande. Expédition…</div>
+                </div>
+              </div>
+              <div class="chat-room">
+                <div class="av transit" style="background:linear-gradient(135deg,#6B7A74,#3A4A44);">SP</div>
+                <div class="body">
+                  <div class="top"><span class="n">Support · Marché CM</span><span class="time">lun.</span></div>
+                  <div class="last">KYC validé, bienvenue 👋</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thread -->
+          <div class="chat-thread">
+            <div class="chat-head">
+              <div class="av">TF</div>
+              <div>
+                <div class="n">Tropical Foods SARL</div>
+                <div class="s">En ligne · répond en 2 h</div>
+              </div>
+              <div class="actions">
+                <button class="icon-btn" aria-label="Appeler"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>
+                <button class="icon-btn" aria-label="Plus"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+              </div>
+            </div>
+
+            <div class="chat-body">
+              <div class="chat-date">— Aujourd'hui —</div>
+
+              <div class="msg them">
+                Bonjour Awa, votre commande de 200 bidons est confirmée. Je sollicite un devis chez Express Logistics.
+                <div class="time">09:48</div>
+              </div>
+
+              <div class="msg me">
+                Parfait. Délai souhaité : avant le 20 mai.
+                <div class="time">09:51 · ✓✓</div>
+              </div>
+
+              <div class="msg system">
+                Express Logistics a soumis un devis
+              </div>
+
+              <div class="msg quote">
+                <div class="h">Devis transitaire</div>
+                <div class="v">85 000 <span class="ccy">FCFA</span></div>
+                <div class="meta">Douala → Yaoundé · ETA 5 jours · assurance incluse</div>
+                <div class="qa">
+                  <button class="decline">Décliner</button>
+                  <button class="accept">Accepter</button>
+                </div>
+              </div>
+
+              <div class="msg them">
+                Le devis est dans votre commande. Validez quand vous voulez et l'enlèvement se fera dès demain matin.
+                <div class="time">10:14</div>
+              </div>
+
+              <div class="msg me">
+                Devis accepté ✅
+                <div class="time">10:16 · ✓✓</div>
+              </div>
+
+              <div class="msg system">
+                Séquestre HELD · 2 320 000 FCFA bloqués
+              </div>
+            </div>
+
+            <div class="chat-input">
+              <button class="icon-btn" aria-label="Pièce jointe" style="flex-shrink:0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <div class="field">
+                <input type="text" placeholder="Écrire un message…" />
+                <button aria-label="Emoji" style="color: var(--ink-3);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                </button>
+              </div>
+              <button class="send" aria-label="Envoyer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+<!-- ============ BOTTOM NAV (mobile) ============ -->
+<nav class="bottom-nav" aria-label="Navigation principale">
+  <a class="bn-item" href="#"><div class="bn-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12L12 3l9 9"/><path d="M5 10v10a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1V10"/></svg></div>Accueil</a>
+  <a class="bn-item" href="#"><div class="bn-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>Catalogue</a>
+  <a class="bn-item active" href="#wallet-section"><div class="bn-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 1-2-2 2 2 0 0 1 2-2h14v4"/><circle cx="17" cy="13" r="1.2" fill="currentColor"/></svg></div>Wallet</a>
+  <a class="bn-item" href="#orders-section"><div class="bn-icon"><span class="dot"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 14l2 2 4-4"/></svg></div>Commandes</a>
+  <a class="bn-item" href="#chat-section"><div class="bn-icon"><span class="dot"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>Chat</a>
+</nav>
+
+<script>
+  // Smooth scroll for in-page links and active state for bottom nav
+  document.querySelectorAll('.bn-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      const href = item.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        e.preventDefault();
+        document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.querySelectorAll('.bn-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+      }
+    });
+  });
+
+  // Sidebar nav active toggle (visual only)
+  document.querySelectorAll('.sidebar .nav-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelectorAll('.sidebar .nav-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  // Segment toggles
+  document.querySelectorAll('.segment').forEach(seg => {
+    seg.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        seg.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+      });
+    });
+  });
+
+  // Chips
+  document.querySelectorAll('.chips').forEach(group => {
+    group.querySelectorAll('.chip').forEach(c => {
+      c.addEventListener('click', () => {
+        group.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+      });
+    });
+  });
+
+  // Qty buttons
+  document.querySelectorAll('.qty').forEach(q => {
+    const input = q.querySelector('input');
+    const btns = q.querySelectorAll('.qty-btn');
+    btns[0]?.addEventListener('click', () => {
+      const v = parseInt(input.value.replace(/\D/g,'') || '0', 10);
+      input.value = Math.max(0, v - 1).toLocaleString('fr-FR');
+    });
+    btns[1]?.addEventListener('click', () => {
+      const v = parseInt(input.value.replace(/\D/g,'') || '0', 10);
+      input.value = (v + 1).toLocaleString('fr-FR');
+    });
+  });
+</script>
+</body>
+</html>

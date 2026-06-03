@@ -38,6 +38,7 @@ from apps.notifications.realtime import broadcast_event
 from apps.orders.models import OrderStatus
 from apps.wallets.models import PaymentProvider, TransactionStatus
 from .compliance_preview import generate_compliance_preview
+from .kyc_constants import BUYER_IDENTITY_DOC_TYPES
 from .location_service import update_user_location
 from .models import AuditLog, ComplianceDocument, FCMToken, SensitiveActionChallenge, User, UserRole
 from .security import (
@@ -48,10 +49,12 @@ from .security import (
 )
 from .serializers import (
     ComplianceDocumentSerializer,
+    DriverRegisterSerializer,
     LoginRequestSerializer,
     ManagedUserCreateSerializer,
     ProfileUpdateSerializer,
     RegisterSerializer,
+    SellerRegisterSerializer,
     UserSerializer,
 )
 
@@ -285,6 +288,58 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         broadcast_event("profiles", "managed_user_created", {"id": user.id, "role": user.role})
         return response.Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
+    # Audit ref: [M-6] Admin user suspension / reactivation.
+    def _get_admin_target(self, request, pk):
+        """Resolve the target user for an admin action, enforcing the suspend
+        permission. Returns (user, error_response). The target is looked up on
+        the FULL user table (not get_queryset, which is self-scoped)."""
+        _require_action(request.user, "admin.users.suspend", "Action reservee a l'administration.")
+        target = User.objects.filter(pk=pk).first()
+        if target is None:
+            return None, response.Response({"detail": "Utilisateur introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        return target, None
+
+    @decorators.action(detail=True, methods=["post"])
+    def suspend(self, request, pk=None):
+        target, err = self._get_admin_target(request, pk)
+        if err is not None:
+            return err
+        if target.id == request.user.id:
+            return response.Response(
+                {"detail": "Un administrateur ne peut pas se suspendre lui-meme."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if target.is_superuser or target.role == UserRole.GENERAL_ADMIN:
+            return response.Response(
+                {"detail": "Impossible de suspendre un compte administrateur."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reason = str(request.data.get("reason") or "").strip()
+        target.suspend(by=request.user, reason=reason)
+        write_audit_log(
+            actor=request.user,
+            action="Suspension utilisateur",
+            action_key="admin.users.suspend",
+            metadata={"user_id": target.id, "reason": reason[:240]},
+        )
+        broadcast_event("profiles", "user_suspended", {"id": target.id})
+        return response.Response(UserSerializer(target).data, status=status.HTTP_200_OK)
+
+    @decorators.action(detail=True, methods=["post"])
+    def unsuspend(self, request, pk=None):
+        target, err = self._get_admin_target(request, pk)
+        if err is not None:
+            return err
+        target.lift_suspension(by=request.user)
+        write_audit_log(
+            actor=request.user,
+            action="Reactivation utilisateur",
+            action_key="admin.users.suspend",
+            metadata={"user_id": target.id},
+        )
+        broadcast_event("profiles", "user_unsuspended", {"id": target.id})
+        return response.Response(UserSerializer(target).data, status=status.HTTP_200_OK)
+
     @decorators.action(detail=True, methods=["get"], url_path="verification-status")
     def verification_status(self, request, pk=None):
         """
@@ -434,8 +489,9 @@ class BuyerKycSubmitView(APIView):
     BUYERS, who cannot use the compliance-actor-only ComplianceDocumentViewSet
     (`perform_create` rejects non-compliance roles).
 
-    Accepts (multipart): doc_type ∈ {CNI, CNI_VERSO, PASSPORT}, file, and the
-    optional handwritten `signature` + `consent_accepted` (catalogue screen 46).
+    Accepts (multipart): doc_type ∈ {CNI, CNI_VERSO, PASSPORT, PROOF_ADDRESS,
+    SELFIE}, file, and the optional handwritten `signature` + `consent_accepted`
+    (catalogue screen 46 / KYC design — CNI + justificatif domicile + selfie).
     A re-submission replaces the existing document of the same type and resets
     it to PENDING.
     """
@@ -443,13 +499,21 @@ class BuyerKycSubmitView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    IDENTITY_DOC_TYPES = {"CNI", "CNI_VERSO", "PASSPORT"}
+    # Audit ref: [M-2][M-3] single source of truth — apps/accounts/kyc_constants.py.
+    # The serializer's ALLOWED_DOC_TYPES is derived from the same module, so the
+    # view can never again advertise a type the serializer rejects.
+    IDENTITY_DOC_TYPES = BUYER_IDENTITY_DOC_TYPES
 
     def post(self, request):
         doc_type = str(request.data.get("doc_type") or "").strip().upper()
         if doc_type not in self.IDENTITY_DOC_TYPES:
             return response.Response(
-                {"detail": "Type de document KYC invalide (CNI, CNI_VERSO ou PASSPORT)."},
+                {
+                    "detail": (
+                        "Type de document KYC invalide "
+                        "(CNI, CNI_VERSO, PASSPORT, PROOF_ADDRESS ou SELFIE)."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -509,6 +573,51 @@ class RegisterView(APIView):
         return response.Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
+class SellerRegisterView(APIView):
+    """Self-registration for the professional app — SUPPLIER / WHOLESALER only.
+
+    The role is constrained inside SellerRegisterSerializer; this endpoint can
+    never create a BUYER, TRANSIT_AGENT or GENERAL_ADMIN, which keeps account
+    creation strictly partitioned per app.
+    """
+
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = "register"
+
+    def post(self, request):
+        if settings.AUTH_LOCKDOWN:
+            return _auth_disabled_response()
+        serializer = SellerRegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        write_audit_log(
+            actor=user,
+            action="Inscription vendeur",
+            metadata={"user_id": user.id, "role": user.role, "country_code": user.country_code},
+        )
+        return response.Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+class DriverRegisterView(APIView):
+    """Self-registration for the driver app — role forced to TRANSIT_AGENT."""
+
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = "register"
+
+    def post(self, request):
+        if settings.AUTH_LOCKDOWN:
+            return _auth_disabled_response()
+        serializer = DriverRegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        write_audit_log(
+            actor=user,
+            action="Inscription chauffeur",
+            metadata={"user_id": user.id, "role": user.role, "country_code": user.country_code},
+        )
+        return response.Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
 class LoginRequestView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "login"
@@ -519,6 +628,12 @@ class LoginRequestView(APIView):
         serializer = LoginRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+        # Audit ref: [M-6] suspended / deactivated accounts cannot obtain tokens.
+        if getattr(user, "is_suspended", False) or not user.is_active:
+            return response.Response(
+                {"detail": "Compte suspendu. Contactez le support."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         # Audit: user_id only — do not log the email address.
         write_audit_log(
             actor=user,
@@ -954,6 +1069,13 @@ class GoogleAuthView(APIView):
                 "is_verified": True,
             },
         )
+        # Audit ref: [M-6] a suspended account must not be silently reactivated
+        # by signing in with Google.
+        if not created and getattr(user, "is_suspended", False):
+            return response.Response(
+                {"detail": "Compte suspendu. Contactez le support."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if not created:
             updates = []
             if not user.is_active:

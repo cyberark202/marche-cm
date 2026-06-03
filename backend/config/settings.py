@@ -7,7 +7,11 @@ from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+# Local development override: if marche-cm.local.env exists it takes precedence
+# over the production marche-cm.env. The local file is git-ignored and only
+# present on developer machines, so production deployments are unaffected.
+_local_env_file = BASE_DIR / "marche-cm.local.env"
+load_dotenv(_local_env_file if _local_env_file.exists() else BASE_DIR / "marche-cm.env")
 
 def _env_bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
@@ -191,6 +195,20 @@ if DEBUG and not CORS_ALLOW_ALL_ORIGINS and not CORS_ALLOWED_ORIGINS and not COR
         r"^http://localhost:\d+$",
         r"^http://127\.0\.0\.1:\d+$",
     ]
+
+# Custom request headers emitted by the Flutter web clients (SecureDioClient
+# security stack). Without these in the allow-list, the browser CORS preflight
+# fails and the request never reaches Django (surfaces as an XMLHttpRequest
+# onError / "connection error" in Dio, NOT a 4xx).
+from corsheaders.defaults import default_headers as _cors_default_headers  # noqa: E402
+
+CORS_ALLOW_HEADERS = list(_cors_default_headers) + [
+    "x-correlation-id",
+    "x-request-nonce",
+    "x-request-timestamp",
+    "x-device-id",
+    "x-app-client",
+]
 
 INSTALLED_APPS = [
     "corsheaders",

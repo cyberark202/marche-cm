@@ -40,8 +40,67 @@ class User(AbstractUser):
     wallet_pin_failed_attempts = models.PositiveSmallIntegerField(default=0)
     wallet_pin_locked_until = models.DateTimeField(null=True, blank=True)
 
+    # Audit ref: [M-6] Admin account suspension. Enforcement is carried by the
+    # standard `is_active` flag (SimpleJWT + ModelBackend reject inactive users),
+    # while these fields capture the auditable who/when/why of the suspension.
+    is_suspended = models.BooleanField(default=False)
+    suspended_at = models.DateTimeField(null=True, blank=True)
+    suspension_reason = models.CharField(max_length=255, blank=True, default="")
+    suspended_by = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="suspensions_issued",
+    )
+
     def __str__(self) -> str:
         return f"{self.username} ({self.role})"
+
+    # Audit ref: [M-6] Suspension lifecycle. `suspend` revokes every outstanding
+    # refresh token so the account loses access immediately (access tokens are
+    # already rejected by JWTAuthentication once is_active=False).
+    def suspend(self, *, by=None, reason: str = "") -> None:
+        from django.db import transaction
+        from django.utils import timezone
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken,
+            OutstandingToken,
+        )
+
+        with transaction.atomic():
+            self.is_suspended = True
+            self.is_active = False
+            self.suspended_at = timezone.now()
+            self.suspension_reason = (reason or "")[:255]
+            self.suspended_by = by if (by is not None and by.pk != self.pk) else None
+            self.save(
+                update_fields=[
+                    "is_suspended",
+                    "is_active",
+                    "suspended_at",
+                    "suspension_reason",
+                    "suspended_by",
+                ]
+            )
+            for token in OutstandingToken.objects.filter(user=self):
+                BlacklistedToken.objects.get_or_create(token=token)
+
+    def lift_suspension(self, *, by=None) -> None:
+        self.is_suspended = False
+        self.is_active = True
+        self.suspended_at = None
+        self.suspension_reason = ""
+        self.suspended_by = None
+        self.save(
+            update_fields=[
+                "is_suspended",
+                "is_active",
+                "suspended_at",
+                "suspension_reason",
+                "suspended_by",
+            ]
+        )
 
     @classmethod
     def _generate_reference_code(cls) -> str:

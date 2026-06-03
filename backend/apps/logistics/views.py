@@ -402,18 +402,29 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             )
         if not _can_update_status(request.user, shipment, new_status):
             return response.Response({"detail": "Action non autorisee."}, status=status.HTTP_403_FORBIDDEN)
-        shipment.status = new_status
-        fields_to_update = ["status", "updated_at"]
-        if new_status == ShipmentStatus.CANCELLED:
-            shipment.order.status = OrderStatus.CANCELLED
-            shipment.order.save(update_fields=["status", "updated_at"])
-            OrderFinanceService.refund_order_locked_funds(
-                order=shipment.order,
-                actor=request.user,
-                reason="Annulation expedition",
+        # Audit ref: [C-3] Cancellation must be atomic: the order CANCELLED
+        # transition, the escrow refund and the shipment status change either all
+        # commit or none do. Previously the order was flipped to CANCELLED and
+        # saved before the refund ran, so a refund failure left the order
+        # CANCELLED with escrow still LOCKED (buyer funds stuck).
+        try:
+            with transaction.atomic():
+                if new_status == ShipmentStatus.CANCELLED:
+                    OrderFinanceService.cancel_order(
+                        order=shipment.order,
+                        actor=request.user,
+                        reason="Annulation expedition",
+                    )
+                shipment.status = new_status
+                shipment.save(update_fields=["status", "updated_at"])
+                ShipmentEvent.objects.create(
+                    shipment=shipment, actor=request.user, status=new_status, note=note
+                )
+        except (ValidationError, FraudRiskError) as exc:
+            return response.Response(
+                {"detail": exc.detail if hasattr(exc, "detail") else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        shipment.save(update_fields=fields_to_update)
-        ShipmentEvent.objects.create(shipment=shipment, actor=request.user, status=new_status, note=note)
         broadcast_event("logistics", "shipment_status_changed", {"shipment_id": shipment.id, "status": new_status})
         broadcast_event("orders", "shipment_status_changed", {"order_id": shipment.order_id, "status": new_status})
         return response.Response({"detail": "Statut logistique mis a jour."})

@@ -1,6 +1,6 @@
 {
-    "name": "Marche CM Clients",
-    "short_name": "Marche CM",
+    "name": "Market CM Clients",
+    "short_name": "Market CM Clients",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",

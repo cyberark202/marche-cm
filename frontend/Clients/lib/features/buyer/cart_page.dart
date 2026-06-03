@@ -130,7 +130,10 @@ class _CartPageState extends State<CartPage> {
           "Transport : ${shippingTotal.toStringAsFixed(0)} FCFA\n"
           "Commission : ${commission.toStringAsFixed(0)} FCFA\n"
           "Total à séquestrer : ${grandTotal.toStringAsFixed(0)} FCFA\n"
-          "ETA : ${maxEtaDays > 0 ? '$maxEtaDays jour(s)' : 'à confirmer'}",
+          "ETA : ${maxEtaDays > 0 ? '$maxEtaDays jour(s)' : 'à confirmer'}\n\n"
+          "Vous mandatez Marché CM pour séquestrer ces fonds via le prestataire "
+          "de paiement agréé et les libérer à la confirmation de livraison. "
+          "Marché CM est intermédiaire et n'est pas partie au contrat de vente.",
         ),
         actions: [
           TextButton(

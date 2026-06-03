@@ -36,6 +36,7 @@ class _AuthPageState extends State<AuthPage> {
 
   bool _busy = false;
   bool _showLogin = true;
+  bool _acceptRegisterTerms = false;
   bool _loginPassVisible = false;
   bool _rememberMe = false;
 
@@ -139,6 +140,11 @@ class _AuthPageState extends State<AuthPage> {
     final validationError = _validateRegisterInput();
     if (validationError != null) {
       _showError(Exception(validationError));
+      return;
+    }
+    if (!_acceptRegisterTerms) {
+      _showError(Exception(
+          "Vous devez accepter les CGU et le statut d'intermédiaire pour continuer."));
       return;
     }
     final selectedCountry = _regCountryCode.trim().isNotEmpty
@@ -703,7 +709,33 @@ class _AuthPageState extends State<AuthPage> {
             icon: Icons.lock_outline,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
+        GestureDetector(
+          onTap: () =>
+              setState(() => _acceptRegisterTerms = !_acceptRegisterTerms),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: _acceptRegisterTerms,
+                onChanged: (v) =>
+                    setState(() => _acceptRegisterTerms = v ?? false),
+                activeColor: AppPalette.primary,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  "J'accepte les CGU et la politique de confidentialité. Je reconnais que Marché CM agit comme simple intermédiaire de mise en relation et agent de séquestre, et n'est ni vendeur, ni transporteur des biens.",
+                  style: TextStyle(
+                      fontSize: 12.5, color: Color(0xFF5A6A5A), height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
         SizedBox(
           height: 52,
           width: double.infinity,
@@ -720,12 +752,6 @@ class _AuthPageState extends State<AuthPage> {
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          "En vous inscrivant, vous acceptez nos conditions d'utilisation.",
-          style: TextStyle(color: Color(0xFF5A6A5A), fontSize: 12),
-          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         Center(

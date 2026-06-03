@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Design System — Clients (acheteurs)
 ///
@@ -178,7 +179,7 @@ class AppTheme {
 
     final base = ThemeData(
       useMaterial3: true,
-      fontFamily: "Poppins",
+      fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppPalette.bg,
       splashFactory: InkSparkle.splashFactory,

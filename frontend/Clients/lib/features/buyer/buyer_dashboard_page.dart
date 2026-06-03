@@ -163,12 +163,13 @@ class _BuyerHomeContent extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          colors: [Color(0xFF063D27), Color(0xFF0F7A4F)],
+          colors: [Color(0xFF0F7A4F), Color(0xFF063D27)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        boxShadow: AppPalette.shadowStrong,
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -301,8 +302,12 @@ class _BuyerHomeContent extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5B400),
-        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF5B400), Color(0xFFFFC940)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
       ),
       padding: const EdgeInsets.all(16),
       child: Row(

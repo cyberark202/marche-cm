@@ -10,7 +10,15 @@ import 'package:dio/dio.dart';
 import '../../core/app_theme.dart';
 import '../../core/security/secure_dio_client.dart';
 
-enum _DocType { cni, passport }
+/// KYC onboarding — wizard fidèle au design `screens-kyc.jsx` (6 écrans) :
+/// intro → type de compte → documents → signature → récapitulatif → succès.
+///
+/// Backend : `POST /api/auth/kyc/submit/` (multipart) par document, avec la
+/// signature manuscrite + `consent_accepted` (horodaté serveur) sur le premier
+/// envoi. doc_type ∈ {CNI, PROOF_ADDRESS, SELFIE}.
+enum _KycStage { intro, type, docs, signature, review, success }
+
+enum _AccountType { individual, company, pro }
 
 class BuyerKycPage extends StatefulWidget {
   const BuyerKycPage({super.key});
@@ -20,14 +28,20 @@ class BuyerKycPage extends StatefulWidget {
 }
 
 class _BuyerKycPageState extends State<BuyerKycPage> {
-  int _step = 0;
-  _DocType _docType = _DocType.cni;
-  PlatformFile? _frontFile;
-  PlatformFile? _backFile;
+  _KycStage _stage = _KycStage.intro;
+  _AccountType _accountType = _AccountType.individual;
+
+  // 3 documents requis par le design : CNI, justificatif domicile, selfie.
+  final Map<String, PlatformFile?> _docs = {
+    'cni': null,
+    'address': null,
+    'selfie': null,
+  };
+
   bool _uploading = false;
   String? _errorMessage;
 
-  // Catalogue screen 46 — handwritten signature + legal consent.
+  // Signature manuscrite + consentement légal (design écran 04 / catalogue 46).
   final GlobalKey _signatureBoundaryKey = GlobalKey();
   final GlobalKey<_SignaturePadState> _signaturePadKey =
       GlobalKey<_SignaturePadState>();
@@ -35,42 +49,48 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   bool _consentAccepted = false;
   Uint8List? _signatureBytes;
 
-  // Step order is dynamic: the CNI flow has an extra "verso" step.
-  List<String> get _stepOrder => _docType == _DocType.cni
-      ? const ['type', 'front', 'back', 'signature', 'review']
-      : const ['type', 'front', 'signature', 'review'];
+  static const _primaryDeep = Color(0xFF063D27);
 
-  int get _totalSteps => _stepOrder.length;
-  String get _currentKind => _stepOrder[_step];
+  int get _docsDone => _docs.values.where((f) => f != null).length;
+  bool get _allDocsDone => _docsDone == _docs.length;
 
-  Future<void> _pickFile(bool isFront) async {
+  // ── Step index for the 4-segment progress bar (type→docs→signature→review)
+  int get _stepIndex {
+    switch (_stage) {
+      case _KycStage.type:
+        return 1;
+      case _KycStage.docs:
+        return 2;
+      case _KycStage.signature:
+        return 3;
+      case _KycStage.review:
+        return 4;
+      default:
+        return 0;
+    }
+  }
+
+  Future<void> _pickDoc(String key) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       allowMultiple: false,
       withData: false,
-      withReadStream: false,
     );
     if (result == null || result.files.isEmpty) return;
     if (!mounted) return;
     setState(() {
-      if (isFront) {
-        _frontFile = result.files.first;
-      } else {
-        _backFile = result.files.first;
-      }
+      _docs[key] = result.files.first;
       _errorMessage = null;
     });
   }
 
-  /// Rasterise the signature pad to PNG bytes for review + upload.
   Future<Uint8List?> _captureSignature() async {
     try {
       final boundary = _signatureBoundaryKey.currentContext
           ?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) return null;
       final image = await boundary.toImage(pixelRatio: 2.5);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
     } catch (_) {
       return null;
@@ -78,17 +98,13 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   }
 
   Future<void> _submit() async {
-    if (_frontFile?.path == null) {
-      setState(() => _errorMessage = 'Veuillez sélectionner la photo recto.');
-      return;
-    }
-    if (_docType == _DocType.cni && _backFile?.path == null) {
-      setState(() => _errorMessage = 'Veuillez sélectionner la photo verso.');
+    if (!_allDocsDone) {
+      setState(() => _errorMessage = 'Les 3 documents sont requis.');
       return;
     }
     if (!_consentAccepted || _signatureBytes == null) {
-      setState(() => _errorMessage =
-          'Signature et acceptation des CGU obligatoires.');
+      setState(() =>
+          _errorMessage = 'Signature et acceptation des CGU obligatoires.');
       return;
     }
     setState(() {
@@ -96,50 +112,31 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
       _errorMessage = null;
     });
     try {
-      // Backend contract (ComplianceDocumentSerializer): writable fields are
-      // `doc_type` (∈ CNI | CNI_VERSO | PASSPORT | …) and `file`. The recto is
-      // the primary document; the CNI verso is a SECOND document (CNI_VERSO).
-      final frontType = _docType == _DocType.cni ? 'CNI' : 'PASSPORT';
-      final frontData = FormData();
-      frontData.fields.add(MapEntry('doc_type', frontType));
-      frontData.fields.add(const MapEntry('consent_accepted', 'true'));
-      frontData.files.add(MapEntry(
+      // 1) CNI (document d'identité primaire) — porte la signature + consentement.
+      final cniData = FormData();
+      cniData.fields.add(const MapEntry('doc_type', 'CNI'));
+      cniData.fields.add(const MapEntry('consent_accepted', 'true'));
+      cniData.files.add(MapEntry(
         'file',
-        await MultipartFile.fromFile(_frontFile!.path!,
-            filename: _frontFile!.name),
+        await MultipartFile.fromFile(_docs['cni']!.path!,
+            filename: _docs['cni']!.name),
       ));
-      // Handwritten signature (catalogue 46) — sent best-effort. The compliance
-      // model has no signature field yet, so it currently enforces client-side
-      // legal consent. See docs/INCOHERENCES_BACKEND_FRONTEND.md.
-      frontData.files.add(MapEntry(
+      cniData.files.add(MapEntry(
         'signature',
         MultipartFile.fromBytes(_signatureBytes!, filename: 'signature.png'),
       ));
-      // Dedicated buyer-KYC endpoint: any authenticated user may submit an
-      // identity document here (the generic /compliance-documents/ is reserved
-      // to compliance actors). See backend BuyerKycSubmitView.
-      await SecureDioClient.dio
-          .post('/api/auth/kyc/submit/', data: frontData);
+      await SecureDioClient.dio.post('/api/auth/kyc/submit/', data: cniData);
 
-      if (_docType == _DocType.cni && _backFile?.path != null) {
-        final backData = FormData();
-        backData.fields.add(const MapEntry('doc_type', 'CNI_VERSO'));
-        backData.files.add(MapEntry(
-          'file',
-          await MultipartFile.fromFile(_backFile!.path!,
-              filename: _backFile!.name),
-        ));
-        await SecureDioClient.dio
-            .post('/api/auth/kyc/submit/', data: backData);
-      }
+      // 2) Justificatif de domicile.
+      await _postDoc('PROOF_ADDRESS', _docs['address']!);
+      // 3) Selfie avec CNI.
+      await _postDoc('SELFIE', _docs['selfie']!);
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Documents soumis. Vérification en cours (24-48h).'),
-          backgroundColor: Color(0xFF059669),
-        ),
-      );
-      Navigator.of(context).pop();
+      setState(() {
+        _uploading = false;
+        _stage = _KycStage.success;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -149,68 +146,102 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     }
   }
 
+  Future<void> _postDoc(String docType, PlatformFile file) async {
+    final data = FormData();
+    data.fields.add(MapEntry('doc_type', docType));
+    data.files.add(MapEntry(
+      'file',
+      await MultipartFile.fromFile(file.path!, filename: file.name),
+    ));
+    await SecureDioClient.dio.post('/api/auth/kyc/submit/', data: data);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_stage == _KycStage.success) return _SuccessScreen(onClose: _close);
+
     return Scaffold(
       backgroundColor: AppPalette.bg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Vérification d\'identité',
-            style: TextStyle(
-                fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF334155)),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-      ),
       body: SafeArea(
         child: Column(
           children: [
-            _buildProgressBar(),
+            _header(),
+            if (_stepIndex > 0) _KycProgress(step: _stepIndex),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: _buildStepContent(),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: _stageContent(),
               ),
             ),
-            _buildBottomBar(),
+            _bottomBar(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProgressBar() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  void _close() {
+    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+  }
+
+  void _back() {
+    setState(() {
+      _errorMessage = null;
+      switch (_stage) {
+        case _KycStage.type:
+          _stage = _KycStage.intro;
+          break;
+        case _KycStage.docs:
+          _stage = _KycStage.type;
+          break;
+        case _KycStage.signature:
+          _stage = _KycStage.docs;
+          break;
+        case _KycStage.review:
+          _stage = _KycStage.signature;
+          break;
+        case _KycStage.intro:
+          _close();
+          break;
+        default:
+          break;
+      }
+    });
+  }
+
+  // ── Header ────────────────────────────────────────────────────────────────
+  Widget _header() {
+    final (title, subtitle) = switch (_stage) {
+      _KycStage.intro => ('Vérification KYC', 'Étape obligatoire > 50 k F'),
+      _KycStage.type => ('Étape 1 / 4', 'Type de compte'),
+      _KycStage.docs => ('Étape 2 / 4', 'Téléverser les documents'),
+      _KycStage.signature => ('Étape 3 / 4', 'Signature manuscrite'),
+      _KycStage.review => ('Étape 4 / 4', 'Récapitulatif'),
+      _KycStage.success => ('', ''),
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Text('Étape ${_step + 1} sur $_totalSteps',
-                  style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w500)),
-              const Spacer(),
-              Text('${((_step + 1) / _totalSteps * 100).round()}%',
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppPalette.primary)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: (_step + 1) / _totalSteps,
-              backgroundColor: const Color(0xFFE2E8F0),
-              color: AppPalette.primary,
-              minHeight: 6,
+          _RoundIconButton(icon: Icons.arrow_back, onTap: _back),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.text)),
+                if (subtitle.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(subtitle,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppPalette.textMuted)),
+                  ),
+              ],
             ),
           ),
         ],
@@ -218,340 +249,892 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     );
   }
 
-  Widget _buildStepContent() {
-    switch (_currentKind) {
-      case 'type':
-        return _stepChooseDocType();
-      case 'front':
-        return _stepUploadFront();
-      case 'back':
-        return _stepUploadBack();
-      case 'signature':
-        return _stepSignature();
-      default:
-        return _stepReview();
+  Widget _stageContent() {
+    switch (_stage) {
+      case _KycStage.intro:
+        return _introContent();
+      case _KycStage.type:
+        return _typeContent();
+      case _KycStage.docs:
+        return _docsContent();
+      case _KycStage.signature:
+        return _signatureContent();
+      case _KycStage.review:
+        return _reviewContent();
+      case _KycStage.success:
+        return const SizedBox.shrink();
     }
   }
 
-  Widget _stepChooseDocType() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _StepHeader(
-            icon: Icons.badge_outlined,
-            title: 'Type de document',
-            subtitle:
-                'Choisissez le document d\'identité que vous souhaitez utiliser.',
-          ),
-          const SizedBox(height: 24),
-          _DocTypeCard(
-            title: 'Carte Nationale d\'Identité',
-            subtitle: 'CNI camerounaise ou étrangère en cours de validité',
-            icon: Icons.credit_card,
-            selected: _docType == _DocType.cni,
-            onTap: () => setState(() => _docType = _DocType.cni),
-          ),
-          const SizedBox(height: 12),
-          _DocTypeCard(
-            title: 'Passeport',
-            subtitle: 'Passeport biométrique en cours de validité',
-            icon: Icons.book_outlined,
-            selected: _docType == _DocType.passport,
-            onTap: () => setState(() => _docType = _DocType.passport),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
+  // ── Écran 1 : Intro ─────────────────────────────────────────────────────
+  Widget _introContent() {
+    const needs = [
+      (Icons.verified_user_outlined, "Pièce d'identité", 'CNI, passeport ou récépissé'),
+      (Icons.location_on_outlined, 'Justificatif de domicile', 'Facture ENEO/CAMWATER < 3 mois'),
+      (Icons.phone_iphone, 'Numéro Mobile Money', 'MTN MoMo ou Orange Money actif'),
+      (Icons.edit_outlined, 'Signature manuscrite', 'Capturée à l\'étape finale'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppPalette.primary, _primaryDeep],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline, size: 16, color: Color(0xFF2563EB)),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Vos données sont chiffrées et utilisées uniquement pour la vérification légale. Elles ne sont jamais partagées.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
-                  ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: AppPalette.shadowStrong,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppPalette.accent,
+                  borderRadius: BorderRadius.circular(999),
                 ),
-              ],
+                child: const Text('SÉCURISÉ · CHIFFRÉ AES-256',
+                    style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A0F00))),
+              ),
+              const SizedBox(height: 12),
+              const Text('Validez votre identité\nen moins de 3 minutes',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                      letterSpacing: -0.4)),
+              const SizedBox(height: 6),
+              const Text(
+                  'Conforme aux exigences GIMAC et BEAC pour le paiement Mobile Money.',
+                  style: TextStyle(
+                      color: Colors.white70, fontSize: 12.5, height: 1.5)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        const _SectionLabel('Ce dont vous aurez besoin'),
+        const SizedBox(height: 10),
+        for (final n in needs)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppPalette.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppPalette.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppPalette.primarySoft,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(n.$1, size: 17, color: AppPalette.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(n.$2,
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 1),
+                        Text(n.$3,
+                            style: const TextStyle(
+                                fontSize: 11, color: AppPalette.textMuted)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.check, size: 15, color: AppPalette.primary),
+                ],
+              ),
             ),
           ),
-        ],
-      );
+        const SizedBox(height: 4),
+        const _AccentNote(
+          icon: Icons.lock_outline,
+          text:
+              'Vos documents ne sont jamais partagés avec les autres utilisateurs. Stockés chiffrés.',
+        ),
+      ],
+    );
+  }
 
-  Widget _stepUploadFront() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _StepHeader(
-            icon: Icons.camera_front_outlined,
-            title: _docType == _DocType.cni
-                ? 'Recto de votre CNI'
-                : 'Page photo du passeport',
-            subtitle: 'Prenez une photo claire, bien éclairée, sans reflet.',
-          ),
-          const SizedBox(height: 24),
-          _PhotoUploadArea(
-            file: _frontFile,
-            label: _docType == _DocType.cni ? 'RECTO' : 'PAGE PHOTO',
-            onPick: () => _pickFile(true),
-          ),
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
-            _ErrorBanner(message: _errorMessage!),
-          ],
-        ],
-      );
-
-  Widget _stepUploadBack() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _StepHeader(
-            icon: Icons.camera_rear_outlined,
-            title: 'Verso de votre CNI',
-            subtitle:
-                'Prenez une photo du verso, assurez-vous que le texte est lisible.',
-          ),
-          const SizedBox(height: 24),
-          _PhotoUploadArea(
-            file: _backFile,
-            label: 'VERSO',
-            onPick: () => _pickFile(false),
-          ),
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
-            _ErrorBanner(message: _errorMessage!),
-          ],
-        ],
-      );
-
-  // Catalogue screen 46 — handwritten signature + legal engagement.
-  Widget _stepSignature() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _StepHeader(
-            icon: Icons.draw_outlined,
-            title: 'Signature manuscrite',
-            subtitle:
-                'Signez avec votre doigt. Cette signature numérique vous engage légalement.',
-          ),
-          const SizedBox(height: 20),
-          RepaintBoundary(
-            key: _signatureBoundaryKey,
-            child: _SignaturePad(
-              key: _signaturePadKey,
-              onChanged: (isEmpty) {
-                final has = !isEmpty;
-                if (has != _hasSignature) {
-                  setState(() => _hasSignature = has);
-                }
-              },
+  // ── Écran 2 : Type de compte ────────────────────────────────────────────
+  Widget _typeContent() {
+    const options = [
+      (_AccountType.individual, Icons.person_outline, 'Particulier',
+          'CNI · justificatif domicile'),
+      (_AccountType.company, Icons.inventory_2_outlined, 'Entreprise / SARL',
+          'RC · NIU · CNI dirigeant'),
+      (_AccountType.pro, Icons.local_shipping_outlined, 'Profession libérale',
+          'Patente · CNI · attestation'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _StageTitle('Qui êtes-vous ?',
+            'Les documents demandés dépendent de votre profil.'),
+        const SizedBox(height: 18),
+        for (final o in options)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _SelectableCard(
+              active: _accountType == o.$1,
+              onTap: () => setState(() => _accountType = o.$1),
+              icon: o.$2,
+              title: o.$3,
+              subtitle: o.$4,
             ),
           ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () {
-                _signaturePadKey.currentState?.clear();
-                setState(() {
-                  _hasSignature = false;
-                  _signatureBytes = null;
-                });
-              },
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Recommencer'),
+      ],
+    );
+  }
+
+  // ── Écran 3 : Documents ─────────────────────────────────────────────────
+  Widget _docsContent() {
+    const docMeta = [
+      ('cni', "Carte nationale d'identité", 'Recto-verso, bonne lumière',
+          Icons.badge_outlined),
+      ('address', 'Justificatif de domicile', 'Facture ENEO < 3 mois',
+          Icons.location_on_outlined),
+      ('selfie', 'Selfie avec CNI', 'Pour confirmer l\'identité',
+          Icons.camera_alt_outlined),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _StageTitle('3 documents requis',
+            'Touchez chaque case pour sélectionner la photo.'),
+        const SizedBox(height: 18),
+        for (final d in docMeta)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _DocUploadCard(
+              file: _docs[d.$1],
+              label: d.$2,
+              subtitle: d.$3,
+              icon: d.$4,
+              onTap: () => _pickDoc(d.$1),
             ),
           ),
-          const SizedBox(height: 8),
-          InkWell(
-            onTap: () => setState(() => _consentAccepted = !_consentAccepted),
+        if (_errorMessage != null) _ErrorBanner(message: _errorMessage!),
+      ],
+    );
+  }
+
+  // ── Écran 4 : Signature ─────────────────────────────────────────────────
+  Widget _signatureContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _StageTitle('Signez avec votre doigt',
+            'Cette signature numérique vous engage légalement.'),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppPalette.card,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: _hasSignature ? AppPalette.primary : AppPalette.border,
+              width: 2,
+            ),
+          ),
+          child: Column(
+            children: [
+              RepaintBoundary(
+                key: _signatureBoundaryKey,
+                child: _SignaturePad(
+                  key: _signaturePadKey,
+                  onChanged: (isEmpty) {
+                    final has = !isEmpty;
+                    if (has != _hasSignature) {
+                      setState(() => _hasSignature = has);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    _signaturePadKey.currentState?.clear();
+                    setState(() {
+                      _hasSignature = false;
+                      _signatureBytes = null;
+                    });
+                  },
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Recommencer'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _consentAccepted = !_consentAccepted),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppPalette.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Checkbox(
-                  value: _consentAccepted,
-                  onChanged: (v) =>
-                      setState(() => _consentAccepted = v ?? false),
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Checkbox(
+                    value: _consentAccepted,
+                    visualDensity: VisualDensity.compact,
+                    onChanged: (v) =>
+                        setState(() => _consentAccepted = v ?? false),
+                  ),
                 ),
+                const SizedBox(width: 10),
                 const Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: Text(
-                      'En signant, je reconnais avoir lu et accepté les CGU et la Politique de confidentialité de Marché CM.',
-                      style:
-                          TextStyle(fontSize: 13, color: Color(0xFF334155)),
-                    ),
+                  child: Text(
+                    'En signant, je reconnais avoir lu et accepté les CGU et la Politique de confidentialité de Marché CM.',
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppPalette.primaryDark,
+                        height: 1.5),
                   ),
                 ),
               ],
             ),
           ),
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
-            _ErrorBanner(message: _errorMessage!),
-          ],
+        ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 12),
+          _ErrorBanner(message: _errorMessage!),
         ],
-      );
+      ],
+    );
+  }
 
-  Widget _stepReview() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _StepHeader(
-            icon: Icons.check_circle_outline,
-            title: 'Vérification finale',
-            subtitle: 'Relisez vos documents avant de soumettre.',
+  // ── Écran 5 : Récapitulatif ─────────────────────────────────────────────
+  Widget _reviewContent() {
+    final typeLabel = switch (_accountType) {
+      _AccountType.individual => 'Particulier',
+      _AccountType.company => 'Entreprise / SARL',
+      _AccountType.pro => 'Profession libérale',
+    };
+    final rows = [
+      ('Type de compte', typeLabel),
+      ('CNI', _docs['cni'] != null ? 'Capturée ✓' : 'Manquante'),
+      ('Justificatif domicile',
+          _docs['address'] != null ? 'Capturé ✓' : 'Manquant'),
+      ('Selfie avec CNI', _docs['selfie'] != null ? 'Capturé ✓' : 'Manquant'),
+      ('Signature numérique', _signatureBytes != null ? 'Validée ✓' : 'Manquante'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _StageTitle('Tout est prêt',
+            'Vérifiez avant l\'envoi à notre équipe de conformité.'),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: AppPalette.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppPalette.border),
           ),
-          const SizedBox(height: 24),
-          _ReviewItem(
-            label: 'Type de document',
-            value: _docType == _DocType.cni
-                ? 'Carte Nationale d\'Identité'
-                : 'Passeport',
-            icon: _docType == _DocType.cni
-                ? Icons.credit_card
-                : Icons.book_outlined,
-          ),
-          const SizedBox(height: 10),
-          if (_frontFile != null)
-            _ReviewItem(
-              label: _docType == _DocType.cni ? 'Recto' : 'Page photo',
-              value: _frontFile!.name,
-              icon: Icons.image_outlined,
-            ),
-          if (_backFile != null) ...[
-            const SizedBox(height: 10),
-            _ReviewItem(
-              label: 'Verso',
-              value: _backFile!.name,
-              icon: Icons.image_outlined,
-            ),
-          ],
-          const SizedBox(height: 10),
-          _ReviewItem(
-            label: 'Signature',
-            value: _signatureBytes != null ? 'Capturée ✓' : 'Manquante',
-            icon: Icons.draw_outlined,
-          ),
-          if (_signatureBytes != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              height: 90,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Image.memory(_signatureBytes!, fit: BoxFit.contain),
-              ),
-            ),
-          ],
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 16),
-            _ErrorBanner(message: _errorMessage!),
-          ],
-        ],
-      );
-
-  Widget _buildBottomBar() {
-    final isLastStep = (_step == _totalSteps - 1);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        children: [
-          if (_step > 0)
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _uploading ? null : () => setState(() => _step--),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: [
+              for (int i = 0; i < rows.length; i++)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: i < rows.length - 1
+                          ? const BorderSide(color: AppPalette.borderSoft)
+                          : BorderSide.none,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(rows[i].$1,
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              color: AppPalette.textMuted,
+                              fontWeight: FontWeight.w600)),
+                      Text(rows[i].$2,
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              color: AppPalette.text,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ),
                 ),
-                child: const Text('Précédent'),
-              ),
-            ),
-          if (_step > 0) const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: FilledButton(
-              onPressed: _uploading ? null : _onPrimaryPressed,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: _uploading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(isLastStep ? 'Soumettre' : 'Continuer',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-            ),
+            ],
           ),
+        ),
+        const SizedBox(height: 12),
+        const _AccentNote(
+          icon: Icons.schedule,
+          text:
+              'Délai de traitement : 24 h ouvrées. Vous recevrez un email à validation.',
+        ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 12),
+          _ErrorBanner(message: _errorMessage!),
         ],
+      ],
+    );
+  }
+
+  // ── Bottom bar ──────────────────────────────────────────────────────────
+  Widget _bottomBar() {
+    final (label, icon, enabled, onPressed) = switch (_stage) {
+      _KycStage.intro => (
+          'Commencer la vérification',
+          Icons.arrow_forward,
+          true,
+          () => setState(() => _stage = _KycStage.type),
+        ),
+      _KycStage.type => (
+          'Continuer',
+          Icons.arrow_forward,
+          true,
+          () => setState(() => _stage = _KycStage.docs),
+        ),
+      _KycStage.docs => (
+          'Continuer ($_docsDone/3)',
+          Icons.arrow_forward,
+          _allDocsDone,
+          () {
+            if (!_allDocsDone) {
+              setState(() => _errorMessage = 'Les 3 documents sont requis.');
+              return;
+            }
+            setState(() {
+              _errorMessage = null;
+              _stage = _KycStage.signature;
+            });
+          },
+        ),
+      _KycStage.signature => (
+          'Valider ma signature',
+          Icons.arrow_forward,
+          _hasSignature && _consentAccepted,
+          _validateSignature,
+        ),
+      _KycStage.review => (
+          'Envoyer pour vérification',
+          Icons.send,
+          true,
+          _submit,
+        ),
+      _KycStage.success => ('', Icons.check, false, () {}),
+    };
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: const BoxDecoration(
+        color: AppPalette.card,
+        border: Border(top: BorderSide(color: AppPalette.borderSoft)),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: (_uploading || !enabled) ? null : onPressed,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.md)),
+          ),
+          icon: _uploading
+              ? const SizedBox.shrink()
+              : Icon(icon, size: 18),
+          label: _uploading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white))
+              : Text(label,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14.5)),
+        ),
       ),
     );
   }
 
-  Future<void> _onPrimaryPressed() async {
-    final kind = _currentKind;
-    if (kind == 'review') {
-      await _submit();
+  Future<void> _validateSignature() async {
+    if (!_hasSignature) {
+      setState(() => _errorMessage = 'Veuillez signer avant de continuer.');
       return;
     }
-    // Per-step validation before advancing.
-    if (kind == 'front' && _frontFile == null) {
-      setState(() => _errorMessage = 'Veuillez sélectionner une photo.');
+    if (!_consentAccepted) {
+      setState(() => _errorMessage = 'Vous devez accepter les CGU.');
       return;
     }
-    if (kind == 'back' && _backFile == null) {
-      setState(() => _errorMessage = 'Veuillez sélectionner une photo.');
+    final bytes = await _captureSignature();
+    if (bytes == null) {
+      setState(() =>
+          _errorMessage = 'Impossible de capturer la signature. Réessayez.');
       return;
-    }
-    if (kind == 'signature') {
-      if (!_hasSignature) {
-        setState(() => _errorMessage = 'Veuillez signer avant de continuer.');
-        return;
-      }
-      if (!_consentAccepted) {
-        setState(() => _errorMessage = 'Vous devez accepter les CGU.');
-        return;
-      }
-      final bytes = await _captureSignature();
-      if (bytes == null) {
-        setState(() => _errorMessage =
-            'Impossible de capturer la signature. Réessayez.');
-        return;
-      }
-      _signatureBytes = bytes;
     }
     setState(() {
-      _step++;
+      _signatureBytes = bytes;
       _errorMessage = null;
+      _stage = _KycStage.review;
     });
   }
 }
 
-// ── Signature pad ─────────────────────────────────────────────────────────────
+// ── Sous-widgets ──────────────────────────────────────────────────────────
+
+class _KycProgress extends StatelessWidget {
+  final int step; // 1..4
+  const _KycProgress({required this.step});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: Row(
+        children: [
+          for (int i = 1; i <= 4; i++) ...[
+            Expanded(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
+                height: 4,
+                decoration: BoxDecoration(
+                  color: i <= step ? AppPalette.primary : AppPalette.bgSoft,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            if (i < 4) const SizedBox(width: 4),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StageTitle extends StatelessWidget {
+  final String title, subtitle;
+  const _StageTitle(this.title, this.subtitle);
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  color: AppPalette.text)),
+          const SizedBox(height: 4),
+          Text(subtitle,
+              style: const TextStyle(
+                  fontSize: 13, color: AppPalette.textMuted, height: 1.5)),
+        ],
+      );
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: AppPalette.textMuted,
+            letterSpacing: 0.8),
+      );
+}
+
+class _SelectableCard extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+  final IconData icon;
+  final String title, subtitle;
+  const _SelectableCard({
+    required this.active,
+    required this.onTap,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: active ? AppPalette.primarySoft : AppPalette.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+                color: active ? AppPalette.primary : AppPalette.border,
+                width: 1.5),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                        color: AppPalette.primary.withValues(alpha: 0.12),
+                        blurRadius: 0,
+                        spreadRadius: 4)
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: active ? AppPalette.primary : AppPalette.bgSoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon,
+                    size: 22, color: active ? Colors.white : AppPalette.text),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            color: active
+                                ? AppPalette.primaryDark
+                                : AppPalette.text)),
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            fontSize: 11.5, color: AppPalette.textMuted)),
+                  ],
+                ),
+              ),
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active ? AppPalette.primary : AppPalette.card,
+                  border: Border.all(
+                      color: active ? AppPalette.primary : AppPalette.border,
+                      width: 2),
+                ),
+                child: active
+                    ? const Icon(Icons.check, size: 12, color: Colors.white)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _DocUploadCard extends StatelessWidget {
+  final PlatformFile? file;
+  final String label, subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _DocUploadCard({
+    required this.file,
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final done = file != null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppPalette.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: done ? AppPalette.primary : AppPalette.border,
+              width: 1.5),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 120,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (done && file!.path != null)
+                    Image.file(File(file!.path!), fit: BoxFit.cover)
+                  else
+                    Container(
+                      color: AppPalette.bgSoft,
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.camera_alt_outlined,
+                              size: 30, color: AppPalette.textMuted),
+                          SizedBox(height: 6),
+                          Text('TOUCHER POUR SÉLECTIONNER',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppPalette.textMuted)),
+                        ],
+                      ),
+                    ),
+                  if (done)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: const BoxDecoration(
+                            shape: BoxShape.circle, color: AppPalette.primary),
+                        child: const Icon(Icons.check,
+                            size: 15, color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: AppPalette.textMuted),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label,
+                            style: const TextStyle(
+                                fontSize: 13.5, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 1),
+                        Text(subtitle,
+                            style: const TextStyle(
+                                fontSize: 11, color: AppPalette.textMuted)),
+                      ],
+                    ),
+                  ),
+                  if (done)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppPalette.primarySoft,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text('OK',
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppPalette.primaryDark)),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccentNote extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _AccentNote({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppPalette.accentSoft,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: const Color(0xFF8E5A00)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(text,
+                  style: const TextStyle(
+                      fontSize: 11.5, color: Color(0xFF8E5A00), height: 1.5)),
+            ),
+          ],
+        ),
+      );
+}
+
+class _RoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _RoundIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppPalette.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppPalette.border),
+          ),
+          child: Icon(icon, size: 20, color: AppPalette.text),
+        ),
+      );
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  const _ErrorBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppPalette.dangerSoft,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppPalette.danger.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, size: 16, color: AppPalette.danger),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(message,
+                    style: const TextStyle(
+                        color: AppPalette.danger, fontSize: 13))),
+          ],
+        ),
+      );
+}
+
+// ── Écran 6 : Succès ──────────────────────────────────────────────────────
+class _SuccessScreen extends StatelessWidget {
+  final VoidCallback onClose;
+  const _SuccessScreen({required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppPalette.primary, Color(0xFF063D27)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Spacer(),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.4, end: 1),
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.elasticOut,
+                  builder: (_, scale, child) =>
+                      Transform.scale(scale: scale, child: child),
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppPalette.accent,
+                      boxShadow: [
+                        BoxShadow(
+                            color: Color(0x80F59E0B),
+                            blurRadius: 40,
+                            offset: Offset(0, 20)),
+                      ],
+                    ),
+                    child: const Icon(Icons.check,
+                        size: 64, color: Color(0xFF1A0F00)),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                const Text('Dossier envoyé !',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4)),
+                const SizedBox(height: 10),
+                const Text('Notre équipe vérifiera vos documents sous 24 h.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Colors.white70, fontSize: 14, height: 1.5)),
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: onClose,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppPalette.accent,
+                      foregroundColor: const Color(0xFF1A0F00),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text('Retour à l\'accueil',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Signature pad (réutilisé, éprouvé) ────────────────────────────────────
 
 class _SignaturePad extends StatefulWidget {
   const _SignaturePad({super.key, required this.onChanged});
-
-  /// Reports `true` when the pad is empty, `false` once strokes exist.
   final ValueChanged<bool> onChanged;
 
   @override
@@ -579,11 +1162,10 @@ class _SignaturePadState extends State<_SignaturePad> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 200,
+      height: 180,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFCBD5E1), width: 2),
+        color: const Color(0xFFFBFBF7),
+        borderRadius: BorderRadius.circular(12),
       ),
       clipBehavior: Clip.antiAlias,
       child: GestureDetector(
@@ -595,7 +1177,7 @@ class _SignaturePadState extends State<_SignaturePad> {
           child: _strokes.isEmpty
               ? const Center(
                   child: Text('Signez ici',
-                      style: TextStyle(color: Color(0xFF94A3B8))),
+                      style: TextStyle(color: AppPalette.textFaint)),
                 )
               : null,
         ),
@@ -611,7 +1193,7 @@ class _SignaturePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF0F172A)
+      ..color = AppPalette.text
       ..strokeWidth = 2.6
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
@@ -632,259 +1214,4 @@ class _SignaturePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SignaturePainter oldDelegate) => true;
-}
-
-// ── Shared sub-widgets ────────────────────────────────────────────────────────
-
-class _StepHeader extends StatelessWidget {
-  final IconData icon;
-  final String title, subtitle;
-  const _StepHeader(
-      {required this.icon, required this.title, required this.subtitle});
-
-  @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppPalette.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: AppPalette.primary, size: 26),
-          ),
-          const SizedBox(height: 14),
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A))),
-          const SizedBox(height: 6),
-          Text(subtitle,
-              style: const TextStyle(
-                  fontSize: 14, color: Color(0xFF64748B), height: 1.4)),
-        ],
-      );
-}
-
-class _DocTypeCard extends StatelessWidget {
-  final String title, subtitle;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  const _DocTypeCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppPalette.primary.withValues(alpha: 0.05)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected ? AppPalette.primary : const Color(0xFFE2E8F0),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? AppPalette.primary.withValues(alpha: 0.1)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon,
-                    color:
-                        selected ? AppPalette.primary : const Color(0xFF94A3B8)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: selected
-                                ? AppPalette.primary
-                                : const Color(0xFF0F172A))),
-                    const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF64748B))),
-                  ],
-                ),
-              ),
-              if (selected)
-                const Icon(Icons.check_circle,
-                    color: AppPalette.primary, size: 20),
-            ],
-          ),
-        ),
-      );
-}
-
-class _PhotoUploadArea extends StatelessWidget {
-  final PlatformFile? file;
-  final String label;
-  final VoidCallback onPick;
-  const _PhotoUploadArea(
-      {required this.file, required this.label, required this.onPick});
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onPick,
-        child: Container(
-          height: 200,
-          decoration: BoxDecoration(
-            color: file != null
-                ? const Color(0xFFF0FDF4)
-                : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: file != null
-                  ? const Color(0xFF86EFAC)
-                  : const Color(0xFFCBD5E1),
-              width: 2,
-              strokeAlign: BorderSide.strokeAlignInside,
-            ),
-          ),
-          child: file != null
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Image.file(File(file!.path!), fit: BoxFit.cover),
-                    ),
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.edit, size: 13, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text('Modifier',
-                                style: TextStyle(
-                                    color: Colors.white, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: AppPalette.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(Icons.add_photo_alternate_outlined,
-                          color: AppPalette.primary, size: 30),
-                    ),
-                    const SizedBox(height: 12),
-                    Text('Photo $label',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                            color: Color(0xFF334155))),
-                    const SizedBox(height: 4),
-                    const Text('Appuyez pour sélectionner',
-                        style:
-                            TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
-                  ],
-                ),
-        ),
-      );
-}
-
-class _ReviewItem extends StatelessWidget {
-  final String label, value;
-  final IconData icon;
-  const _ReviewItem(
-      {required this.label, required this.value, required this.icon});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: AppPalette.primary),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 11, color: Color(0xFF94A3B8))),
-                const SizedBox(height: 2),
-                Text(value,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Color(0xFF0F172A))),
-              ],
-            ),
-          ],
-        ),
-      );
-}
-
-class _ErrorBanner extends StatelessWidget {
-  final String message;
-  const _ErrorBanner({required this.message});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFEF2F2),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFFCA5A5)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Text(message,
-                    style:
-                        const TextStyle(color: Color(0xFFDC2626), fontSize: 13))),
-          ],
-        ),
-      );
 }
