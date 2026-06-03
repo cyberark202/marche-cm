@@ -6,7 +6,8 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from .location_service import update_user_location
+from .kyc_constants import CERTIFICATION_DOC_TYPES, IDENTITY_DOC_TYPES
+from .location_service import enqueue_user_geocode
 from .upload_security import scrub_image_metadata, validate_uploaded_file
 from .models import ComplianceDocument, User, UserRole
 
@@ -22,6 +23,36 @@ def validate_phone_format(value):
     if not digits.isdigit() or len(digits) < 8:
         raise serializers.ValidationError(_("Numéro de téléphone invalide."))
     return f"+{digits}"
+
+
+def generate_unique_username(full_name):
+    """Derive a unique username from a display name (anti-enumeration safe).
+
+    Audit ref: [H-005] — collisions are resolved silently with a numeric suffix
+    (then a random suffix past 50 attempts) so registration never leaks whether
+    an account already exists.
+    """
+    base_username = re.sub(r"[^a-zA-Z0-9_]+", "_", (full_name or "").lower()).strip("_") or "user"
+    username = base_username[:120]
+    suffix = 1
+    while User.objects.filter(username__iexact=username).exists():
+        if suffix > 50:
+            return f"{base_username[:110]}_{secrets.token_hex(4)}"
+        suffix += 1
+        username = f"{base_username[:117]}_{suffix}"
+    return username
+
+
+def validate_registration_email(value):
+    """Shared registration email check (M2 anti-enumeration)."""
+    normalized = (value or "").strip().lower()
+    if not normalized:
+        raise serializers.ValidationError("Email obligatoire.")
+    if User.objects.filter(email__iexact=normalized).exists():
+        raise serializers.ValidationError(
+            "Ce compte ne peut pas etre cree. Essayez de vous connecter ou utilisez un autre email."
+        )
+    return normalized
 
 class UserSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="first_name", read_only=True)
@@ -82,14 +113,14 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         return username
 
     def validate_name(self, value):
+        # Audit ref: [m-1] Display name (first_name) is NOT globally unique —
+        # harmonised with RegisterSerializer, which dropped this check (H-005,
+        # anti-enumeration). Two users may legitimately share a display name.
         name = (value or "").strip()
         if not name:
             return name
         if len(name) < 2:
             raise serializers.ValidationError(_("Le nom affiché doit contenir au moins 2 caractères."))
-        exists = User.objects.filter(first_name__iexact=name).exclude(id=self.instance.id)
-        if exists.exists():
-            raise serializers.ValidationError(_("Ce nom affiché est déjà utilisé."))
         return name
 
     def validate_email(self, value):
@@ -147,24 +178,12 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
     signature = serializers.ImageField(write_only=True, required=False)
     consent_accepted = serializers.BooleanField(write_only=True, required=False, default=False)
 
-    CERTIFICATION_TYPES = {
-        "CERT_BUSINESS_REGISTRATION",
-        "CERT_TAX_CLEARANCE",
-        "CERT_EXPORT_LICENSE",
-        "CERT_IMPORT_LICENSE",
-        "CERT_QUALITY_STANDARD",
-        "CERT_INSURANCE",
-    }
-
-    # KYC identity documents (transitaire / driver onboarding).
-    DRIVER_DOC_TYPES = {
-        "CNI",
-        "CNI_VERSO",
-        "PASSPORT",
-        "DRIVER_LICENSE",
-    }
-
-    ALLOWED_DOC_TYPES = CERTIFICATION_TYPES | DRIVER_DOC_TYPES
+    # Audit ref: [M-2][M-3] single source of truth — see apps/accounts/kyc_constants.py.
+    # CERTIFICATION_TYPES are unique-per-user; DRIVER_DOC_TYPES (identity docs,
+    # incl. PROOF_ADDRESS / SELFIE) are re-submittable (replace on re-upload).
+    CERTIFICATION_TYPES = CERTIFICATION_DOC_TYPES
+    DRIVER_DOC_TYPES = IDENTITY_DOC_TYPES
+    ALLOWED_DOC_TYPES = CERTIFICATION_DOC_TYPES | IDENTITY_DOC_TYPES
 
     class Meta:
         model = ComplianceDocument
@@ -368,7 +387,9 @@ class ManagedUserCreateSerializer(serializers.ModelSerializer):
                     "is_active": True,
                 },
             )
-        update_user_location(user, force=True)
+        # Audit ref: [M-1] geocoding is offloaded to Celery so registration
+        # returns immediately and is never blocked by the Nominatim HTTP call.
+        enqueue_user_geocode(user)
         return user
 
 
@@ -456,7 +477,146 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         user.set_password(password)
         user.save()
-        update_user_location(user, force=True)
+        # Audit ref: [M-1] geocoding is offloaded to Celery so registration
+        # returns immediately and is never blocked by the Nominatim HTTP call.
+        enqueue_user_geocode(user)
+        return user
+
+
+class SellerRegisterSerializer(serializers.ModelSerializer):
+    """Role-scoped self-registration for the professional (seller) app.
+
+    ISOLATION GUARANTEE: the role is constrained server-side to SUPPLIER or
+    WHOLESALER. TRANSIT_AGENT has its own dedicated endpoint and GENERAL_ADMIN
+    is never self-assignable. Any other value is rejected at validation time, so
+    a tampered client cannot escalate privileges through this endpoint.
+    """
+
+    name = serializers.CharField(write_only=True, required=True, min_length=2, max_length=150)
+    phone_number = serializers.CharField(required=True, min_length=8, max_length=30)
+    password = serializers.CharField(write_only=True, min_length=8)
+    city = serializers.CharField(required=False, allow_blank=True, max_length=120)
+    # company_name is accepted for UX parity but is not stored on User; the
+    # business identity is established later through compliance documents.
+    company_name = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=180)
+    role = serializers.ChoiceField(
+        choices=[
+            (UserRole.SUPPLIER, UserRole.SUPPLIER.label),
+            (UserRole.WHOLESALER, UserRole.WHOLESALER.label),
+        ]
+    )
+
+    class Meta:
+        model = User
+        fields = (
+            "name", "phone_number", "email", "password",
+            "country_code", "city", "role", "company_name",
+        )
+        extra_kwargs = {"email": {"required": True}}
+
+    def validate_email(self, value):
+        return validate_registration_email(value)
+
+    def validate_name(self, value):
+        name = (value or "").strip()
+        if len(name) < 2:
+            raise serializers.ValidationError("Nom obligatoire.")
+        if len(name) > 150:
+            raise serializers.ValidationError("Nom trop long (150 caracteres max).")
+        return name
+
+    def validate_phone_number(self, value):
+        return validate_phone_format(value)
+
+    def create(self, validated_data):
+        full_name = validated_data.pop("name").strip()
+        password = validated_data.pop("password")
+        validated_data.pop("company_name", None)
+        user = User(
+            username=generate_unique_username(full_name),
+            email=validated_data.get("email", ""),
+            first_name=full_name,
+            phone_number=validated_data.get("phone_number", ""),
+            country_code=validated_data.get("country_code", "CM"),
+            city=(validated_data.get("city", "") or "").strip(),
+            role=validated_data["role"],
+            is_active=True,
+            is_verified=False,
+        )
+        user.set_password(password)
+        user.save()
+        # Audit ref: [M-1] geocoding is offloaded to Celery so registration
+        # returns immediately and is never blocked by the Nominatim HTTP call.
+        enqueue_user_geocode(user)
+        return user
+
+
+class DriverRegisterSerializer(serializers.ModelSerializer):
+    """Role-scoped self-registration for the driver (transit) app.
+
+    ISOLATION GUARANTEE: the role is forced to TRANSIT_AGENT via a HiddenField,
+    so any role submitted by the client is ignored. A TransportProfile is
+    provisioned with default (zero) pricing that the agent completes after KYC.
+    """
+
+    name = serializers.CharField(write_only=True, required=True, min_length=2, max_length=150)
+    phone_number = serializers.CharField(required=True, min_length=8, max_length=30)
+    password = serializers.CharField(write_only=True, min_length=8)
+    vehicle_type = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=40)
+    role = serializers.HiddenField(default=UserRole.TRANSIT_AGENT)
+
+    class Meta:
+        model = User
+        fields = (
+            "name", "phone_number", "email", "password",
+            "country_code", "role", "vehicle_type",
+        )
+        extra_kwargs = {"email": {"required": True}}
+
+    def validate_email(self, value):
+        return validate_registration_email(value)
+
+    def validate_name(self, value):
+        name = (value or "").strip()
+        if len(name) < 2:
+            raise serializers.ValidationError("Nom obligatoire.")
+        if len(name) > 150:
+            raise serializers.ValidationError("Nom trop long (150 caracteres max).")
+        return name
+
+    def validate_phone_number(self, value):
+        return validate_phone_format(value)
+
+    def create(self, validated_data):
+        from apps.logistics.models import TransportProfile
+
+        full_name = validated_data.pop("name").strip()
+        password = validated_data.pop("password")
+        vehicle_type = (validated_data.pop("vehicle_type", "") or "").strip()
+        user = User(
+            username=generate_unique_username(full_name),
+            email=validated_data.get("email", ""),
+            first_name=full_name,
+            phone_number=validated_data.get("phone_number", ""),
+            country_code=validated_data.get("country_code", "CM"),
+            role=UserRole.TRANSIT_AGENT,
+            is_active=True,
+            is_verified=False,
+        )
+        user.set_password(password)
+        user.save()
+        TransportProfile.objects.update_or_create(
+            user=user,
+            defaults={
+                "company_name": f"Transit {user.username}",
+                "coverage_countries": user.country_code or "CM",
+                "vehicle_types": vehicle_type,
+                "is_active": True,
+            },
+        )
+        # Audit ref: [M-1] geocoding is offloaded to Celery so registration
+        # returns immediately and is never blocked by the Nominatim HTTP call.
+        enqueue_user_geocode(user)
         return user
 
 
@@ -487,6 +647,11 @@ class LoginRequestSerializer(serializers.Serializer):
 
         if not user.check_password(password):
             raise AuthenticationFailed("Identifiants invalides.")
+
+        # Audit ref: [M-6] suspended accounts get a clear message (checked before
+        # the generic is_active branch, since suspension also clears is_active).
+        if getattr(user, "is_suspended", False):
+            raise AuthenticationFailed("Compte suspendu. Contactez le support.")
 
         if not user.is_active:
             raise AuthenticationFailed("Compte non active. Verifiez votre email.")

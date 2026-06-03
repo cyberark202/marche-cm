@@ -21,6 +21,24 @@ class ProductSerializer(serializers.ModelSerializer):
     )
     category_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     category_label = serializers.CharField(source="category.name", read_only=True)
+    # Audit ref: [C-2] `is_active` is SERVER-controlled, never client-writable.
+    # Two reasons: (1) a DRF BooleanField absent from a multipart/form-data body
+    # is coerced to False, which silently created every image-upload product as
+    # inactive (invisible in the catalogue); (2) it stops a manipulated payload
+    # from publishing/forcing an arbitrary activation state. New products are
+    # active by default (set in create()), identically for JSON and multipart.
+    is_active = serializers.BooleanField(read_only=True)
+    # Audit ref: [M-4] These are model-required (non-null DecimalField), which
+    # made DRF mark them required at field level — so the wholesaler flow 400'd
+    # before validate() could derive them from `unit_price`. Mark them optional
+    # here; validate() fills them server-side for WHOLESALER and still enforces
+    # their presence for SUPPLIER.
+    price_for_min_qty = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True
+    )
+    price_for_max_qty = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True
+    )
 
     class Meta:
         model = Product
@@ -40,6 +58,35 @@ class ProductSerializer(serializers.ModelSerializer):
         if seller.role in {UserRole.SUPPLIER, UserRole.WHOLESALER, UserRole.TRANSIT_AGENT}:
             return any(d.status == "APPROVED" for d in seller.compliance_documents.all())
         return bool(seller.is_verified)
+
+    # Audit ref: [C-1] Backward-compatible field aliases. Older mobile builds
+    # POST `category` (a name string), `min_qty`, `max_qty` instead of the
+    # canonical `category_name`, `min_order_qty`, `max_order_qty`. Translate them
+    # here BEFORE field validation so those clients keep working without an app
+    # update. Canonical payloads are untouched.
+    _LEGACY_QTY_ALIASES = {"min_qty": "min_order_qty", "max_qty": "max_order_qty"}
+
+    @classmethod
+    def _apply_legacy_aliases(cls, data):
+        try:
+            mutable = data.copy()  # QueryDict.copy() -> mutable, or dict.copy()
+        except Exception:
+            return data
+        for legacy, canonical in cls._LEGACY_QTY_ALIASES.items():
+            if mutable.get(legacy) not in (None, "") and not mutable.get(canonical):
+                mutable[canonical] = mutable.get(legacy)
+        # `category` carrying a non-numeric string is a legacy category *name*.
+        cat = mutable.get("category")
+        if cat not in (None, "") and not str(cat).isdigit() and not mutable.get("category_name"):
+            mutable["category_name"] = cat
+            try:
+                del mutable["category"]
+            except Exception:
+                mutable.pop("category", None)
+        return mutable
+
+    def to_internal_value(self, data):
+        return super().to_internal_value(self._apply_legacy_aliases(data))
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -61,6 +108,14 @@ class ProductSerializer(serializers.ModelSerializer):
             if min_price is None or max_price is None:
                 raise serializers.ValidationError(
                     "Le fournisseur doit renseigner les prix min et max."
+                )
+            # Audit ref: [C-1] guard against an inverted price mapping. With a
+            # volume discount, the unit price for the MINIMUM quantity (low
+            # volume) must be >= the unit price for the MAXIMUM quantity (bulk).
+            if min_price < max_price:
+                raise serializers.ValidationError(
+                    "Prix incoherents: le prix pour la quantite minimale doit etre "
+                    ">= au prix pour la quantite maximale (remise sur volume)."
                 )
         if role == UserRole.WHOLESALER:
             available_qty = attrs.get("available_qty", getattr(self.instance, "available_qty", None))
@@ -138,6 +193,9 @@ class ProductSerializer(serializers.ModelSerializer):
         if category_name and not validated_data.get("category"):
             category, _ = ProductCategory.objects.get_or_create(name=category_name)
             validated_data["category"] = category
+        # Audit ref: [C-2] server controls activation — always publish on create,
+        # regardless of request content type (JSON or multipart).
+        validated_data["is_active"] = True
         return super().create(validated_data)
 
     def update(self, instance, validated_data):

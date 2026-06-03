@@ -89,8 +89,12 @@ class NotificationConsumer(BaseAuthConsumer):
         logger.info("ws_notification_connect", extra={"user_id": user.pk})
 
     async def disconnect(self, code):
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
-        await self._set_online(False)
+        # Audit ref: [M-5] guard against rejected handshakes (auth failure closes
+        # before connect() sets group_name) — mirrors the other consumers and
+        # avoids an AttributeError on every unauthenticated connection attempt.
+        if hasattr(self, "group_name"):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+            await self._set_online(False)
 
     async def receive_json(self, content, **kwargs):
         msg_type = content.get("type", "")
@@ -399,3 +403,15 @@ async def push_notification_to_user(channel_layer, user_id: int, data: dict) -> 
         f"notification_{user_id}",
         {"type": "notification_message", "data": data},
     )
+
+
+# Audit ref: [M-5] Clean handler for unknown /ws/* paths.
+# Without a catch-all, URLRouter raises when no route matches the path, which
+# surfaces to clients as an abrupt 500-style failure (observed for the Driver
+# App's stale /ws/driver/ URL). This consumer rejects the handshake cleanly with
+# a custom close code so the client gets a deterministic, non-error rejection.
+class FallbackWebSocketConsumer(AsyncJsonWebsocketConsumer):
+    """Reject any unrouted WebSocket path with close code 4404 (not found)."""
+
+    async def websocket_connect(self, message):
+        await self.close(code=4404)

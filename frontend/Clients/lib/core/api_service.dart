@@ -157,6 +157,8 @@ class ApiService {
     String? token,
     PlatformFile? file,
     String fileFieldName = "file",
+    List<({String field, Uint8List bytes, String filename})> extraBytesFiles =
+        const [],
   }) async {
     String? filePath;
     Uint8List? fileBytes;
@@ -210,6 +212,15 @@ class ApiService {
             "Le fichier selectionne est inaccessible sur cette plateforme.",
           );
         }
+      }
+      for (final extra in extraBytesFiles) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            extra.field,
+            extra.bytes,
+            filename: extra.filename,
+          ),
+        );
       }
       return request.send();
     }

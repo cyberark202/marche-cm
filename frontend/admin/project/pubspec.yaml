@@ -22,6 +22,8 @@ dependencies:
   http: ^1.2.2
   # Tokens stored in Android Keystore / iOS Keychain — never SharedPreferences.
   flutter_secure_storage: ^9.2.2
+  # Brand font — Plus Jakarta Sans (design source: theme.jsx). Same as the other apps.
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:

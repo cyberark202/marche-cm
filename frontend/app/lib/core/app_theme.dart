@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Design System — Pro (vendeurs, grossistes, fournisseurs, transitaires, admin)
 ///
@@ -44,8 +45,8 @@ class AppPalette {
 
   // ── Text ───────────────────────────────────────────────────────────────
   static const Color text = Color(0xFF0F172A);
-  static const Color textMuted = Color.fromARGB(255, 0, 2, 5);
-  static const Color textFaint = Color.fromARGB(255, 29, 29, 31);
+  static const Color textMuted = Color(0xFF5C6B64); // design token ink3
+  static const Color textFaint = Color(0xFF8F9C96); // design token ink4
 
   // ── Cameroun (drapeau, conservé pour identité) ─────────────────────────
   static const Color cmGreen = Color(0xFF007A3D);
@@ -178,7 +179,7 @@ class AppTheme {
 
     final base = ThemeData(
       useMaterial3: true,
-      fontFamily: "Poppins",
+      fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppPalette.bg,
       splashFactory: InkSparkle.splashFactory,

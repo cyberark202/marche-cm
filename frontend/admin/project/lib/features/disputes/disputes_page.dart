@@ -6,6 +6,7 @@ import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
 import 'arbitration_page.dart';
 import 'dispute_helpers.dart';
+import 'dispute_multiview_page.dart';
 
 /// Screen 37 — Disputes list with status filters.
 class DisputesPage extends StatefulWidget {
@@ -151,6 +152,16 @@ class _DisputesPageState extends State<DisputesPage> {
               Text(Fmt.relative(d['created_at']),
                   style: const TextStyle(
                       fontSize: 12, color: AppPalette.textMuted)),
+              const SizedBox(width: 2),
+              InkWell(
+                onTap: () => _openMultiview(d, id),
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.groups_outlined,
+                      size: 18, color: AppPalette.secondary),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -197,6 +208,16 @@ class _DisputesPageState extends State<DisputesPage> {
     Navigator.of(context)
         .push(MaterialPageRoute(
             builder: (_) => ArbitrationPage(disputeId: intId)))
+        .then((_) => _refresh());
+  }
+
+  void _openMultiview(Map<String, dynamic> d, dynamic id) {
+    final intId = id is int ? id : int.tryParse('$id');
+    if (intId == null) return;
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+            builder: (_) =>
+                DisputeMultiviewPage(disputeId: intId, dispute: d)))
         .then((_) => _refresh());
   }
 }

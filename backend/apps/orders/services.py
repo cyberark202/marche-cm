@@ -882,6 +882,46 @@ class OrderFinanceService:
         return True
 
     @classmethod
+    @classmethod
+    def _apply_locked_refund(cls, *, order: Order, actor, reason: str = ""):
+        """Refund every still-locked escrow of *order* back to the buyer's
+        available balance and mark them REFUNDED.
+
+        MUST be called inside an open ``transaction.atomic()`` block. Returns
+        ``(order, refund_amount)`` where ``order`` is re-fetched with
+        ``select_for_update`` and has its ``escrow_status`` refreshed in memory.
+
+        Permission-agnostic core shared by the admin/transit refund flow
+        (:meth:`refund_order_locked_funds`) and the buyer/seller cancellation
+        flow (:meth:`cancel_order`). Audit ref: [C-3].
+        """
+        order = Order.objects.select_for_update().select_related("buyer").get(id=order.id)
+        escrows = list(order.escrows.select_for_update().all())
+        refund_amount = ZERO
+        for escrow in escrows:
+            if escrow.status in {EscrowLifecycleStatus.REFUNDED, EscrowLifecycleStatus.RELEASED}:
+                continue
+            refund_amount += quantize_money(escrow.amount - escrow.released_amount)
+            escrow.status = EscrowLifecycleStatus.REFUNDED
+            escrow.refunded_at = timezone.now()
+            escrow.save(update_fields=["status", "refunded_at", "updated_at"])
+
+        refund_amount = quantize_money(refund_amount)
+        if refund_amount > ZERO:
+            buyer_wallet = WalletAccountingService.get_wallet_for_update(user=order.buyer)
+            WalletAccountingService.unlock_to_available(
+                wallet=buyer_wallet,
+                amount=refund_amount,
+                entry_type=LedgerEntryType.REFUND,
+                reference=f"order:{order.id}:refund",
+                order=order,
+                created_by=actor,
+                metadata={"reason": reason},
+            )
+        cls._refresh_order_escrow_status(order)
+        return order, refund_amount
+
+    @classmethod
     def refund_order_locked_funds(cls, *, order: Order, actor, reason: str = ""):
         # Defense en profondeur: seuls admin, staff et transit_agent (gestion
         # litige logistique) peuvent declencher un remboursement systeme.
@@ -891,31 +931,7 @@ class OrderFinanceService:
         ):
             raise ValidationError("Action de remboursement reservee a l'administration ou au transitaire.")
         with transaction.atomic():
-            order = Order.objects.select_for_update().select_related("buyer").get(id=order.id)
-            escrows = list(order.escrows.select_for_update().all())
-            refund_amount = ZERO
-            for escrow in escrows:
-                if escrow.status in {EscrowLifecycleStatus.REFUNDED, EscrowLifecycleStatus.RELEASED}:
-                    continue
-                refund_amount += quantize_money(escrow.amount - escrow.released_amount)
-                escrow.status = EscrowLifecycleStatus.REFUNDED
-                escrow.refunded_at = timezone.now()
-                escrow.save(update_fields=["status", "refunded_at", "updated_at"])
-
-            refund_amount = quantize_money(refund_amount)
-            if refund_amount > ZERO:
-                buyer_wallet = WalletAccountingService.get_wallet_for_update(user=order.buyer)
-                WalletAccountingService.unlock_to_available(
-                    wallet=buyer_wallet,
-                    amount=refund_amount,
-                    entry_type=LedgerEntryType.REFUND,
-                    reference=f"order:{order.id}:refund",
-                    order=order,
-                    created_by=actor,
-                    metadata={"reason": reason},
-                )
-
-            cls._refresh_order_escrow_status(order)
+            order, refund_amount = cls._apply_locked_refund(order=order, actor=actor, reason=reason)
             if order.escrow_status == EscrowStatus.REFUNDED:
                 order.status = OrderStatus.REFUNDED
             elif order.escrow_status == EscrowStatus.PARTIALLY_RELEASED:
@@ -928,6 +944,61 @@ class OrderFinanceService:
                 action="Remboursement commande",
                 action_key="orders.refund",
                 metadata={"order_id": order.id, "amount": str(refund_amount), "reason": reason},
+            )
+        return refund_amount
+
+    # Audit ref: [C-3] Atomic buyer/seller cancellation.
+    # Statuses from which a still-funded order may be cancelled (escrow not yet
+    # fully released/refunded). Terminal states are rejected.
+    CANCELLABLE_ORDER_STATUSES = frozenset({
+        OrderStatus.PENDING,
+        OrderStatus.SOURCING,
+        OrderStatus.SUPPLIER_VERIFIED,
+        OrderStatus.ADMIN_APPROVED,
+        OrderStatus.SHIPPING,
+        OrderStatus.CONFIRMED,
+    })
+
+    @classmethod
+    def cancel_order(cls, *, order: Order, actor, reason: str = "Annulation commande"):
+        """Cancel *order* and refund the buyer's still-locked escrow in a single
+        atomic operation.
+
+        Audit ref: [C-3]. Fixes the previous defect where the logistics
+        ``update_status`` view persisted ``order.status = CANCELLED`` and *then*
+        called :meth:`refund_order_locked_funds` (which rejects the buyer),
+        leaving the order CANCELLED with escrow still LOCKED — buyer funds stuck.
+        Here the cancellation and the refund commit or roll back together, and
+        the order's own parties (buyer / seller) are authorized alongside
+        admin / transit.
+        """
+        if not actor or not getattr(actor, "is_authenticated", False):
+            raise ValidationError("Authentification requise.")
+        is_party = actor.id in {order.buyer_id, order.seller_id}
+        is_staff = getattr(actor, "is_superuser", False) or getattr(actor, "role", None) in {
+            UserRole.GENERAL_ADMIN,
+            UserRole.TRANSIT_AGENT,
+        }
+        if not (is_party or is_staff):
+            raise ValidationError(
+                "Annulation reservee aux parties de la commande ou a l'administration."
+            )
+        with transaction.atomic():
+            locked = Order.objects.select_for_update().get(id=order.id)
+            if locked.status not in cls.CANCELLABLE_ORDER_STATUSES:
+                raise ValidationError(
+                    f"Commande non annulable (statut actuel: {locked.status})."
+                )
+            refreshed, refund_amount = cls._apply_locked_refund(
+                order=locked, actor=actor, reason=reason
+            )
+            refreshed.status = OrderStatus.CANCELLED
+            refreshed.save(update_fields=["status", "escrow_status", "updated_at"])
+            write_audit_log(
+                actor=actor,
+                action="Annulation commande",
+                action_key="orders.cancel",
+                metadata={"order_id": refreshed.id, "amount": str(refund_amount), "reason": reason},
             )
         return refund_amount
 

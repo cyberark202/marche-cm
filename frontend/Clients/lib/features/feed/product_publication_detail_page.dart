@@ -1064,8 +1064,14 @@ class _StickyBottomBar extends StatelessWidget {
           border: const Border(
               top: BorderSide(color: AppPalette.borderSoft, width: 1)),
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const _BuyEscrowNote(),
+            const SizedBox(height: 8),
+            Row(
+              children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1127,8 +1133,31 @@ class _StickyBottomBar extends StatelessWidget {
               ),
             ),
           ],
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _BuyEscrowNote extends StatelessWidget {
+  const _BuyEscrowNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        Icon(Icons.shield_outlined, size: 13, color: AppPalette.textMuted),
+        SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            "Paiement sous séquestre. Marché CM est intermédiaire : le contrat de vente vous lie directement au vendeur.",
+            style: TextStyle(
+                fontSize: 10.5, color: AppPalette.textMuted, height: 1.3),
+          ),
+        ),
+      ],
     );
   }
 }

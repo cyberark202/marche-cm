@@ -44,6 +44,7 @@ ROLE_ACTIONS = {
     UserRole.GENERAL_ADMIN: {
         "admin.dashboard.view",
         "admin.users.manage",
+        "admin.users.suspend",
         "admin.disputes.decide",
         "admin.dispute.appeal.resolve",
         "admin.dispute.inspect.request",

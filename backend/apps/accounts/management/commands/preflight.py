@@ -55,6 +55,12 @@ class Command(BaseCommand):
         self._check_encryption(add)
         self._check_jwt(add)
         self._check_notchpay(add)
+        self._check_storage(add)
+        self._check_reconciliation(add)
+        self._check_finops_alerts(add)
+        self._check_trusted_proxies(add)
+        self._check_wallet_pin(add)
+        self._check_google(add)
         self._check_debug_bypass(add)
         self._check_migrations(add)
 
@@ -190,6 +196,88 @@ class Command(BaseCommand):
             add(FAIL, "NotchPay webhooks", "secret(s) manquant(s): " + ", ".join(missing))
         else:
             add(OK, "NotchPay webhooks", "secrets configurés")
+
+    def _check_storage(self, add):
+        use_s3 = getattr(settings, "USE_S3_STORAGE", False)
+        require_remote = getattr(settings, "REQUIRE_REMOTE_PROOF_STORAGE", False)
+        if not use_s3:
+            if require_remote:
+                add(FAIL, "Stockage fichiers",
+                    "REQUIRE_REMOTE_PROOF_STORAGE=True mais USE_S3_STORAGE=False.")
+            else:
+                add(WARN, "Stockage fichiers",
+                    "stockage local — éphémère sur Render (fichiers perdus au redéploiement).")
+            return
+        bucket = str(
+            getattr(settings, "AWS_STORAGE_BUCKET_NAME", "")
+            or os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+        ).strip()
+        endpoint = str(
+            getattr(settings, "AWS_S3_ENDPOINT_URL", "")
+            or os.getenv("AWS_S3_ENDPOINT_URL", "")
+        ).strip()
+        placeholders = {"r2 account token", "bucket", "changeme", "your-bucket"}
+        if not bucket:
+            add(FAIL, "Stockage fichiers", "AWS_STORAGE_BUCKET_NAME vide.")
+        elif " " in bucket or bucket.lower() in placeholders:
+            add(FAIL, "Stockage fichiers",
+                f"nom de bucket invalide/placeholder: '{bucket}' "
+                "(un nom de bucket R2/S3 ne contient pas d'espace).")
+        elif not endpoint:
+            add(FAIL, "Stockage fichiers", "AWS_S3_ENDPOINT_URL vide.")
+        else:
+            add(OK, "Stockage fichiers", f"S3/R2 bucket '{bucket}'")
+
+    def _check_reconciliation(self, add):
+        require = getattr(settings, "RECONCILIATION_REQUIRE_PROVIDER_BALANCE", False)
+        url = str(getattr(settings, "FINOPS_PROVIDER_BALANCE_URL", "") or "").strip()
+        real = os.getenv("FINOPS_PROVIDER_REAL_BALANCE", "").strip()
+        if require and not url and not real:
+            add(FAIL, "Réconciliation",
+                "RECONCILIATION_REQUIRE_PROVIDER_BALANCE=True mais aucune source de solde "
+                "(FINOPS_PROVIDER_BALANCE_URL / FINOPS_PROVIDER_REAL_BALANCE vides).")
+        else:
+            add(OK, "Réconciliation", "source de solde fournisseur configurée"
+                if require else "solde fournisseur non requis")
+
+    def _check_finops_alerts(self, add):
+        enabled = any([
+            getattr(settings, "FINOPS_ALERT_ON_RECON_ALERT", False),
+            getattr(settings, "FINOPS_ALERT_ON_RETRIES_BACKLOG", False),
+            getattr(settings, "FINOPS_ALERT_ON_RETRIES_FAILURE", False),
+        ])
+        emails = getattr(settings, "FINOPS_ALERT_EMAILS", []) or []
+        webhook = str(getattr(settings, "FINOPS_ALERT_WEBHOOK_URL", "") or "").strip()
+        if enabled and not emails and not webhook:
+            add(WARN, "Alertes FinOps",
+                "activées mais aucun destinataire (EMAILS/WEBHOOK_URL vides) — alertes perdues.")
+        else:
+            add(OK, "Alertes FinOps",
+                "destinataire configuré" if (emails or webhook) else "désactivées")
+
+    def _check_trusted_proxies(self, add):
+        proxies = getattr(settings, "TRUSTED_PROXIES", []) or []
+        if not proxies:
+            add(WARN, "Trusted proxies",
+                "TRUSTED_PROXIES vide — rate-limit/anti-fraude par IP dégradés derrière le proxy.")
+        else:
+            add(OK, "Trusted proxies", f"{len(proxies)} configuré(s)")
+
+    def _check_wallet_pin(self, add):
+        n = int(getattr(settings, "WALLET_PIN_VERIFY_MIN_LENGTH", 4) or 4)
+        if n < 6:
+            add(WARN, "Wallet PIN",
+                f"vérif min {n} chiffres (<6) — passer à 6 après migration des anciens PIN.")
+        else:
+            add(OK, "Wallet PIN", f"min {n} chiffres")
+
+    def _check_google(self, add):
+        cid = str(getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
+        if not cid:
+            add(WARN, "Google Sign-In",
+                "GOOGLE_CLIENT_ID vide — connexion Google indisponible (masquer le bouton ou renseigner l'ID).")
+        else:
+            add(OK, "Google Sign-In", "client ID configuré")
 
     def _check_debug_bypass(self, add):
         if getattr(settings, "ENABLE_DEBUG_BYPASS", False):

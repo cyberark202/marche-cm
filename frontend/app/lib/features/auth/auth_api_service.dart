@@ -5,17 +5,21 @@ import '../../core/security/secure_dio_client.dart';
 class AuthApiService {
   static Dio get _dio => SecureDioClient.dio;
 
-  Future<void> register({
+  /// Professional self-registration — SUPPLIER / WHOLESALER only.
+  ///
+  /// ISOLATION: this app never creates buyer, driver or admin accounts. The
+  /// backend endpoint `/api/auth/register/seller/` rejects any role outside
+  /// {SUPPLIER, WHOLESALER}, so the server is the source of truth even if the
+  /// client is tampered with.
+  Future<void> registerSeller({
     required String name,
     required String phoneNumber,
     required String email,
     required String password,
+    required String role, // 'SUPPLIER' | 'WHOLESALER'
     String countryCode = '',
     String city = '',
-    String role = 'BUYER',
     String companyName = '',
-    double? airPricePerKg,
-    double? seaPricePerKg,
   }) async {
     final payload = <String, dynamic>{
       'name': name,
@@ -29,11 +33,9 @@ class AuthApiService {
     }
     if (city.trim().isNotEmpty) payload['city'] = city.trim();
     if (companyName.trim().isNotEmpty) payload['company_name'] = companyName.trim();
-    if (airPricePerKg != null) payload['air_price_per_kg'] = airPricePerKg;
-    if (seaPricePerKg != null) payload['sea_price_per_kg'] = seaPricePerKg;
 
-    final response = await _dio.post('/api/auth/register/', data: payload);
-    _assertOk(response, 'register');
+    final response = await _dio.post('/api/auth/register/seller/', data: payload);
+    _assertOk(response, 'registerSeller');
   }
 
   Future<Map<String, dynamic>> login({

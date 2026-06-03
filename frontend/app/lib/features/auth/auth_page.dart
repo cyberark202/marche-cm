@@ -9,7 +9,6 @@ import '../../core/app_config.dart';
 import '../../core/app_theme.dart';
 import '../../core/backend_ui_config_service.dart';
 import 'auth_api_service.dart';
-import 'buyer_register_page.dart';
 import 'seller_register_page.dart';
 import 'session_store.dart';
 
@@ -35,7 +34,8 @@ class _AuthPageState extends State<AuthPage> {
   final _regCompany = TextEditingController();
   final _regAirPrice = TextEditingController();
   final _regSeaPrice = TextEditingController();
-  String _selectedRole = 'BUYER';
+  // ISOLATION: the professional app registers SUPPLIER / WHOLESALER only.
+  String _selectedRole = 'SUPPLIER';
   final CountryService _countryService = CountryService();
   String _defaultCountryCode = "";
   String _regCountryCode = "";
@@ -162,7 +162,7 @@ class _AuthPageState extends State<AuthPage> {
     }
     setState(() => _busy = true);
     try {
-      await _authApi.register(
+      await _authApi.registerSeller(
         name: _regName.text.trim(),
         phoneNumber: _regPhone.text.trim(),
         email: _regEmail.text.trim(),
@@ -171,12 +171,6 @@ class _AuthPageState extends State<AuthPage> {
         city: _regCity.text.trim(),
         role: _selectedRole,
         companyName: _regCompany.text.trim(),
-        airPricePerKg: _selectedRole == 'TRANSIT_AGENT'
-            ? double.tryParse(_regAirPrice.text.trim())
-            : null,
-        seaPricePerKg: _selectedRole == 'TRANSIT_AGENT'
-            ? double.tryParse(_regSeaPrice.text.trim())
-            : null,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -197,8 +191,6 @@ class _AuthPageState extends State<AuthPage> {
     final email = _regEmail.text.trim();
     final password = _regPass.text;
     final city = _regCity.text.trim();
-    final isBusiness = _selectedRole != 'BUYER';
-    final isTransit = _selectedRole == 'TRANSIT_AGENT';
 
     if (name.length < 2) {
       return "Nom complet invalide (2 caracteres minimum).";
@@ -218,18 +210,8 @@ class _AuthPageState extends State<AuthPage> {
     if (city.length > 120) {
       return "Ville trop longue.";
     }
-    if (isBusiness && _regCompany.text.trim().length < 2) {
+    if (_regCompany.text.trim().length < 2) {
       return "Nom de l'entreprise requis (2 caracteres minimum).";
-    }
-    if (isTransit) {
-      final air = double.tryParse(_regAirPrice.text.trim());
-      if (air == null || air <= 0) {
-        return "Prix transport aerien invalide (ex: 5000).";
-      }
-      final sea = double.tryParse(_regSeaPrice.text.trim());
-      if (sea == null || sea <= 0) {
-        return "Prix transport maritime invalide (ex: 2000).";
-      }
     }
     return null;
   }
@@ -488,10 +470,8 @@ class _AuthPageState extends State<AuthPage> {
 
   Widget _roleSelector() {
     const roles = [
-      ('BUYER', 'Acheteur', Icons.shopping_bag_outlined),
       ('SUPPLIER', 'Fournisseur', Icons.factory_outlined),
       ('WHOLESALER', 'Grossiste', Icons.store_outlined),
-      ('TRANSIT_AGENT', 'Transitaire', Icons.local_shipping_outlined),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -550,39 +530,20 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Widget _registerTab() {
-    final isBusiness = _selectedRole != 'BUYER';
-    final isTransit = _selectedRole == 'TRANSIT_AGENT';
-
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       children: [
-        // ── Pages d'inscription dédiées ────────────────────
+        // ── Inscription professionnelle guidée ─────────────
         const Text('Inscription guidée',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
                 color: Color(0xFF334155))),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickRegisterBtn(
-                label: 'Acheteur',
-                icon: Icons.shopping_bag_outlined,
-                colors: const [AppPalette.primary, Color(0xFF059669)],
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const BuyerRegisterPage())),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickRegisterBtn(
-                label: 'Vendeur / Pro',
-                icon: Icons.store_outlined,
-                colors: const [Color(0xFF4F46E5), Color(0xFF7C3AED)],
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const SellerRegisterPage())),
-              ),
-            ),
-          ],
+        _QuickRegisterBtn(
+          label: 'Inscription Vendeur / Pro détaillée',
+          icon: Icons.store_outlined,
+          colors: const [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const SellerRegisterPage())),
         ),
         const SizedBox(height: 16),
         const Row(children: [
@@ -592,7 +553,7 @@ class _AuthPageState extends State<AuthPage> {
           Expanded(child: Divider()),
         ]),
         const SizedBox(height: 8),
-        // ── Role selector ──────────────────────────────────
+        // ── Role selector (SUPPLIER / WHOLESALER uniquement) ─
         _roleSelector(),
         const SizedBox(height: 16),
 
@@ -641,75 +602,17 @@ class _AuthPageState extends State<AuthPage> {
           ),
         ),
 
-        // ── Business fields ────────────────────────────────
-        if (isBusiness) ...[
-          const SizedBox(height: 12),
-          TextField(
-            controller: _regCompany,
-            textInputAction: TextInputAction.next,
-            decoration: _fieldDecoration(
-              label: "Nom de l'entreprise",
-              icon: Icons.business_outlined,
-              hint: "Ex: Société Dupont SARL",
-            ),
+        // ── Business field (entreprise requise) ────────────
+        const SizedBox(height: 12),
+        TextField(
+          controller: _regCompany,
+          textInputAction: TextInputAction.next,
+          decoration: _fieldDecoration(
+            label: "Nom de l'entreprise",
+            icon: Icons.business_outlined,
+            hint: "Ex: Société Dupont SARL",
           ),
-        ],
-
-        // ── Transit agent pricing ──────────────────────────
-        if (isTransit) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F8F0),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFB8D8B8)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, size: 14,
-                    color: _brand.withValues(alpha: 0.8)),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    "Renseignez vos tarifs de transport (XAF/kg)",
-                    style: TextStyle(fontSize: 12, color: Color(0xFF3A5A3A)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _regAirPrice,
-                  textInputAction: TextInputAction.next,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: _fieldDecoration(
-                    label: "Aerien (XAF/kg)",
-                    icon: Icons.flight_outlined,
-                    hint: "Ex: 5000",
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _regSeaPrice,
-                  textInputAction: TextInputAction.next,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: _fieldDecoration(
-                    label: "Maritime (XAF/kg)",
-                    icon: Icons.directions_boat_outlined,
-                    hint: "Ex: 2000",
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
 
         const SizedBox(height: 12),
         TextField(

@@ -174,6 +174,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Widget _gmvHero(_DashboardData d) {
     return HeroPanel(
+      // Identité admin sobre/sombre (design screens-admin.jsx : #1A2A24 → ink).
+      gradient: const LinearGradient(
+        colors: [Color(0xFF1A2A24), Color(0xFF0E1F18)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

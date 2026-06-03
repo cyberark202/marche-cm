@@ -31,16 +31,14 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
   bool _acceptTerms = false;
   String? _error;
 
+  // ISOLATION: the professional app registers SUPPLIER / WHOLESALER only.
+  // Transitaires (chauffeurs) utilisent l'application Market CM Driver.
   static const _roles = [
     ('SUPPLIER', 'Fournisseur', Icons.factory_outlined,
         'Produisez ou importez des marchandises'),
     ('WHOLESALER', 'Grossiste', Icons.store_outlined,
         'Vendez en grande quantité à des revendeurs'),
-    ('TRANSIT_AGENT', 'Transitaire', Icons.local_shipping_outlined,
-        'Gérez le transport et la logistique'),
   ];
-
-  bool get _isTransit => _role == 'TRANSIT_AGENT';
 
   @override
   void dispose() {
@@ -66,10 +64,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
     }
     if (_passCtrl.text.length < 8) return 'Mot de passe trop court (8 min).';
     if (_passCtrl.text != _confirmPassCtrl.text) return 'Mots de passe différents.';
-    if (_isTransit) {
-      if (double.tryParse(_airCtrl.text.trim()) == null) return 'Prix aérien invalide.';
-      if (double.tryParse(_seaCtrl.text.trim()) == null) return 'Prix maritime invalide.';
-    }
     if (!_acceptTerms) return 'Acceptez les conditions d\'utilisation.';
     return null;
   }
@@ -82,7 +76,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      await _authApi.register(
+      await _authApi.registerSeller(
         name: _nameCtrl.text.trim(),
         phoneNumber: _phoneCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
@@ -91,8 +85,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
         city: _cityCtrl.text.trim(),
         role: _role,
         companyName: _companyCtrl.text.trim(),
-        airPricePerKg: _isTransit ? double.tryParse(_airCtrl.text.trim()) : null,
-        seaPricePerKg: _isTransit ? double.tryParse(_seaCtrl.text.trim()) : null,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -268,45 +260,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Transit pricing
-                    if (_isTransit) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0F9FF),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFBAE6FD)),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.info_outline, size: 16, color: Color(0xFF0369A1)),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text('Renseignez vos tarifs de transport (XAF/kg)',
-                                  style: TextStyle(fontSize: 12, color: Color(0xFF0369A1))),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _field(label: 'Aérien (XAF/kg)', icon: Icons.flight_outlined,
-                                ctrl: _airCtrl, hint: '5000',
-                                type: const TextInputType.numberWithOptions(decimal: true)),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _field(label: 'Maritime (XAF/kg)', icon: Icons.directions_boat_outlined,
-                                ctrl: _seaCtrl, hint: '2000',
-                                type: const TextInputType.numberWithOptions(decimal: true)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
                     // Security
                     const _SectionLabel(label: 'Sécurité'),
                     const SizedBox(height: 8),
@@ -335,7 +288,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                           const SizedBox(width: 8),
                           const Expanded(
                             child: Text(
-                              'J\'accepte les conditions d\'utilisation et la politique de confidentialité.',
+                              'J\'accepte les CGU et la politique de confidentialité. Je reconnais que Marché CM agit comme simple intermédiaire et agent de séquestre ; je reste seul responsable de la conformité et de la qualité des produits que je vends.',
                               style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
                             ),
                           ),

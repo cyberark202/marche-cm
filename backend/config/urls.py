@@ -13,6 +13,7 @@ from apps.accounts.views import (
     AuthDisabledView,
     BuyerKycSubmitView,
     ComplianceDocumentViewSet,
+    DriverRegisterView,
     FCMTokenView,
     GoogleAuthView,
     LoginRequestView,
@@ -22,6 +23,7 @@ from apps.accounts.views import (
     ProfileUpdateView,
     ResolveLocationView,
     RegisterView,
+    SellerRegisterView,
     SensitiveActionRequestView,
     SessionManagementView,
     PasswordChangeView,
@@ -104,6 +106,16 @@ urlpatterns = [
         "api/auth/register/",
         AuthDisabledView.as_view() if settings.AUTH_LOCKDOWN else RegisterView.as_view(),
         name="auth-register",
+    ),
+    path(
+        "api/auth/register/seller/",
+        AuthDisabledView.as_view() if settings.AUTH_LOCKDOWN else SellerRegisterView.as_view(),
+        name="auth-register-seller",
+    ),
+    path(
+        "api/auth/register/driver/",
+        AuthDisabledView.as_view() if settings.AUTH_LOCKDOWN else DriverRegisterView.as_view(),
+        name="auth-register-driver",
     ),
     path(
         "api/auth/login/",

@@ -6,7 +6,7 @@ import 'core/security/secure_dio_client.dart';
 import 'features/auth/admin_login_page.dart';
 import 'features/auth/session_store.dart';
 import 'features/shell/admin_shell.dart';
-import 'features/splash/admin_splash.dart';
+import 'features/splash/cm_splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +42,7 @@ class AdminConsoleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Marché CM · Admin',
+      title: 'Market CM Admin',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: const _RootEntryPoint(),
@@ -64,7 +64,7 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
   @override
   Widget build(BuildContext context) {
     if (!_bootSplashDone) {
-      return AdminSplash(
+      return CmSplashScreen(
         onCompleted: () {
           if (mounted) setState(() => _bootSplashDone = true);
         },

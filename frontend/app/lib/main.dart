@@ -4,6 +4,7 @@ import 'package:country_picker/country_picker.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -16,7 +17,6 @@ import 'core/realtime_events_service.dart';
 import 'core/security/secure_dio_client.dart';
 import 'features/auth/auth_page.dart';
 import 'features/auth/session_store.dart';
-import 'features/buyer/buyer_shell.dart';
 import 'features/buyer/buyer_store.dart';
 import 'features/home/public_home_page.dart';
 import 'features/shell/main_shell.dart';
@@ -26,14 +26,18 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Firebase — requires google-services.json (Android) / GoogleService-Info.plist (iOS).
+  // Skipped on web: the Firebase JS SDK loads from Google CDNs which are not
+  // reachable in this environment, and failed init would blank the web app.
   bool firebaseReady = false;
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    firebaseReady = true;
-  } catch (e) {
-    debugPrint('[Firebase] Init skipped: $e');
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      firebaseReady = true;
+    } catch (e) {
+      debugPrint('[Firebase] Init skipped: $e');
+    }
   }
 
   final sessionStore = SessionStore();
@@ -97,7 +101,7 @@ class MarcheCmApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = context.watch<SessionStore>();
     return MaterialApp(
-      title: 'Market CM',
+      title: 'Market CM Pro',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: scaffoldKey,
       locale: session.appLocale,
@@ -192,10 +196,14 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
         onRegisterRequested: _openAuthWithSplash,
       );
     }
-    if (session.role == UserRole.buyer) {
-      return const BuyerShell();
+    // ISOLATION: the professional app only serves SUPPLIER / WHOLESALER.
+    // Any other authenticated role (buyer, driver, admin) is sent to a
+    // mismatch screen instructing them to use their dedicated app.
+    if (session.role == UserRole.supplier ||
+        session.role == UserRole.wholesaler) {
+      return const MainShell();
     }
-    return const MainShell();
+    return _RoleMismatchScreen(role: session.role);
   }
 
   void _syncRealtimeConnection(SessionStore session) {
@@ -298,6 +306,70 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const AuthPage()),
+    );
+  }
+}
+
+/// Shown when an authenticated user's role is not served by the professional
+/// app (e.g. a buyer, driver or admin logged in here). Enforces app/role
+/// partitioning at the routing layer as defense-in-depth.
+class _RoleMismatchScreen extends StatelessWidget {
+  const _RoleMismatchScreen({required this.role});
+
+  final UserRole role;
+
+  String get _expectedApp {
+    switch (role) {
+      case UserRole.buyer:
+        return "l'application Market CM Clients";
+      case UserRole.transitAgent:
+        return "l'application Market CM Driver";
+      case UserRole.generalAdmin:
+        return "la console Market CM Admin";
+      default:
+        return "l'application dédiée à votre rôle";
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F6F2),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.block, size: 64, color: Color(0xFFB91C1C)),
+                const SizedBox(height: 20),
+                const Text(
+                  "Application réservée aux vendeurs",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Market CM Pro est réservée aux comptes Fournisseur et Grossiste. "
+                  "Votre compte doit utiliser $_expectedApp.",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF526252)),
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  height: 50,
+                  child: FilledButton(
+                    onPressed: () =>
+                        context.read<SessionStore>().logout(),
+                    child: const Text("Se déconnecter"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

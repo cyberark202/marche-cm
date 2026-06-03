@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import logging
 import socket
 import urllib.parse
 import urllib.request
@@ -7,6 +8,8 @@ from typing import TypedDict
 
 from django.conf import settings
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 def _is_safe_geocoder_url(url: str) -> bool:
@@ -179,3 +182,40 @@ def update_user_location(user, *, force: bool = False) -> bool:
         ]
     )
     return True
+
+
+def _dispatch_geocode_task(user_id: int) -> None:
+    """Publish the geocoding task to the broker. Runs off the request thread."""
+    try:
+        from apps.accounts.tasks import user_geocode_task
+
+        # retry=False so a publish to an unreachable broker fails fast instead of
+        # looping; this runs in a background thread anyway (see below).
+        user_geocode_task.apply_async(args=[user_id], retry=False)
+    except Exception as exc:  # noqa: BLE001 - best-effort, must not break signup
+        logger.warning("user_geocode_enqueue_failed user_id=%s err=%s", user_id, exc)
+
+
+def enqueue_user_geocode(user):
+    """Schedule geocoding asynchronously — NEVER blocks or fails the caller.
+    Audit ref: [M-1].
+
+    The broker publish itself is dispatched on a short-lived daemon thread, so
+    the registration request returns immediately *regardless of broker health*
+    (a down/slow broker can otherwise make the publish call block for seconds —
+    notably on local dev with no Redis). With a healthy broker the thread
+    finishes in well under a millisecond. Returns the Thread (handy for tests)
+    or None when there is no user.
+    """
+    if user is None or not getattr(user, "id", None):
+        return None
+    import threading
+
+    thread = threading.Thread(
+        target=_dispatch_geocode_task,
+        args=(user.id,),
+        name=f"geocode-{user.id}",
+        daemon=True,
+    )
+    thread.start()
+    return thread

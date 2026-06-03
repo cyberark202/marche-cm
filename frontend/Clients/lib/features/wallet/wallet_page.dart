@@ -131,10 +131,11 @@ class _WalletPageState extends State<WalletPage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          colors: [Color(0xFF063D27), Color(0xFF0F7A4F)],
+          colors: [Color(0xFF0F7A4F), Color(0xFF063D27)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        boxShadow: AppPalette.shadowStrong,
       ),
       padding: const EdgeInsets.all(20),
       child: Column(

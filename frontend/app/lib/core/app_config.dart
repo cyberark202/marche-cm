@@ -24,7 +24,7 @@ class AppConfig {
     // These are intentionally HTTP because TLS is not available on loopback
     // during local development. _assertHttpsInRelease blocks them in release.
     if (kIsWeb) {
-      return "https://marche-cm.onrender.com";
+      return "http://localhost:5000";
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
       // 10.0.2.2 is the Android emulator's alias for the host machine.
@@ -36,14 +36,18 @@ class AppConfig {
 
   // MITM protection: crash fast in release builds rather than silently
   // sending credentials over an unencrypted connection.
+  // Loopback (127.0.0.1 / localhost) is exempt: traffic never leaves the
+  // machine, so HTTP is safe there and local release testing stays possible.
   static void _assertHttpsInRelease(String url) {
-    if (kReleaseMode && !url.startsWith("https://")) {
-      throw StateError(
-        "[AppConfig] API_BASE_URL must use HTTPS in release builds. "
-        "Got: $url — build with --dart-define=API_BASE_URL=https://... "
-        "to fix this.",
-      );
-    }
+    if (!kReleaseMode) return;
+    if (url.startsWith("https://")) return;
+    final host = Uri.tryParse(url)?.host ?? "";
+    if (host == "127.0.0.1" || host == "localhost") return;
+    throw StateError(
+      "[AppConfig] API_BASE_URL must use HTTPS in release builds. "
+      "Got: $url — build with --dart-define=API_BASE_URL=https://... "
+      "to fix this.",
+    );
   }
 
   static const String googleClientId = String.fromEnvironment(

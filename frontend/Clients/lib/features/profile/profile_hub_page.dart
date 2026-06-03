@@ -19,6 +19,7 @@ import '../logistics/shipment_disputes_page.dart';
 import '../orders/orders_page.dart';
 import '../wallet/wallet_page.dart';
 import 'compliance_documents_page.dart';
+import 'kyc_verification_page.dart';
 import 'security_center_page.dart';
 
 class ProfileHubPage extends StatefulWidget {
@@ -136,12 +137,13 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
             _SettingsItem(
               icon: Icons.shield_outlined,
               label: "Conformité KYC",
-              subtitle: "Documents et vérification",
+              subtitle: "Vérification d'identité (CNI, domicile, selfie)",
               trailingBadge: "OK",
               onTap: canAccessCompliance
                   ? () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const ComplianceDocumentsPage()))
-                  : () {},
+                  : () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const KycVerificationPage())),
             ),
             _SettingsItem(
               icon: Icons.lock_outline,
