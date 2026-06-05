@@ -1,0 +1,6 @@
+# Copier en terraform.tfvars (gitignoré) et renseigner.
+# La région doit correspondre à celle où l'infra a DÉJÀ été créée (cf. inventaire).
+
+aws_profile = "central-market_credentials"
+aws_region  = "eu-west-3" # ← à CONFIRMER via inventory.ps1 (peut être us-east-1, etc.)
+environment = "prod"

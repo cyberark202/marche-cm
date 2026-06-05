@@ -30,6 +30,18 @@ key.properties
 backend/media/
 /go/backend/media/
 
+# AWS secrets — console creds, IAM access keys, SSH private keys. NEVER commit.
+Aws/
+**/*.pem
+**/*.ppk
+**/*credentials*.csv
+*.tfvars
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+infra/terraform/inventory/
+
 # IDE
 .idea/
 .vscode/

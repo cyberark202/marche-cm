@@ -1,0 +1,48 @@
+name: Deploy — market-CM-API (AWS via SSM)
+
+# Déclenché après le CI (tests) réussi sur main, ou manuellement.
+# Déploiement SANS SSH : upload du code sur S3 + SSM send-command sur l'EC2.
+# Auth via OIDC (rôle marche-cm-github-deploy) — aucun secret AWS statique.
+on:
+  workflow_run:
+    workflows: ["CI — Marché CM Backend"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # requis pour l'OIDC
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build bundle & deploy via SSM
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurer les identifiants AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      - name: Construire et uploader le bundle de code
+        run: |
+          tar czf /tmp/code.tar.gz \
+            --exclude='.git' --exclude='*/__pycache__' --exclude='*.pyc' \
+            --exclude='*.env' --exclude='*.pem' --exclude='*.ppk' \
+            --exclude='infra/terraform/.terraform' --exclude='infra/terraform/*.tfstate*' \
+            --exclude='infra/terraform/*.tfplan' --exclude='infra/terraform/inventory' \
+            --exclude='backend/staticfiles' --exclude='backend/media' \
+            backend infra
+          aws s3 cp /tmp/code.tar.gz s3://market-cm/deploy/code.tar.gz --region eu-north-1
+
+      - name: Déployer via SSM
+        run: bash infra/deploy/ssm_send.sh
