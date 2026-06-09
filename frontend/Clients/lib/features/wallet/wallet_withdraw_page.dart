@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/api_service.dart';
 import '../../core/app_ui.dart';
@@ -348,12 +349,19 @@ class _ProviderPreview extends StatelessWidget {
                     height: 30,
                     fit: BoxFit.cover,
                   )
-                : Image.network(
-                    logoUrl,
+                : CachedNetworkImage(
+                    imageUrl: logoUrl,
                     width: 30,
                     height: 30,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.credit_card),
+                    placeholder: (_, __) => const Center(
+                      child: SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      ),
+                    ),
+                    errorWidget: (_, __, ___) => const Icon(Icons.credit_card),
                   ),
           )
         else

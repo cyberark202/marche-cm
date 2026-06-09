@@ -49,7 +49,7 @@ class _BuyerHomeContent extends StatelessWidget {
         children: [
           const CircleAvatar(
             radius: 20,
-            backgroundColor: Color(0xFFF5B400),
+            backgroundColor: AppPalette.accent,
             child: Text(
               "AK",
               style: TextStyle(
@@ -65,28 +65,28 @@ class _BuyerHomeContent extends StatelessWidget {
             children: [
               Text(
                 "Bonjour,",
-                style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
+                style: TextStyle(fontSize: 12, color: AppPalette.textMuted),
               ),
               Text(
                 "Awa Kamga CM",
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F1F1A),
+                  color: AppPalette.text,
                 ),
               ),
             ],
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.grid_view_rounded, color: Color(0xFF666666)),
+            icon: const Icon(Icons.grid_view_rounded, color: AppPalette.textMuted),
             onPressed: () {},
           ),
           Stack(
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined,
-                    color: Color(0xFF666666)),
+                    color: AppPalette.textMuted),
                 onPressed: () {},
               ),
               Positioned(
@@ -96,7 +96,7 @@ class _BuyerHomeContent extends StatelessWidget {
                   width: 16,
                   height: 16,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFE5484D),
+                    color: AppPalette.secondary,
                     shape: BoxShape.circle,
                   ),
                   child: const Center(
@@ -129,16 +129,16 @@ class _BuyerHomeContent extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5DECC)),
+                border: Border.all(color: AppPalette.border),
               ),
               child: const Row(
                 children: [
                   SizedBox(width: 12),
-                  Icon(Icons.search, color: Color(0xFF9E9E9E), size: 20),
+                  Icon(Icons.search, color: AppPalette.textFaint, size: 20),
                   SizedBox(width: 8),
                   Text(
                     "Rechercher huile, riz, ciment…",
-                    style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                    style: TextStyle(color: AppPalette.textFaint, fontSize: 14),
                   ),
                 ],
               ),
@@ -165,7 +165,7 @@ class _BuyerHomeContent extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F7A4F), Color(0xFF063D27)],
+          colors: [AppPalette.primary, AppPalette.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -208,8 +208,8 @@ class _BuyerHomeContent extends StatelessWidget {
                   height: 44,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF5B400),
-                      foregroundColor: Colors.black87,
+                      backgroundColor: AppPalette.accent,
+                      foregroundColor: AppPalette.text,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -278,7 +278,7 @@ class _BuyerHomeContent extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF0F1F1A),
+              color: AppPalette.text,
             ),
           ),
           const SizedBox(height: 12),
@@ -303,7 +303,7 @@ class _BuyerHomeContent extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFF5B400), Color(0xFFFFC940)],
+          colors: [AppPalette.accent, AppPalette.accentSoft],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
@@ -338,7 +338,7 @@ class _BuyerHomeContent extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
-                    color: Color(0xFF1A1A1A),
+                    color: AppPalette.text,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -346,7 +346,7 @@ class _BuyerHomeContent extends StatelessWidget {
                   "Jusqu'au 30 mai · 12 fournisseurs partenaires",
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF3A3A2A),
+                    color: AppPalette.textMuted,
                   ),
                 ),
               ],
@@ -355,7 +355,7 @@ class _BuyerHomeContent extends StatelessWidget {
           Icon(
             Icons.emoji_events_outlined,
             size: 48,
-            color: const Color(0xFFB8860B).withValues(alpha: 0.4),
+            color: AppPalette.accentDark.withValues(alpha: 0.4),
           ),
         ],
       ),
@@ -407,7 +407,7 @@ class _CategoryItem extends StatelessWidget {
             data.label,
             style: const TextStyle(
               fontSize: 11,
-              color: Color(0xFF444444),
+              color: AppPalette.textMuted,
               fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,

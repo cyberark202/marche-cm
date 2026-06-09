@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/app_logo.dart';
 
 class CmSplashScreen extends StatefulWidget {
   const CmSplashScreen({super.key, this.onCompleted, this.holdMs = 1800});
@@ -227,59 +228,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
 class _SimpleLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 100,
-      height: 100,
-      child: Stack(
-        children: [
-          // Fond blanc
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.store_mall_directory,
-              size: 48,
-              color: Color(0xFF0F7A4F),
-            ),
-          ),
-          // Étoile ambre en haut à droite
-          Positioned(
-            top: -4,
-            right: -4,
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5B400),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFF5B400).withValues(alpha: 0.5),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.star,
-                size: 16,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const MarcheLogo(size: 100);
   }
 }

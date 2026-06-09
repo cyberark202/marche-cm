@@ -41,6 +41,8 @@ Aws/
 *.tfplan
 .terraform/
 infra/terraform/inventory/
+infra/secrets/rotated_keys*.env
+infra/secrets/values.local.env
 
 # IDE
 .idea/
@@ -71,3 +73,4 @@ frontend/*.txt
 frontend/diag*
 frontend/shot.py
 frontend/seed_out.txt
+artifacts_junction/

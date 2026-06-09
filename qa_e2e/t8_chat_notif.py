@@ -5,8 +5,17 @@ from qa import Client, record, S, B, django_setup
 
 PWD = "ChangeMe123!"
 BUY = "buyer@marche-cm.local"; SUP = "supplier@marche-cm.local"
-SELLER_ID = 8; PRODUCT_ID = 9; TRANSIT_ID = 10
-WS = "ws://127.0.0.1:8000"
+import qa
+if qa.is_remote():
+    SELLER_ID = 3
+    TRANSIT_ID = 5
+    PRODUCT_ID = int(qa.remote_eval("from apps.catalog.models import Product; p = Product.objects.filter(is_active=True).first(); val = p.id if p else 0", "val") or 0)
+    WS = "wss://cm.digital-get.com"
+    ORIGIN = "https://cm.digital-get.com"
+else:
+    SELLER_ID = 8; PRODUCT_ID = 9; TRANSIT_ID = 10
+    WS = "ws://127.0.0.1:8000"
+    ORIGIN = "http://127.0.0.1:8000"
 
 
 def f(n):
@@ -89,7 +98,7 @@ def main():
 
         # T8.10 /ws/notifications/ without token -> rejected
         try:
-            async with websockets.connect(f"{WS}/ws/notifications/", open_timeout=8) as ws:
+            async with websockets.connect(f"{WS}/ws/notifications/", origin=ORIGIN, open_timeout=8) as ws:
                 await asyncio.wait_for(ws.recv(), timeout=2)
             rejected = False
         except Exception:
@@ -99,7 +108,7 @@ def main():
 
         # T8.11 /ws/notifications/ with token (subprotocol bearer) -> accepted
         try:
-            async with websockets.connect(f"{WS}/ws/notifications/", subprotocols=["bearer", buy_tok], open_timeout=8) as ws:
+            async with websockets.connect(f"{WS}/ws/notifications/", subprotocols=["bearer", buy_tok], origin=ORIGIN, open_timeout=8) as ws:
                 accepted = True
         except Exception as e:
             accepted = False; print("notif ws err:", repr(e))
@@ -109,7 +118,7 @@ def main():
         # T8.12 realtime delivery: seller on /ws/events/, buyer creates order -> seller receives event
         received = None
         try:
-            async with websockets.connect(f"{WS}/ws/events/?token={sup_tok}", open_timeout=8) as ws:
+            async with websockets.connect(f"{WS}/ws/events/", subprotocols=["bearer", sup_tok], origin=ORIGIN, open_timeout=8) as ws:
                 # create an order as buyer (sync) in a thread
                 def make_order():
                     return buy.req("POST", "/api/orders/", json_body={"product": PRODUCT_ID, "quantity": 1,
@@ -130,12 +139,12 @@ def main():
         # T8.13 chat WS: participant accepted, non-participant rejected
         part_ok = False; nonpart_rejected = False
         try:
-            async with websockets.connect(f"{WS}/ws/chat/{room_id}/?token={buy_tok}", open_timeout=8) as ws:
+            async with websockets.connect(f"{WS}/ws/chat/{room_id}/", subprotocols=["bearer", buy_tok], origin=ORIGIN, open_timeout=8) as ws:
                 part_ok = True
         except Exception as e:
             print("chat ws participant err:", repr(e))
         try:
-            async with websockets.connect(f"{WS}/ws/chat/{room_id}/?token={other_tok}", open_timeout=8) as ws:
+            async with websockets.connect(f"{WS}/ws/chat/{room_id}/", subprotocols=["bearer", other_tok], origin=ORIGIN, open_timeout=8) as ws:
                 # if it stays open and we can't tell, try recv; consumer closes non-participants
                 await asyncio.wait_for(ws.recv(), timeout=2)
             nonpart_rejected = False

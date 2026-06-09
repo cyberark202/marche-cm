@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/api_service.dart';
 import '../../core/app_config.dart';
@@ -279,10 +280,13 @@ class _ProductHeroSliver extends StatelessWidget {
             if (product.imageUrl.trim().isEmpty)
               Container(color: AppPalette.primaryDark)
             else
-              Image.network(
-                product.imageUrl,
+              CachedNetworkImage(
+                imageUrl: product.imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =>
+                placeholder: (_, __) => const Center(
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                errorWidget: (_, __, ___) =>
                     Container(color: AppPalette.primaryDark),
               ),
             const DecoratedBox(
@@ -870,12 +874,15 @@ class _CertificationsCard extends StatelessWidget {
                     return ClipRRect(
                       borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(AppRadii.md)),
-                      child: Image.network(
-                        imageUrl,
+                      child: CachedNetworkImage(
+                        imageUrl: imageUrl,
                         height: 130,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        placeholder: (_, __) => const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        errorWidget: (_, __, ___) => Container(
                           height: 96,
                           color: AppPalette.bgSoft,
                           alignment: Alignment.center,

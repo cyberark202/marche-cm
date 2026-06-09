@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/security/secure_dio_client.dart';
@@ -288,8 +289,14 @@ class _CatalogProductCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                   child: imageUrl.isNotEmpty
-                      ? Image.network(imageUrl, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _placeholder())
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          errorWidget: (_, __, ___) => _placeholder(),
+                        )
                       : _placeholder(),
                 ),
                 Positioned(

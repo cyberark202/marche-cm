@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/app_logo.dart';
 
 /// Splash screen partagé Market CM (repris de l'app Clients) pour une identité
 /// visuelle cohérente entre toutes les applications.
@@ -96,7 +97,7 @@ class _CmSplashScreenState extends State<CmSplashScreen>
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF063D27), Color(0xFF0F7A4F)],
+                colors: [Color(0xFF0E1F18), Color(0xFF1A2A24)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -147,12 +148,12 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                   const Spacer(),
                   AnimatedBuilder(
                     animation: _main,
-                    builder: (_, __) {
+                    builder: (context, child) {
                       return Transform.scale(
                         scale: _logoScale.value,
                         child: Opacity(
                           opacity: _logoFade.value,
-                          child: _SimpleLogo(),
+                          child: const MarcheLogo(size: 100, mono: true, light: true),
                         ),
                       );
                     },
@@ -209,64 +210,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                   ),
                   const SizedBox(height: 32),
                 ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SimpleLogo extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 100,
-      height: 100,
-      child: Stack(
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.store_mall_directory,
-              size: 48,
-              color: Color(0xFF0F7A4F),
-            ),
-          ),
-          Positioned(
-            top: -4,
-            right: -4,
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5B400),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFF5B400).withValues(alpha: 0.5),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.star,
-                size: 16,
-                color: Colors.white,
               ),
             ),
           ),

@@ -33,17 +33,29 @@ def main():
            "403", f"status={S(r)}", endpoint="GET /api/admin/audit/export/")
 
     # T9.5 admin reviews/approves a pending seller/buyer KYC document
-    django_setup()
-    from apps.accounts.models import ComplianceDocument
-    doc = ComplianceDocument.objects.filter(status="PENDING").order_by("id").first()
-    did = doc.id if doc else None
-    if did:
-        r = adm.req("POST", f"/api/compliance-documents/{did}/review/", json_body={"status": "APPROVED"}, note="admin approve kyc")
-        doc.refresh_from_db()
-        record("T9.5", "Validation KYC (admin approuve un document) -> APPROVED en base", "critical",
-               S(r) == 200 and doc.status == "APPROVED", "200 + status APPROVED",
-               f"status={S(r)} db_status={doc.status} doc_id={did}", endpoint="POST /api/compliance-documents/{id}/review/",
-               be_file="apps/accounts/views.py:ComplianceDocumentViewSet.review")
+    import qa
+    if qa.is_remote():
+        did_val = qa.remote_eval("from apps.accounts.models import ComplianceDocument; doc = ComplianceDocument.objects.filter(status='PENDING').order_by('id').first(); val = doc.id if doc else None", "val")
+        did = int(did_val) if did_val and did_val != "None" else None
+        if did:
+            r = adm.req("POST", f"/api/compliance-documents/{did}/review/", json_body={"status": "APPROVED"}, note="admin approve kyc")
+            db_status = qa.remote_eval(f"from apps.accounts.models import ComplianceDocument; doc = ComplianceDocument.objects.get(id={did}); val = doc.status", "val")
+            record("T9.5", "Validation KYC (admin approuve un document) -> APPROVED en base", "critical",
+                   S(r) == 200 and db_status == "APPROVED", "200 + status APPROVED",
+                   f"status={S(r)} db_status={db_status} doc_id={did}", endpoint="POST /api/compliance-documents/{id}/review/",
+                   be_file="apps/accounts/views.py:ComplianceDocumentViewSet.review")
+    else:
+        django_setup()
+        from apps.accounts.models import ComplianceDocument
+        doc = ComplianceDocument.objects.filter(status="PENDING").order_by("id").first()
+        did = doc.id if doc else None
+        if did:
+            r = adm.req("POST", f"/api/compliance-documents/{did}/review/", json_body={"status": "APPROVED"}, note="admin approve kyc")
+            doc.refresh_from_db()
+            record("T9.5", "Validation KYC (admin approuve un document) -> APPROVED en base", "critical",
+                   S(r) == 200 and doc.status == "APPROVED", "200 + status APPROVED",
+                   f"status={S(r)} db_status={doc.status} doc_id={did}", endpoint="POST /api/compliance-documents/{id}/review/",
+                   be_file="apps/accounts/views.py:ComplianceDocumentViewSet.review")
 
         # T9.6 non-admin review -> 403
         r = buy.req("POST", f"/api/compliance-documents/{did}/review/", json_body={"status": "REJECTED"}, note="buyer review")
@@ -69,23 +81,39 @@ def main():
            endpoint="GET /api/escrow/holds/ , /api/audit/events/")
 
     # T9.10 admin resolves dispute #1 with REFUND_BUYER (internal refund, safe)
-    from apps.logistics.models import ShipmentDispute
-    from apps.accounts.models import User
-    from apps.wallets.models import Wallet
-    disp = ShipmentDispute.objects.order_by("id").first()
-    dispute_id = disp.id if disp else None
-    if dispute_id:
-        u = User.objects.get(email__iexact=BUY); w, _ = Wallet.objects.get_or_create(owner=u)
-        w.refresh_from_db(); avail_before = w.available_balance
-        r = adm.req("POST", f"/api/shipment-disputes/{dispute_id}/decide/", json_body={
-            "status": "RESOLVED", "admin_decision": "REFUND_BUYER", "resolution_note": "Remboursement acheteur (QA)"}, note="admin decide refund")
-        disp.refresh_from_db(); w.refresh_from_db(); avail_after = w.available_balance
-        refunded = Decimal(avail_after) - Decimal(avail_before)
-        record("T9.10", "Résolution litige (admin REFUND_BUYER) -> RESOLVED + acheteur remboursé", "critical",
-               S(r) == 200 and disp.status == "RESOLVED" and refunded > 0,
-               "200 + dispute RESOLVED + solde acheteur recrédité",
-               f"status={S(r)} dispute_status={disp.status} refunded={refunded} body={B(r,120)}",
-               endpoint="POST /api/shipment-disputes/{id}/decide/", be_file="apps/logistics/views.py:decide")
+    if qa.is_remote():
+        dispute_id_val = qa.remote_eval("from apps.logistics.models import ShipmentDispute; disp = ShipmentDispute.objects.order_by('id').first(); val = disp.id if disp else None", "val")
+        dispute_id = int(dispute_id_val) if dispute_id_val and dispute_id_val != "None" else None
+        if dispute_id:
+            avail_before = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; u = User.objects.get(email__iexact='{BUY}'); w, _ = Wallet.objects.get_or_create(owner=u); val = w.available_balance", "val")
+            r = adm.req("POST", f"/api/shipment-disputes/{dispute_id}/decide/", json_body={
+                "status": "RESOLVED", "admin_decision": "REFUND_BUYER", "resolution_note": "Remboursement acheteur (QA)"}, note="admin decide refund")
+            avail_after = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; u = User.objects.get(email__iexact='{BUY}'); w = Wallet.objects.get(owner=u); val = w.available_balance", "val")
+            disp_status = qa.remote_eval(f"from apps.logistics.models import ShipmentDispute; disp = ShipmentDispute.objects.get(id={dispute_id}); val = disp.status", "val")
+            refunded = Decimal(avail_after) - Decimal(avail_before)
+            record("T9.10", "Résolution litige (admin REFUND_BUYER) -> RESOLVED + acheteur remboursé", "critical",
+                   S(r) == 200 and disp_status == "RESOLVED" and refunded > 0,
+                   "200 + dispute RESOLVED + solde acheteur recrédité",
+                   f"status={S(r)} dispute_status={disp_status} refunded={refunded} body={B(r,120)}",
+                   endpoint="POST /api/shipment-disputes/{id}/decide/", be_file="apps/logistics/views.py:decide")
+    else:
+        from apps.logistics.models import ShipmentDispute
+        from apps.accounts.models import User
+        from apps.wallets.models import Wallet
+        disp = ShipmentDispute.objects.order_by("id").first()
+        dispute_id = disp.id if disp else None
+        if dispute_id:
+            u = User.objects.get(email__iexact=BUY); w, _ = Wallet.objects.get_or_create(owner=u)
+            w.refresh_from_db(); avail_before = w.available_balance
+            r = adm.req("POST", f"/api/shipment-disputes/{dispute_id}/decide/", json_body={
+                "status": "RESOLVED", "admin_decision": "REFUND_BUYER", "resolution_note": "Remboursement acheteur (QA)"}, note="admin decide refund")
+            disp.refresh_from_db(); w.refresh_from_db(); avail_after = w.available_balance
+            refunded = Decimal(avail_after) - Decimal(avail_before)
+            record("T9.10", "Résolution litige (admin REFUND_BUYER) -> RESOLVED + acheteur remboursé", "critical",
+                   S(r) == 200 and disp.status == "RESOLVED" and refunded > 0,
+                   "200 + dispute RESOLVED + solde acheteur recrédité",
+                   f"status={S(r)} dispute_status={disp.status} refunded={refunded} body={B(r,120)}",
+                   endpoint="POST /api/shipment-disputes/{id}/decide/", be_file="apps/logistics/views.py:decide")
 
         # T9.11 non-admin decide -> 403
         r = buy.req("POST", f"/api/shipment-disputes/{dispute_id}/decide/", json_body={

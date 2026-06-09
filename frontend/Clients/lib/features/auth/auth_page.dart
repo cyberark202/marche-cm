@@ -6,6 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_config.dart';
+import '../../core/app_logo.dart';
 import '../../core/app_theme.dart';
 import '../../core/backend_ui_config_service.dart';
 import 'auth_api_service.dart';
@@ -357,15 +358,7 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Widget _logoWidget() {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Icon(Icons.store, color: AppPalette.primary, size: 20),
-    );
+    return const MarcheLogo(size: 32);
   }
 
   Widget _heroSection() {

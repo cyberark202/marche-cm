@@ -24,6 +24,10 @@ def make_order(buyer):
 
 
 def shipment_id_for(order_id):
+    import qa
+    if qa.is_remote():
+        val = qa.remote_eval(f"from apps.logistics.models import Shipment; s = Shipment.objects.filter(order_id={order_id}).first(); val = s.id if s else None", "val")
+        return int(val) if val and val != "None" else None
     django_setup()
     from apps.logistics.models import Shipment
     s = Shipment.objects.filter(order_id=order_id).first()
@@ -41,17 +45,21 @@ def main():
         "phone_number": "+237690333444", "password": PWD}, auth=False, note="reg other log")
     other.login(em, PWD)
 
-    django_setup()
-    from apps.accounts.models import User
-    from apps.wallets.models import Wallet
-    from apps.wallets.services import WalletAccountingService
-    from apps.orders.models import Order
-
-    # ensure buyer funded for a fresh order
-    u = User.objects.get(email__iexact=BUY); w, _ = Wallet.objects.get_or_create(owner=u)
-    if w.available_balance < Decimal("20000"):
-        WalletAccountingService.credit_available(wallet=w, amount=Decimal("50000"),
-            reference="qa-seed-log", idempotency_key=f"qa-seed-log-{int(time.time())}", created_by=u)
+    import qa
+    if qa.is_remote():
+        bal = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; u = User.objects.get(email__iexact='{BUY}'); w, _ = Wallet.objects.get_or_create(owner=u); val = w.available_balance", "val")
+        if Decimal(bal) < Decimal("20000"):
+            qa.remote_exec(f"from decimal import Decimal; import time; from apps.accounts.models import User; from apps.wallets.models import Wallet; from apps.wallets.services import WalletAccountingService; u = User.objects.get(email__iexact='{BUY}'); w, _ = Wallet.objects.get_or_create(owner=u); WalletAccountingService.credit_available(wallet=w, amount=Decimal('50000'), reference='qa-seed-log', idempotency_key='qa-seed-log-' + str(int(time.time())), created_by=u)")
+    else:
+        django_setup()
+        from apps.accounts.models import User
+        from apps.wallets.models import Wallet
+        from apps.wallets.services import WalletAccountingService
+        from apps.orders.models import Order
+        u = User.objects.get(email__iexact=BUY); w, _ = Wallet.objects.get_or_create(owner=u)
+        if w.available_balance < Decimal("20000"):
+            WalletAccountingService.credit_available(wallet=w, amount=Decimal("50000"),
+                reference="qa-seed-log", idempotency_key=f"qa-seed-log-{int(time.time())}", created_by=u)
 
     # Harness hardcoded PRODUCT_ID=9 doesn't match a fresh prod DB — create a
     # real active priced product (weight set for SEA shipping math) as supplier.
@@ -73,9 +81,14 @@ def main():
     print("ORDER2:", oid2, "SHIPMENT2:", sid2)
 
     # order #1 (from batch 6) for cancellation; fallback: make another
-    o1 = Order.objects.filter(buyer=u, status="PENDING").exclude(id=oid2).order_by("id").first()
-    oid1 = o1.id if o1 else None
-    sid1 = shipment_id_for(oid1) if oid1 else None
+    if qa.is_remote():
+        oid1_val = qa.remote_eval(f"from apps.accounts.models import User; from apps.orders.models import Order; u = User.objects.get(email__iexact='{BUY}'); o1 = Order.objects.filter(buyer=u, status='PENDING').exclude(id={oid2}).order_by('id').first(); val = o1.id if o1 else None", "val")
+        oid1 = int(oid1_val) if oid1_val and oid1_val != "None" else None
+        sid1 = shipment_id_for(oid1) if oid1 else None
+    else:
+        o1 = Order.objects.filter(buyer=u, status="PENDING").exclude(id=oid2).order_by("id").first()
+        oid1 = o1.id if o1 else None
+        sid1 = shipment_id_for(oid1) if oid1 else None
     print("ORDER1(cancel target):", oid1, "SHIPMENT1:", sid1)
 
     # --- T7.1 Transit agent advances shipment PICKUP_PENDING -> IN_TRANSIT ---
@@ -109,25 +122,40 @@ def main():
 
     # --- T7.6 Cancellation + escrow refund (buyer cancels order#1 shipment) ---
     if sid1:
-        w.refresh_from_db(); avail_before = w.available_balance; locked_before = w.locked_balance
-        r = buy.req("POST", f"/api/shipments/{sid1}/update_status/", json_body={"status": "CANCELLED", "note": "annulation acheteur"}, note="cancel+refund")
-        w.refresh_from_db(); avail_after = w.available_balance
-        o1b = Order.objects.get(id=oid1)
-        refunded = Decimal(avail_after) - Decimal(avail_before)
-        record("T7.6", "Annulation expédition -> commande CANCELLED + escrow remboursé à l'acheteur", "critical",
-               S(r) == 200 and o1b.status == "CANCELLED" and refunded == Decimal("8600.00"),
-               "200 + order CANCELLED + +8600 recrédité (available)",
-               f"status={S(r)} order_status={o1b.status} avail_before={avail_before} avail_after={avail_after} refunded={refunded}",
-               endpoint="POST /api/shipments/{id}/update_status/ (CANCELLED)", be_file="apps/logistics/views.py:update_status + refund_order_locked_funds")
+        if qa.is_remote():
+            avail_before = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; u = User.objects.get(email__iexact='{BUY}'); w = Wallet.objects.get(owner=u); val = w.available_balance", "val")
+            r = buy.req("POST", f"/api/shipments/{sid1}/update_status/", json_body={"status": "CANCELLED", "note": "annulation acheteur"}, note="cancel+refund")
+            avail_after = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; u = User.objects.get(email__iexact='{BUY}'); w = Wallet.objects.get(owner=u); val = w.available_balance", "val")
+            o1b_status = qa.remote_eval(f"from apps.orders.models import Order; o1b = Order.objects.get(id={oid1}); val = o1b.status", "val")
+            refunded = Decimal(avail_after) - Decimal(avail_before)
+            record("T7.6", "Annulation expédition -> commande CANCELLED + escrow remboursé à l'acheteur", "critical",
+                   S(r) == 200 and o1b_status == "CANCELLED" and refunded == Decimal("8600.00"),
+                   "200 + order CANCELLED + +8600 recrédité (available)",
+                   f"status={S(r)} order_status={o1b_status} avail_before={avail_before} avail_after={avail_after} refunded={refunded}",
+                   endpoint="POST /api/shipments/{id}/update_status/ (CANCELLED)", be_file="apps/logistics/views.py:update_status + refund_order_locked_funds")
+        else:
+            w.refresh_from_db(); avail_before = w.available_balance; locked_before = w.locked_balance
+            r = buy.req("POST", f"/api/shipments/{sid1}/update_status/", json_body={"status": "CANCELLED", "note": "annulation acheteur"}, note="cancel+refund")
+            w.refresh_from_db(); avail_after = w.available_balance
+            o1b = Order.objects.get(id=oid1)
+            refunded = Decimal(avail_after) - Decimal(avail_before)
+            record("T7.6", "Annulation expédition -> commande CANCELLED + escrow remboursé à l'acheteur", "critical",
+                   S(r) == 200 and o1b.status == "CANCELLED" and refunded == Decimal("8600.00"),
+                   "200 + order CANCELLED + +8600 recrédité (available)",
+                   f"status={S(r)} order_status={o1b.status} avail_before={avail_before} avail_after={avail_after} refunded={refunded}",
+                   endpoint="POST /api/shipments/{id}/update_status/ (CANCELLED)", be_file="apps/logistics/views.py:update_status + refund_order_locked_funds")
 
-    # --- T7.7 Open dispute on order#2 shipment (buyer) ---
-    r = buy.req("POST", f"/api/shipments/{sid2}/open_dispute/", json_body={"dispute_type": "QUALITY_DEFECT", "description": "Produit défectueux QA"}, note="open dispute")
+    r = buy.req("POST", f"/api/shipments/{sid2}/open_dispute/", json_body={"dispute_type": "QUALITY_DEFECT", "reason": "QUALITY_DEFECT", "details": "Produit defectueux QA (verif)"}, note="open dispute")
     disp_ok = S(r) in (200, 201)
     # find dispute id
-    django_setup()
-    from apps.logistics.models import ShipmentDispute
-    disp = ShipmentDispute.objects.filter(shipment_id=sid2).order_by("-id").first()
-    did = disp.id if disp else None
+    if qa.is_remote():
+        did_val = qa.remote_eval(f"from apps.logistics.models import ShipmentDispute; disp = ShipmentDispute.objects.filter(shipment_id={sid2}).order_by('-id').first(); val = disp.id if disp else None", "val")
+        did = int(did_val) if did_val and did_val != "None" else None
+    else:
+        django_setup()
+        from apps.logistics.models import ShipmentDispute
+        disp = ShipmentDispute.objects.filter(shipment_id=sid2).order_by("-id").first()
+        did = disp.id if disp else None
     record("T7.7", "Ouverture d'un litige sur l'expédition (acheteur)", "critical",
            disp_ok and did is not None, "200/201 + litige créé",
            f"status={S(r)} dispute_id={did} body={B(r,120)}",

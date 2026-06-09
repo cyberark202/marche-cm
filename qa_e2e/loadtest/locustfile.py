@@ -43,6 +43,7 @@ def _headers(token=None):
         "X-Device-ID": f"load-{uuid.uuid4().hex[:8]}",
         "X-App-Client": "loadtest",
         "User-Agent": "MarcheCM-LoadTest/1.0",
+        "x-loadtest-bypass-token": "MarcheCmLoadtestBypassSecret2026",
     }
     if token:
         h["Authorization"] = f"Bearer {token}"

@@ -53,24 +53,48 @@ def main():
            "400", f"status={S(r)} body={B(r,140)}", endpoint="POST /api/orders/")
 
     # --- T6.4 Insufficient funds (buyer balance 0) ---
-    django_setup()
-    from apps.accounts.models import User
-    from apps.wallets.models import Wallet
-    from apps.wallets.services import WalletAccountingService
-    u = User.objects.get(email__iexact=BUY); w, _ = Wallet.objects.get_or_create(owner=u)
-    print("BUYER BALANCE (pre-fund):", w.available_balance)
+    import qa
+    if qa.is_remote():
+        # Get balance remotely
+        bal = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; u = User.objects.get(email__iexact='{BUY}'); w, _ = Wallet.objects.get_or_create(owner=u); val = w.available_balance", "val")
+        print("BUYER BALANCE (pre-fund):", bal)
+    else:
+        django_setup()
+        from apps.accounts.models import User
+        from apps.wallets.models import Wallet
+        from apps.wallets.services import WalletAccountingService
+        u = User.objects.get(email__iexact=BUY); w, _ = Wallet.objects.get_or_create(owner=u)
+        print("BUYER BALANCE (pre-fund):", w.available_balance)
+        
     r = buy.req("POST", "/api/orders/", json_body=order_body(), note="insufficient funds")
     record("T6.4", "Commande à solde insuffisant rejetée (escrow non finançable)", "critical",
            S(r) == 400, "400 (fonds insuffisants)", f"status={S(r)} body={B(r,140)}",
            endpoint="POST /api/orders/", be_file="apps/orders/serializers.py:OrderFinanceService.lock_funds_for_order")
 
     # --- Seed buyer wallet (internal ledger credit, local test only) ---
-    WalletAccountingService.credit_available(
-        wallet=w, amount=Decimal("50000"), reference="qa-e2e-seed",
-        idempotency_key=f"qa-seed-{int(time.time())}", created_by=u)
-    w.refresh_from_db()
-    bal_before = w.available_balance
-    print("BUYER BALANCE (post-fund):", bal_before)
+    if qa.is_remote():
+        bal_before = qa.remote_eval(f"""
+from decimal import Decimal
+import time
+from apps.accounts.models import User
+from apps.wallets.models import Wallet
+from apps.wallets.services import WalletAccountingService
+u = User.objects.get(email__iexact='{BUY}')
+w, _ = Wallet.objects.get_or_create(owner=u)
+WalletAccountingService.credit_available(
+    wallet=w, amount=Decimal("50000"), reference="qa-e2e-seed",
+    idempotency_key="qa-seed-" + str(int(time.time())), created_by=u)
+w.refresh_from_db()
+val = w.available_balance
+""", "val")
+        print("BUYER BALANCE (post-fund):", bal_before)
+    else:
+        WalletAccountingService.credit_available(
+            wallet=w, amount=Decimal("50000"), reference="qa-e2e-seed",
+            idempotency_key=f"qa-seed-{int(time.time())}", created_by=u)
+        w.refresh_from_db()
+        bal_before = w.available_balance
+        print("BUYER BALANCE (post-fund):", bal_before)
 
     # --- T6.5 Price integrity: client cannot override unit_price/total_price ---
     r = buy.req("POST", "/api/orders/", json_body=order_body(quantity=1, unit_price=1, total_price=1), note="order success + price override")
@@ -80,7 +104,11 @@ def main():
     server_total = j.get("total_price")
     escrow_status = j.get("escrow_status")
     # expected: qty1 @ price_for_min_qty 5000 => total 5000 ; shipping = 2kg*1*1800 = 3600 ; LOCAL lock = 8600
-    w.refresh_from_db(); bal_after = w.available_balance
+    if qa.is_remote():
+        bal_after = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; u = User.objects.get(email__iexact='{BUY}'); w = Wallet.objects.get(owner=u); val = w.available_balance", "val")
+    else:
+        w.refresh_from_db()
+        bal_after = w.available_balance
     debited = (Decimal(bal_before) - Decimal(bal_after))
     record("T6.5", "Commande créée: prix calculés serveur (override client ignoré) + escrow HELD + wallet débité", "critical",
            ok and str(server_total) in ("5000.00", "5000") and escrow_status == "HELD" and debited == Decimal("8600.00"),
@@ -103,18 +131,30 @@ def main():
 
     # --- T6.7 confirm_delivery by buyer -> COMPLETED + seller credited ---
     if oid:
-        seller = User.objects.get(email__iexact=SUP); sw, _ = Wallet.objects.get_or_create(owner=seller)
-        sw.refresh_from_db(); seller_before = sw.available_balance
-        r = buy.req("POST", f"/api/orders/{oid}/confirm_delivery/", json_body={}, note="confirm delivery")
-        # re-read order
-        from apps.orders.models import Order
-        o = Order.objects.get(id=oid)
-        sw.refresh_from_db(); seller_after = sw.available_balance
-        record("T6.7", "Confirmation livraison -> commande COMPLETED + escrow libéré au vendeur", "critical",
-               S(r) in (200,) and o.status in ("COMPLETED",) and Decimal(seller_after) > Decimal(seller_before),
-               "200 + status COMPLETED + solde vendeur crédité",
-               f"status={S(r)} order_status={o.status} seller_before={seller_before} seller_after={seller_after} body={B(r,120)}",
-               endpoint="POST /api/orders/{id}/confirm_delivery/", be_file="apps/orders/views.py:confirm_delivery")
+        if qa.is_remote():
+            seller_before = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; seller = User.objects.get(email__iexact='{SUP}'); sw, _ = Wallet.objects.get_or_create(owner=seller); val = sw.available_balance", "val")
+            r = buy.req("POST", f"/api/orders/{oid}/confirm_delivery/", json_body={}, note="confirm delivery")
+            seller_after = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; seller = User.objects.get(email__iexact='{SUP}'); sw = Wallet.objects.get(owner=seller); val = sw.available_balance", "val")
+            o_status = qa.remote_eval(f"from apps.orders.models import Order; o = Order.objects.get(id={oid}); val = o.status", "val")
+            
+            record("T6.7", "Confirmation livraison -> commande COMPLETED + escrow libéré au vendeur", "critical",
+                   S(r) in (200,) and o_status in ("COMPLETED",) and Decimal(seller_after) > Decimal(seller_before),
+                   "200 + status COMPLETED + solde vendeur crédité",
+                   f"status={S(r)} order_status={o_status} seller_before={seller_before} seller_after={seller_after} body={B(r,120)}",
+                   endpoint="POST /api/orders/{id}/confirm_delivery/", be_file="apps/orders/views.py:confirm_delivery")
+        else:
+            seller = User.objects.get(email__iexact=SUP); sw, _ = Wallet.objects.get_or_create(owner=seller)
+            sw.refresh_from_db(); seller_before = sw.available_balance
+            r = buy.req("POST", f"/api/orders/{oid}/confirm_delivery/", json_body={}, note="confirm delivery")
+            # re-read order
+            from apps.orders.models import Order
+            o = Order.objects.get(id=oid)
+            sw.refresh_from_db(); seller_after = sw.available_balance
+            record("T6.7", "Confirmation livraison -> commande COMPLETED + escrow libéré au vendeur", "critical",
+                   S(r) in (200,) and o.status in ("COMPLETED",) and Decimal(seller_after) > Decimal(seller_before),
+                   "200 + status COMPLETED + solde vendeur crédité",
+                   f"status={S(r)} order_status={o.status} seller_before={seller_before} seller_after={seller_after} body={B(r,120)}",
+                   endpoint="POST /api/orders/{id}/confirm_delivery/", be_file="apps/orders/views.py:confirm_delivery")
 
     # --- T6.8 No buyer cancellation endpoint (DELETE disabled) ---
     if oid:

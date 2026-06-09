@@ -85,13 +85,17 @@ def main():
            "404 (queryset filtré sur owner)", f"status={S(r)}", endpoint="GET /api/wallets/{id}/")
 
     # reset any PIN failure counter just in case
-    django_setup()
-    from apps.accounts.models import User
-    u = User.objects.filter(email__iexact=BUYER).first()
-    if u:
-        u.wallet_pin_failed_attempts = 0
-        u.wallet_pin_locked_until = None
-        u.save(update_fields=["wallet_pin_failed_attempts", "wallet_pin_locked_until"])
+    import qa
+    if qa.is_remote():
+        qa.remote_exec(f"from apps.accounts.models import User; u = User.objects.filter(email__iexact='{BUYER}').first(); u.wallet_pin_failed_attempts = 0; u.wallet_pin_locked_until = None; u.save(update_fields=['wallet_pin_failed_attempts', 'wallet_pin_locked_until'])")
+    else:
+        django_setup()
+        from apps.accounts.models import User
+        u = User.objects.filter(email__iexact=BUYER).first()
+        if u:
+            u.wallet_pin_failed_attempts = 0
+            u.wallet_pin_locked_until = None
+            u.save(update_fields=["wallet_pin_failed_attempts", "wallet_pin_locked_until"])
 
 
 if __name__ == "__main__":

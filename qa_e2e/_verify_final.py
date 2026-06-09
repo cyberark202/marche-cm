@@ -15,18 +15,28 @@ buy = Client("buyer"); buy.login("buyer@marche-cm.local", PWD)
 print("tokens adm/buy:", bool(adm.access), bool(buy.access))
 
 # --- (A) open dispute on an existing buyer shipment with correct fields ---
-django_setup()
-from apps.logistics.models import Shipment
-sh = Shipment.objects.filter(order__buyer__email__iexact="buyer@marche-cm.local").order_by("-id").first()
-print("dispute target shipment:", (sh.id if sh else None), "state:", (sh.status if sh else None))
-if sh:
-    r = buy.req("POST", f"/api/shipments/{sh.id}/open_dispute/",
+import qa
+if qa.is_remote():
+    sh_id = qa.remote_eval("from apps.logistics.models import Shipment; sh = Shipment.objects.filter(order__buyer__email__iexact='buyer@marche-cm.local').order_by('-id').first(); val = sh.id if sh else None", "val")
+    sh_id = int(sh_id) if sh_id and sh_id != "None" else None
+    sh_status = qa.remote_eval("from apps.logistics.models import Shipment; sh = Shipment.objects.filter(order__buyer__email__iexact='buyer@marche-cm.local').order_by('-id').first(); val = sh.status if sh else None", "val")
+    buyer_id_val = qa.remote_eval("from apps.accounts.models import User; u = User.objects.get(email__iexact='buyer@marche-cm.local'); val = u.id", "val")
+    buyer_id = int(buyer_id_val) if buyer_id_val else 6
+else:
+    django_setup()
+    from apps.logistics.models import Shipment
+    sh = Shipment.objects.filter(order__buyer__email__iexact="buyer@marche-cm.local").order_by("-id").first()
+    sh_id = sh.id if sh else None
+    sh_status = sh.status if sh else None
+    buyer_id = 8
+print("dispute target shipment:", sh_id, "state:", sh_status)
+if sh_id:
+    r = buy.req("POST", f"/api/shipments/{sh_id}/open_dispute/",
                 json_body={"reason": "QUALITY_DEFECT", "details": "Produit defectueux QA (verif finale)"},
                 note="open dispute correct fields")
     print(f"OPEN_DISPUTE (reason/details) -> {S(r)} body={B(r,180)}")
 
 # --- (B) suspend / unsuspend flow ---
-buyer_id = 8
 try:
     r = adm.req("POST", f"/api/users/{buyer_id}/suspend/", json_body={"reason": "QA verif M-6"}, note="suspend")
     print(f"SUSPEND -> {S(r)} body={B(r,120)}")
@@ -41,4 +51,4 @@ finally:
     restored = Client("buyer3")
     rr = restored.req("POST", "/api/auth/login/", json_body={"email": "buyer@marche-cm.local", "password": PWD},
                       auth=False, note="login after unsuspend")
-    print(f"LOGIN AFTER UNSUSPEND -> {S(rr)} hasToken={bool(rr is not None and rr.status_code==200 and rr.json().get('access'))}")
+    print(f"LOGIN AFTER UNSUSPEND -> {bool(rr is not None and rr.status_code==200 and rr.json().get('access'))}")

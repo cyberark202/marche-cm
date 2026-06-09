@@ -666,8 +666,10 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
+        payment_mode = "redirect"
         if checkout.get("mode") == "SIMULATED":
             self._mark_transaction_success(tx=tx, payload={"mode": "SIMULATED"}, mark_payout=True)
+            payment_mode = "simulated"
         else:
             checkout_reference = str(checkout.get("reference") or tx.external_transaction_id).strip()
             provider_transaction_id = str(
@@ -689,16 +691,56 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             tx.reference = ref
             tx.save(update_fields=update_fields)
 
+            # In-app Direct Charge for mobile money: rather than redirecting the
+            # buyer to NotchPay's hosted page, charge the initialized payment
+            # directly so NotchPay pushes a USSD/OTP prompt to their phone — the
+            # buyer validates without leaving the app. Cards/PayPal have no
+            # direct-charge channel and keep the hosted-redirect flow.
+            if NotchPayCheckoutService.supports_direct_charge(provider):
+                charge_result = NotchPayCheckoutService.charge(
+                    reference=checkout_reference,
+                    channel=NotchPayCheckoutService.channel_for_provider(provider),
+                    phone=source_account,
+                    client_ip=_client_ip(request),
+                )
+                if charge_result.get("error"):
+                    # H1 — log full provider error internally, never expose it.
+                    _raw_error = str(charge_result["error"])
+                    logger.error(
+                        "notchpay_charge_error tx=%s provider_error=%.500s",
+                        external_tx,
+                        _raw_error,
+                    )
+                    self._mark_transaction_failed(tx=tx, reason=_raw_error[:240])
+                    IdempotencyService.fail(idem_record)
+                    return response.Response(
+                        {"detail": "Echec du paiement. Verifiez le numero puis reessayez."},
+                        status=status.HTTP_502_BAD_GATEWAY,
+                    )
+                payment_mode = "direct_charge"
+                # In-app flow: never hand a hosted URL back to the client.
+                checkout["checkout_url"] = None
+
         write_audit_log(
             actor=request.user,
             action="Demande recharge wallet",
             action_key="wallet.topup",
-            metadata={"tx": tx.external_transaction_id, "amount": str(amount), "provider": provider},
+            metadata={
+                "tx": tx.external_transaction_id,
+                "amount": str(amount),
+                "provider": provider,
+                "payment_mode": payment_mode,
+            },
         )
         response_data = {
-            "detail": "Paiement initie.",
+            "detail": (
+                "Validez le paiement sur votre telephone."
+                if payment_mode == "direct_charge"
+                else "Paiement initie."
+            ),
             "transaction_id": tx.external_transaction_id,
             "mode": checkout.get("mode", "LIVE"),
+            "payment_mode": payment_mode,
             "checkout_url": checkout.get("checkout_url"),
             "status": tx.status,
         }

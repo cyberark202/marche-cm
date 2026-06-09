@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/app_logo.dart';
 import '../../core/app_theme.dart';
 
 /// Screen 01 — Splash / brand intro for the admin console.
@@ -44,15 +45,7 @@ class _AdminSplashState extends State<AdminSplash>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppRadii.xl),
-                  ),
-                  child: const Icon(Icons.shield_moon_outlined,
-                      size: 56, color: Colors.white),
-                ),
+                const MarcheLogo(size: 80, mono: true, light: true),
                 const SizedBox(height: 22),
                 const Text('Marché.cm',
                     style: TextStyle(

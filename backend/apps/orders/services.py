@@ -48,7 +48,17 @@ class OrderFinanceService:
         require_remote = bool(getattr(settings, "REQUIRE_REMOTE_PROOF_STORAGE", True))
         if not require_remote:
             return
-        storage_backend = str(getattr(settings, "DEFAULT_FILE_STORAGE", "django.core.files.storage.FileSystemStorage") or "")
+        # Django 5.x : la source de vérité est STORAGES["default"]; on garde
+        # DEFAULT_FILE_STORAGE en repli (miroir maintenu côté settings).
+        storage_backend = ""
+        try:
+            storage_backend = str(settings.STORAGES["default"]["BACKEND"])
+        except (AttributeError, KeyError, TypeError):
+            storage_backend = ""
+        if not storage_backend:
+            storage_backend = str(
+                getattr(settings, "DEFAULT_FILE_STORAGE", "django.core.files.storage.FileSystemStorage") or ""
+            )
         if "FileSystemStorage" in storage_backend:
             raise ValidationError("Stockage local interdit pour les preuves en production. Utilisez S3 ou R2.")
 
@@ -881,7 +891,6 @@ class OrderFinanceService:
             )
         return True
 
-    @classmethod
     @classmethod
     def _apply_locked_refund(cls, *, order: Order, actor, reason: str = ""):
         """Refund every still-locked escrow of *order* back to the buyer's

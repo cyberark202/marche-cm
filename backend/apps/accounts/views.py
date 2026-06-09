@@ -29,6 +29,8 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.exceptions import InvalidToken
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 
@@ -546,7 +548,11 @@ class BuyerKycSubmitView(APIView):
             actor=request.user,
             action="Soumission KYC acheteur",
             action_key="kyc.buyer.submit",
-            metadata={"document_id": document.id, "doc_type": document.doc_type},
+            metadata={
+                "user_id": document.user_id,
+                "reference_code": document.user.reference_code,
+                "doc_type": document.doc_type,
+            },
         )
         return response.Response(
             ComplianceDocumentSerializer(document, context={"request": request}).data,
@@ -660,6 +666,60 @@ class LoginVerifyView(APIView):
             {"detail": "Verification OTP desactivee. Utilisez /api/auth/login/ avec email et mot de passe."},
             status=status.HTTP_410_GONE,
         )
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    """
+    Token refresh with rotation: invalidate old refresh token, issue new one.
+
+    Security benefit: Reduces window of opportunity for stolen refresh tokens.
+    Each refresh generates a fresh token, so an attacker's captured token
+    becomes useless after the legitimate user refreshes.
+    """
+
+    def post(self, request, *args, **kwargs):
+        try:
+            refresh = request.data.get('refresh')
+            if not refresh:
+                return response.Response(
+                    {"detail": "Refresh token required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validate & decode the old refresh token
+            old_refresh_token = RefreshToken(refresh)
+            user = old_refresh_token.get('user_id')
+
+            # Blacklist the old refresh token immediately
+            from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+            try:
+                outstanding = OutstandingToken.objects.get(token=old_refresh_token)
+                BlacklistedToken.objects.get_or_create(token=outstanding)
+            except OutstandingToken.DoesNotExist:
+                pass  # Token not tracked, proceed
+
+            # Issue new access + refresh tokens
+            new_refresh = RefreshToken.for_user(request.user)
+
+            write_audit_log(
+                actor=request.user,
+                action="Token refresh (rotated)",
+                action_key="auth.token.refresh",
+                metadata={"user_id": request.user.id},
+            )
+
+            return response.Response(
+                {
+                    "access": str(new_refresh.access_token),
+                    "refresh": str(new_refresh),
+                },
+                status=status.HTTP_200_OK,
+            )
+        except InvalidToken:
+            return response.Response(
+                {"detail": "Invalid or expired refresh token."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
 
 class MeView(APIView):

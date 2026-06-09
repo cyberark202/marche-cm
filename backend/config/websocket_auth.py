@@ -19,8 +19,14 @@ def _extract_token_from_subprotocols(scope) -> str:
     subprotocols = scope.get("subprotocols") or []
     if not subprotocols:
         return ""
+    # Format A: list of subprotocols, e.g. ["bearer", "<token>"]
     if len(subprotocols) >= 2 and subprotocols[0].strip().lower() == "bearer":
         return subprotocols[1].strip()
+    # Format B: single subprotocol containing comma, e.g. ["bearer, <token>"]
+    if len(subprotocols) == 1 and "," in subprotocols[0]:
+        parts = subprotocols[0].split(",", 1)
+        if parts[0].strip().lower() == "bearer":
+            return parts[1].strip()
     return ""
 
 

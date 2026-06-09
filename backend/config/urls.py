@@ -3,7 +3,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 from config.health import HealthView
@@ -13,6 +12,7 @@ from apps.accounts.views import (
     AuthDisabledView,
     BuyerKycSubmitView,
     ComplianceDocumentViewSet,
+    CustomTokenRefreshView,
     DriverRegisterView,
     FCMTokenView,
     GoogleAuthView,
@@ -129,7 +129,7 @@ urlpatterns = [
     ),
     path(
         "api/auth/refresh/",
-        AuthDisabledView.as_view() if settings.AUTH_LOCKDOWN else TokenRefreshView.as_view(),
+        AuthDisabledView.as_view() if settings.AUTH_LOCKDOWN else CustomTokenRefreshView.as_view(),
         name="token_refresh",
     ),
     path("api/auth/logout/", LogoutView.as_view(), name="auth-logout"),

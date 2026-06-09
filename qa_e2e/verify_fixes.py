@@ -82,12 +82,7 @@ def main():
     check("M-2/M-3 KYC PROOF_ADDRESS+SELFIE -> 201", ok_types, f"(were 400) last status={S(r)}")
 
     # --- C-3: buyer cancellation refunds escrow (was: CANCELLED + funds stuck) ---
-    django_setup()
-    from apps.accounts.models import User
-    from apps.wallets.models import Wallet
-    from apps.wallets.services import WalletAccountingService
-    from apps.logistics.models import Shipment
-    from apps.orders.models import Order
+    import qa
     # active priced product from C-1? Use a fresh active one with proper qty/price.
     with open(f("product1.jpg"), "rb") as fp:
         rp = sup.req("POST", "/api/products/", files={"image": ("o.jpg", fp, "image/jpeg")},
@@ -96,24 +91,63 @@ def main():
                            "min_order_qty": "1", "max_order_qty": "10",
                            "price_for_min_qty": "5000", "price_for_max_qty": "4500"}, note="C-3 setup product")
     order_pid = rp.json().get("id") if S(rp) == 201 else None
-    u = User.objects.get(email__iexact=buy_email); w, _ = Wallet.objects.get_or_create(owner=u)
-    WalletAccountingService.credit_available(wallet=w, amount=Decimal("50000"),
-        reference="verify-seed", idempotency_key=f"verify-seed-{RUN}", created_by=u)
-    # transit agent id 10 (seeded) has active profile
-    r = buy.req("POST", "/api/orders/", json_body={
-        "product": order_pid, "quantity": 1, "preferred_transit_agent": 10, "transport_mode": "SEA"},
-        note="C-3 create order")
-    oid = r.json().get("id") if S(r) == 201 else None
-    sid = Shipment.objects.filter(order_id=oid).values_list("id", flat=True).first() if oid else None
-    w.refresh_from_db(); avail_before = w.available_balance
-    rc = buy.req("POST", f"/api/shipments/{sid}/update_status/", json_body={
-        "status": "CANCELLED", "note": "annulation acheteur"}, note="C-3 buyer cancel") if sid else None
-    w.refresh_from_db(); avail_after = w.available_balance
-    o = Order.objects.get(id=oid) if oid else None
-    refunded = Decimal(avail_after) - Decimal(avail_before)
-    cond = rc is not None and S(rc) == 200 and o.status == "CANCELLED" and refunded == Decimal("8600.00")
-    check("C-3 buyer cancel -> CANCELLED + escrow refunded", cond,
-          f"status={S(rc) if rc else 'NA'} (was 400) order={o.status if o else None} refunded={refunded} (was 0)")
+
+    if qa.is_remote():
+        # Seed wallet remotely
+        qa.remote_exec(f"""
+from decimal import Decimal
+from apps.accounts.models import User
+from apps.wallets.models import Wallet
+from apps.wallets.services import WalletAccountingService
+u = User.objects.get(email__iexact='{buy_email}')
+w, _ = Wallet.objects.get_or_create(owner=u)
+WalletAccountingService.credit_available(wallet=w, amount=Decimal("50000"),
+    reference="verify-seed", idempotency_key="verify-seed-{RUN}", created_by=u)
+""")
+        # Create order
+        r = buy.req("POST", "/api/orders/", json_body={
+            "product": order_pid, "quantity": 1, "preferred_transit_agent": 10, "transport_mode": "SEA"},
+            note="C-3 create order")
+        oid = r.json().get("id") if S(r) == 201 else None
+        
+        sid_val = qa.remote_eval(f"from apps.logistics.models import Shipment; s = Shipment.objects.filter(order_id={oid}).first(); val = s.id if s else None" if oid else "val=None", "val")
+        sid = int(sid_val) if sid_val and sid_val != "None" else None
+        
+        avail_before = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; u = User.objects.get(email__iexact='{buy_email}'); w = Wallet.objects.get(owner=u); val = w.available_balance", "val")
+        rc = buy.req("POST", f"/api/shipments/{sid}/update_status/", json_body={
+            "status": "CANCELLED", "note": "annulation acheteur"}, note="C-3 buyer cancel") if sid else None
+        avail_after = qa.remote_eval(f"from apps.accounts.models import User; from apps.wallets.models import Wallet; u = User.objects.get(email__iexact='{buy_email}'); w = Wallet.objects.get(owner=u); val = w.available_balance", "val")
+        
+        o_status = qa.remote_eval(f"from apps.orders.models import Order; o = Order.objects.get(id={oid}); val = o.status" if oid else "val=None", "val")
+        refunded = Decimal(avail_after) - Decimal(avail_before)
+        cond = rc is not None and S(rc) == 200 and o_status == "CANCELLED" and refunded == Decimal("8600.00")
+        check("C-3 buyer cancel -> CANCELLED + escrow refunded", cond,
+              f"status={S(rc) if rc else 'NA'} (was 400) order={o_status} refunded={refunded} (was 0)")
+    else:
+        django_setup()
+        from apps.accounts.models import User
+        from apps.wallets.models import Wallet
+        from apps.wallets.services import WalletAccountingService
+        from apps.logistics.models import Shipment
+        from apps.orders.models import Order
+        u = User.objects.get(email__iexact=buy_email); w, _ = Wallet.objects.get_or_create(owner=u)
+        WalletAccountingService.credit_available(wallet=w, amount=Decimal("50000"),
+            reference="verify-seed", idempotency_key=f"verify-seed-{RUN}", created_by=u)
+        # transit agent id 10 (seeded) has active profile
+        r = buy.req("POST", "/api/orders/", json_body={
+            "product": order_pid, "quantity": 1, "preferred_transit_agent": 10, "transport_mode": "SEA"},
+            note="C-3 create order")
+        oid = r.json().get("id") if S(r) == 201 else None
+        sid = Shipment.objects.filter(order_id=oid).values_list("id", flat=True).first() if oid else None
+        w.refresh_from_db(); avail_before = w.available_balance
+        rc = buy.req("POST", f"/api/shipments/{sid}/update_status/", json_body={
+            "status": "CANCELLED", "note": "annulation acheteur"}, note="C-3 buyer cancel") if sid else None
+        w.refresh_from_db(); avail_after = w.available_balance
+        o = Order.objects.get(id=oid) if oid else None
+        refunded = Decimal(avail_after) - Decimal(avail_before)
+        cond = rc is not None and S(rc) == 200 and o.status == "CANCELLED" and refunded == Decimal("8600.00")
+        check("C-3 buyer cancel -> CANCELLED + escrow refunded", cond,
+              f"status={S(rc) if rc else 'NA'} (was 400) order={o.status if o else None} refunded={refunded} (was 0)")
 
     print("\n=== SUMMARY ===")
     passed = sum(1 for _, c, _ in results if c)

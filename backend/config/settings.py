@@ -112,6 +112,7 @@ ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
 # Empty by default — the canonical _client_ip helper refuses XFF when REMOTE_ADDR
 # is not in this list, so an attacker connecting directly cannot forge their IP.
 TRUSTED_PROXIES = _env_list("TRUSTED_PROXIES", "")
+TRUST_PRIVATE_PROXIES = _env_bool("TRUST_PRIVATE_PROXIES", False)
 BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://127.0.0.1:8000")
 # Audit ref: [M-003] reject plaintext HTTP for callback URLs in production —
 # NotchPay would otherwise be told to deliver payment receipts and OAuth
@@ -311,9 +312,17 @@ else:
 
 if default_database["ENGINE"] == "django.db.backends.postgresql":
     default_database["CONN_MAX_AGE"] = DB_CONN_MAX_AGE
-    default_database["OPTIONS"] = {
-        "connect_timeout": DB_CONNECT_TIMEOUT,
-    }
+    _db_options = {"connect_timeout": DB_CONNECT_TIMEOUT}
+    # TLS pour les bases managées (AWS RDS, etc.). Piloté par env et désactivé
+    # par défaut pour ne pas casser un Postgres conteneurisé sans SSL. En prod
+    # RDS : DB_SSLMODE=require (ou verify-full + DB_SSLROOTCERT = bundle CA RDS).
+    _db_sslmode = os.getenv("DB_SSLMODE", "").strip()
+    if _db_sslmode:
+        _db_options["sslmode"] = _db_sslmode
+    _db_sslrootcert = os.getenv("DB_SSLROOTCERT", "").strip()
+    if _db_sslrootcert:
+        _db_options["sslrootcert"] = _db_sslrootcert
+    default_database["OPTIONS"] = _db_options
 else:
     default_database["CONN_MAX_AGE"] = 0
 
@@ -333,31 +342,54 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 USE_S3_STORAGE = _env_bool("USE_S3_STORAGE", False)
-DEFAULT_FILE_STORAGE = os.getenv("DEFAULT_FILE_STORAGE", "django.core.files.storage.FileSystemStorage").strip()
 REQUIRE_REMOTE_PROOF_STORAGE = _env_bool("REQUIRE_REMOTE_PROOF_STORAGE", not DEBUG)
+
+# IMPORTANT (Django 5.x) — la configuration du stockage passe désormais par le
+# réglage STORAGES. Les anciens DEFAULT_FILE_STORAGE / STATICFILES_STORAGE ont
+# été RETIRÉS en Django 5.1 : les définir n'a AUCUN effet (le S3 serait
+# silencieusement ignoré). On conserve DEFAULT_FILE_STORAGE comme simple miroir
+# de chaîne car OrderFinanceService valide le backend des preuves dessus.
+_media_backend = os.getenv(
+    "DEFAULT_FILE_STORAGE", "django.core.files.storage.FileSystemStorage"
+).strip()
+
 if USE_S3_STORAGE:
     if "storages" not in INSTALLED_APPS:
         INSTALLED_APPS.append("storages")
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    _media_backend = "config.storages.S3MediaStorage"
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "").strip()
     AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "").strip() or None
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "").strip() or None
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
     AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE", "auto").strip()
+    # s3v4 est requis par la plupart des régions AWS récentes (Paris, etc.).
+    AWS_S3_SIGNATURE_VERSION = os.getenv("AWS_S3_SIGNATURE_VERSION", "s3v4").strip()
     AWS_DEFAULT_ACL = None
-    AWS_QUERYSTRING_AUTH = False
+    # Deux fichiers homonymes uploadés par deux utilisateurs ne doivent pas
+    # s'écraser (preuves de livraison, KYC) — django-storages suffixe alors.
+    AWS_S3_FILE_OVERWRITE = _env_bool("AWS_S3_FILE_OVERWRITE", False)
+    # URLs publiques signées (querystring) ou non. False = URLs publiques
+    # (images produit + CDN). Mettre True pour des médias privés signés.
+    AWS_QUERYSTRING_AUTH = _env_bool("AWS_QUERYSTRING_AUTH", False)
     # Public media URL: use a custom domain (CDN) when available, otherwise
     # derive from the endpoint + bucket (works for Cloudflare R2 public buckets).
     _s3_custom_domain = os.getenv("AWS_S3_CUSTOM_DOMAIN", "").strip()
     if _s3_custom_domain:
+        AWS_S3_CUSTOM_DOMAIN = _s3_custom_domain
         MEDIA_URL = f"https://{_s3_custom_domain}/"
     elif AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
         MEDIA_URL = f"{AWS_S3_ENDPOINT_URL.rstrip('/')}/{AWS_STORAGE_BUCKET_NAME}/"
+
+# Miroir pour le code legacy qui lit settings.DEFAULT_FILE_STORAGE.
+DEFAULT_FILE_STORAGE = _media_backend
+STORAGES = {
+    "default": {"BACKEND": _media_backend},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
@@ -419,6 +451,7 @@ SIMPLE_JWT = {
     # Falls back to HS256 (symmetric) with SECRET_KEY.
     "ALGORITHM": os.getenv("JWT_ALGORITHM", "HS256"),
     "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY", "").strip() or None,
+    "VERIFYING_KEY": os.getenv("JWT_VERIFYING_KEY", "").strip() or None,
     # Additional security claims
     "UPDATE_LAST_LOGIN": True,
     "JTI_CLAIM": "jti",
@@ -426,12 +459,22 @@ SIMPLE_JWT = {
 # If no explicit signing key, SimpleJWT falls back to SECRET_KEY (HS256).
 if not SIMPLE_JWT["SIGNING_KEY"]:
     del SIMPLE_JWT["SIGNING_KEY"]
+if not SIMPLE_JWT["VERIFYING_KEY"]:
+    del SIMPLE_JWT["VERIFYING_KEY"]
 
 MFA_ISSUER_NAME = os.getenv("MFA_ISSUER_NAME", "Marche CM")
 DEVICE_FINGERPRINT_SECRET = os.getenv("DEVICE_FINGERPRINT_SECRET", "").strip()
 SECURITY_HARD_BLOCK_SCANNERS = _env_bool("SECURITY_HARD_BLOCK_SCANNERS", not DEBUG)
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
+# Audit ref: [AUDIT-001] Redis is mandatory in production — LocMemCache
+# makes throttling per-worker, so rate-limits become trivially bypassable
+# in multi-instance deployments (Render auto-scale, Docker replicas, etc.).
+if not DEBUG and not REDIS_URL:
+    raise ImproperlyConfigured(
+        "REDIS_URL is required when DEBUG=False. "
+        "Without distributed Redis, rate-limiting, channels, and caching are unreliable."
+    )
 CHANNEL_REDIS_PREFIX = os.getenv("CHANNEL_REDIS_PREFIX", "marche_cm").strip() or "marche_cm"
 CHANNEL_CAPACITY = _env_int("CHANNEL_CAPACITY", 1500)
 CHANNEL_EXPIRY_SECONDS = _env_int("CHANNEL_EXPIRY_SECONDS", 60)
@@ -474,6 +517,15 @@ else:
     }
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+# Audit ref: [AUDIT-002] Console email backend in production silently discards
+# OTP codes (or worse, leaks them into stdout/logs). Step-up 2FA for financial
+# actions becomes a DoS or a secret leak.
+if not DEBUG and EMAIL_BACKEND.endswith(".console.EmailBackend"):
+    raise ImproperlyConfigured(
+        "EMAIL_BACKEND is set to console in production. "
+        "OTP codes will NOT be delivered to users — configure a real SMTP backend "
+        "(e.g. Amazon SES, Mailgun) via EMAIL_BACKEND/EMAIL_HOST/EMAIL_HOST_USER."
+    )
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@marche-cm.local")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
@@ -804,6 +856,8 @@ WALLET_PIN_MIN_LENGTH = _env_int("WALLET_PIN_MIN_LENGTH", 6)
 WALLET_PIN_VERIFY_MIN_LENGTH = _env_int("WALLET_PIN_VERIFY_MIN_LENGTH", 4)
 WS_ALLOW_TOKEN_QUERY_STRING = _env_bool("WS_ALLOW_TOKEN_QUERY_STRING", False)
 UPLOAD_SCRUB_IMAGE_METADATA = _env_bool("UPLOAD_SCRUB_IMAGE_METADATA", True)
+LOADTEST_BYPASS_TOKEN = os.getenv("LOADTEST_BYPASS_TOKEN", "").strip()
+
 
 # ---------------------------------------------------------------------------
 # drf-spectacular — OpenAPI schema settings

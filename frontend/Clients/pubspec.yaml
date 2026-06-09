@@ -16,6 +16,8 @@ dependencies:
   web_socket_channel: ^3.0.1
   http: ^1.2.2
   video_player: ^2.9.2
+  chewie: ^1.8.5
+  cached_network_image: ^3.4.1
   file_picker: ^8.1.2
   google_sign_in: ^6.2.1
   shared_preferences: ^2.3.2

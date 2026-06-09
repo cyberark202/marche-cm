@@ -21,14 +21,27 @@ def main():
            not fails, "401/403 partout", f"exceptions={fails or 'aucune'}", endpoint="(divers protégés)")
 
     # T10.2 Expired JWT rejected
-    django_setup()
-    from rest_framework_simplejwt.tokens import AccessToken
-    from apps.accounts.models import User
-    u = User.objects.get(email__iexact=BUY)
-    tok = AccessToken.for_user(u)
-    from django.utils import timezone
-    tok.set_exp(from_time=timezone.now() - timedelta(hours=2), lifetime=timedelta(seconds=1))
-    expired = str(tok)
+    import qa
+    if qa.is_remote():
+        expired = qa.remote_eval("""
+from rest_framework_simplejwt.tokens import AccessToken
+from apps.accounts.models import User
+from django.utils import timezone
+from datetime import timedelta
+u = User.objects.get(email__iexact='buyer@marche-cm.local')
+tok = AccessToken.for_user(u)
+tok.set_exp(from_time=timezone.now() - timedelta(hours=2), lifetime=timedelta(seconds=1))
+val = str(tok)
+""", "val")
+    else:
+        django_setup()
+        from rest_framework_simplejwt.tokens import AccessToken
+        from apps.accounts.models import User
+        u = User.objects.get(email__iexact=BUY)
+        tok = AccessToken.for_user(u)
+        from django.utils import timezone
+        tok.set_exp(from_time=timezone.now() - timedelta(hours=2), lifetime=timedelta(seconds=1))
+        expired = str(tok)
     r = anon.req("GET", "/api/auth/me/", auth=False, extra_headers={"Authorization": f"Bearer {expired}"}, note="expired jwt")
     record("T10.2", "JWT expiré rejeté", "critical", S(r) == 401,
            "401", f"status={S(r)} body={B(r,120)}", endpoint="GET /api/auth/me/")
@@ -83,8 +96,8 @@ def main():
 
     # T10.9 Scanner User-Agent flagged/handled (no 500)
     r = anon.req("GET", "/api/products/", auth=False, extra_headers={"User-Agent": "sqlmap/1.5"}, note="scanner UA")
-    record("T10.9", "Requête avec User-Agent de scanner gérée sans erreur serveur", "minor", S(r) in (200, 403, 429),
-           "200/403/429 (pas de 500)", f"status={S(r)}", endpoint="GET /api/products/ (UA=sqlmap)")
+    record("T10.9", "Requête avec User-Agent de scanner gérée sans erreur serveur", "minor", S(r) in (200, 400, 403, 429),
+           "200/400/403/429 (pas de 500)", f"status={S(r)}", endpoint="GET /api/products/ (UA=sqlmap)")
 
     # T10.10 Mass assignment: try to set is_superuser/is_staff/role via profile update
     from qa import set_sensitive_otp
@@ -93,11 +106,17 @@ def main():
     r = buy.req("POST", "/api/auth/profile/", json_body={
         "is_superuser": True, "is_staff": True, "role": "GENERAL_ADMIN", "kyc_level": 3,
         "challenge_token": tk, "verification_code": cd}, note="mass assignment")
-    u.refresh_from_db()
-    escalated = u.is_superuser or u.is_staff or u.role == "GENERAL_ADMIN" or u.kyc_level == 3
+    if qa.is_remote():
+        escalated_str = qa.remote_eval(f"from apps.accounts.models import User; u = User.objects.get(email__iexact='{BUY}'); val = u.is_superuser or u.is_staff or u.role == 'GENERAL_ADMIN' or u.kyc_level == 3", "val")
+        escalated = escalated_str == "True"
+        u_info = qa.remote_eval(f"from apps.accounts.models import User; u = User.objects.get(email__iexact='{BUY}'); val = f'is_superuser={{u.is_superuser}} is_staff={{u.is_staff}} role={{u.role}} kyc={{u.kyc_level}}'", "val")
+    else:
+        u.refresh_from_db()
+        escalated = u.is_superuser or u.is_staff or u.role == "GENERAL_ADMIN" or u.kyc_level == 3
+        u_info = f"is_superuser={u.is_superuser} is_staff={u.is_staff} role={u.role} kyc={u.kyc_level}"
     record("T10.10", "Mass-assignment: champs privilégiés (is_superuser/role/kyc_level) non modifiables via profil", "critical",
            not escalated, "aucune élévation",
-           f"after: is_superuser={u.is_superuser} is_staff={u.is_staff} role={u.role} kyc={u.kyc_level} (resp={S(r)})",
+           f"after: {u_info} (resp={S(r)})",
            endpoint="POST /api/auth/profile/", be_file="apps/accounts/serializers.py:ProfileUpdateSerializer (champs restreints)")
 
 

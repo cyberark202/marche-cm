@@ -72,6 +72,11 @@ class SlidingWindowThrottle(BaseThrottle):
         return self._get_ip(request)
 
     def allow_request(self, request: Request, view: APIView) -> bool:
+        # Check for loadtest bypass token to allow performance testing from trusted tools
+        bypass_token = getattr(settings, "LOADTEST_BYPASS_TOKEN", "")
+        if bypass_token and request.headers.get("x-loadtest-bypass-token") == bypass_token:
+            return True
+
         if self._limit is None:
             return True
 
@@ -96,27 +101,35 @@ class SlidingWindowThrottle(BaseThrottle):
 
     def _sliding_window_hits(self, key: str, now: float, window_start: float) -> int:
         """
-        Increment counter in Redis using a sorted-set pattern.
-        Score = timestamp; prune entries older than window_start.
-        Returns count of requests in the current window.
+        Increment counter in cache/Redis. Uses cache.add to initialize and cache.incr
+        to increment, preserving the original TTL (window duration) and resolving the
+        bug where subsequent requests reset the timeout and blocked clients indefinitely.
         """
         from django.core.cache import caches
         backend = caches["default"]
 
-        # Fall back to simple counter if Redis sorted sets aren't available.
         counter_key = f"{key}:count"
-        expire_key = f"{key}:reset"
 
-        current_count = backend.get(counter_key)
-        if current_count is None:
-            backend.set(counter_key, 1, timeout=self._window_secs)
-            return 1
         try:
-            new_count = int(current_count) + 1
-            backend.set(counter_key, new_count, timeout=self._window_secs)
-            return new_count
-        except (TypeError, ValueError):
-            return 0
+            # Attempt to set the initial count of 1. If this succeeds, the key did
+            # not exist, and its TTL is correctly set to _window_secs.
+            if backend.add(counter_key, 1, timeout=self._window_secs):
+                return 1
+            # If the key already existed, increment the counter. This maintains the
+            # original TTL (does not extend or reset it).
+            return backend.incr(counter_key)
+        except Exception:
+            # Fallback block to ensure the request is not dropped on cache backend error
+            try:
+                current_count = backend.get(counter_key)
+                if current_count is None:
+                    backend.set(counter_key, 1, timeout=self._window_secs)
+                    return 1
+                new_count = int(current_count) + 1
+                backend.set(counter_key, new_count, timeout=self._window_secs)
+                return new_count
+            except Exception:
+                return 0
 
     def wait(self) -> float | None:
         return float(self._window_secs) / self._limit if self._limit else None

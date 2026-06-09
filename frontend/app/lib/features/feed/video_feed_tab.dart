@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
@@ -258,14 +259,17 @@ class _CoverBackground extends StatelessWidget {
         ),
       );
     }
-    return Image.network(
-      imageUrl.startsWith('http')
+    return CachedNetworkImage(
+      imageUrl: imageUrl.startsWith('http')
           ? imageUrl
           : '${AppConfig.apiBaseUrl}$imageUrl',
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
-      errorBuilder: (_, __, ___) => Container(
+      placeholder: (_, __) => const Center(
+        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+      ),
+      errorWidget: (_, __, ___) => Container(
         color: const Color(0xFF0F172A),
         child: const Center(
           child: Icon(Icons.broken_image_outlined,

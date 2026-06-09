@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
+import '../config/app_config.dart';
 import '../security/driver_secure_storage.dart';
 
 class DriverDioClient {
@@ -16,10 +17,7 @@ class DriverDioClient {
     return _dio;
   }
 
-  static const String _baseUrl = String.fromEnvironment(
-    'DRIVER_API_BASE_URL',
-    defaultValue: 'https://marche-cm.onrender.com',
-  );
+  static String get _baseUrl => AppConfig.apiBaseUrl;
 
   static Future<void> initialize() async {
     if (_initialized) return;

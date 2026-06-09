@@ -259,31 +259,35 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                   crossAxisCount: 2,
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
-                  childAspectRatio: 1.6,
+                  childAspectRatio: 1.5,
                   children: [
                     _KpiCard(
                       icon: Icons.inventory_2_outlined,
                       iconColor: AppPalette.primary,
                       value: '$activeProducts',
                       label: 'Produits actifs',
+                      subLabel: 'ce mois',
                     ),
                     _KpiCard(
                       icon: Icons.shopping_bag_outlined,
                       iconColor: AppPalette.secondary,
                       value: '$confirmedOrders',
-                      label: 'Commandes confirmées',
+                      label: 'Commandes',
+                      subLabel: 'ce mois',
                     ),
                     _KpiCard(
                       icon: Icons.request_quote_outlined,
                       iconColor: AppPalette.accent,
                       value: '${payload.offers.length}',
                       label: 'Offres RFQ',
+                      subLabel: 'à traiter',
                     ),
                     _KpiCard(
                       icon: Icons.account_balance_wallet_outlined,
                       iconColor: AppPalette.success,
                       value: '$walletBalance FCFA',
-                      label: 'Wallet solde',
+                      label: 'Solde wallet',
+                      subLabel: 'disponible',
                     ),
                   ],
                 ),
@@ -606,19 +610,21 @@ class _KpiCard extends StatelessWidget {
     required this.iconColor,
     required this.value,
     required this.label,
+    this.subLabel,
   });
   final IconData icon;
   final Color iconColor;
   final String value;
   final String label;
+  final String? subLabel;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadii.md),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppPalette.borderSoft),
         boxShadow: AppPalette.shadowSoft,
       ),
@@ -626,20 +632,25 @@ class _KpiCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(AppRadii.xs),
-            ),
-            child: Icon(icon, color: iconColor, size: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, color: iconColor, size: 16),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               color: AppPalette.text,
               letterSpacing: -0.3,
@@ -647,17 +658,26 @@ class _KpiCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 10.5,
+              fontSize: 11.5,
               color: AppPalette.textMuted,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+          if (subLabel != null)
+            Text(
+              subLabel!,
+              style: const TextStyle(
+                fontSize: 10,
+                color: AppPalette.textFaint,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
         ],
       ),
     );

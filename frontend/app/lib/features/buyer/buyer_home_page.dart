@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/security/secure_dio_client.dart';
@@ -490,11 +491,16 @@ class _ProductCard extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(14)),
               child: imageUrl.isNotEmpty
-                  ? Image.network(imageUrl,
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
                       width: double.infinity,
-                      errorBuilder: (_, __, ___) =>
-                          _imgPlaceholder())
+                      placeholder: (_, __) => const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      errorWidget: (_, __, ___) =>
+                          _imgPlaceholder(),
+                    )
                   : _imgPlaceholder(),
             ),
           ),

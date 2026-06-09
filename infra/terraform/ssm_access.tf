@@ -62,6 +62,18 @@ resource "aws_iam_role_policy" "ec2_app_access" {
         ]
         Resource = aws_s3_bucket.media.arn
       },
+      {
+        Sid    = "CloudWatchLogsAccess"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams",
+          "logs:DescribeLogGroups"
+        ]
+        Resource = "*"
+      },
     ]
   })
 }

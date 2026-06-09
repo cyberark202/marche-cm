@@ -88,17 +88,6 @@ resource "aws_security_group" "launch_wizard_1" {
   # Le durcissement (SSH -> IP admin) est proposé séparément, sur accord.
   ingress = [
     {
-      cidr_blocks      = ["129.0.99.0/24"]
-      description      = "SSH admin (bloc FAI, IP dynamique 129.0.99.x)"
-      from_port        = 22
-      ipv6_cidr_blocks = []
-      prefix_list_ids  = []
-      protocol         = "tcp"
-      security_groups  = []
-      self             = false
-      to_port          = 22
-    },
-    {
       cidr_blocks      = ["0.0.0.0/0"]
       description      = ""
       from_port        = 443
@@ -297,7 +286,7 @@ resource "aws_db_instance" "postgres" {
   identifier            = "marchecm-postgres"
   engine                = "postgres"
   engine_version        = "18.3"
-  instance_class        = "db.r5.large"
+  instance_class        = "db.t3.medium"
   allocated_storage     = 200
   max_allocated_storage = 1000
   storage_type          = "gp3"
@@ -316,7 +305,7 @@ resource "aws_db_instance" "postgres" {
   parameter_group_name = "default.postgres18"
   option_group_name    = "default:postgres-18"
 
-  multi_az            = false
+  multi_az            = true
   publicly_accessible = false
   port                = 5432
   availability_zone   = "eu-north-1a"
@@ -339,6 +328,7 @@ resource "aws_db_instance" "postgres" {
   # DeletionProtection activée (fintech). skip_final_snapshot conservé à true.
   deletion_protection = true
   skip_final_snapshot = true
+  apply_immediately   = true
 }
 
 # ── S3 ───────────────────────────────────────────────────────────────────────

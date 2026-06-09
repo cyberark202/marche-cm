@@ -13,26 +13,26 @@ class AppPalette {
   static const Color primaryLight = Color(0xFF16A34A);
   static const Color primarySoft = Color(0xFFE6F2EC);
 
-  static const Color secondary = Color(0xFF4F46E5);
-  static const Color secondaryDark = Color(0xFF3730A3);
-  static const Color secondaryLight = Color(0xFF818CF8);
-  static const Color secondarySoft = Color(0xFFE0E7FF);
+  static const Color secondary = Color(0xFFE5484D); // Coral Red (#E5484D)
+  static const Color secondaryDark = Color(0xFFDC2626);
+  static const Color secondaryLight = Color(0xFFFEECEC);
+  static const Color secondarySoft = Color(0xFFFEECEC);
 
-  static const Color accent = Color(0xFFF59E0B);
-  static const Color accentDark = Color(0xFFB45309);
-  static const Color accentSoft = Color(0xFFFEF3C7);
+  static const Color accent = Color(0xFFF5B400); // Sunburst Yellow (#F5B400)
+  static const Color accentDark = Color(0xFFC68F00);
+  static const Color accentSoft = Color(0xFFFEF4D6);
 
-  static const Color accentWarm = Color(0xFFEF4444);
+  static const Color accentWarm = Color(0xFFE5484D);
 
   // ── Status ─────────────────────────────────────────────────────────────
   static const Color danger = Color(0xFFDC2626);
-  static const Color dangerSoft = Color(0xFFFEE2E2);
-  static const Color success = Color(0xFF059669);
-  static const Color successSoft = Color(0xFFD1FAE5);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color warningSoft = Color(0xFFFEF3C7);
-  static const Color info = Color(0xFF0284C7);
-  static const Color infoSoft = Color(0xFFE0F2FE);
+  static const Color dangerSoft = Color(0xFFFEECEC);
+  static const Color success = Color(0xFF16A34A);
+  static const Color successSoft = Color(0xFFE6F2EC);
+  static const Color warning = Color(0xFFD97706);
+  static const Color warningSoft = Color(0xFFFEF4D6);
+  static const Color info = Color(0xFF2563EB);
+  static const Color infoSoft = Color(0xFFE0E7FF);
 
   // ── Surfaces ───────────────────────────────────────────────────────────
   static const Color bg = Color(0xFFFAF7F0);
@@ -44,14 +44,14 @@ class AppPalette {
   static const Color borderSoft = Color(0xFFEDE7D6);
 
   // ── Text ───────────────────────────────────────────────────────────────
-  static const Color text = Color(0xFF0F172A);
+  static const Color text = Color(0xFF0E1F18);
   static const Color textMuted = Color(0xFF5C6B64); // design token ink3
   static const Color textFaint = Color(0xFF8F9C96); // design token ink4
 
-  // ── Cameroun (drapeau, conservé pour identité) ─────────────────────────
-  static const Color cmGreen = Color(0xFF007A3D);
-  static const Color cmRed = Color(0xFFCE1126);
-  static const Color cmYellow = Color(0xFFFCD116);
+  // ── Cameroun (drapeau) ─────────────────────────────────────────────────
+  static const Color cmGreen = Color(0xFF0F7A4F);
+  static const Color cmRed = Color(0xFFE5484D);
+  static const Color cmYellow = Color(0xFFF5B400);
 
   // ── Gradients ──────────────────────────────────────────────────────────
   static const LinearGradient gradientPrimary = LinearGradient(
@@ -61,7 +61,7 @@ class AppPalette {
   );
 
   static const LinearGradient gradientAccent = LinearGradient(
-    colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+    colors: [AppPalette.secondary, AppPalette.accent],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

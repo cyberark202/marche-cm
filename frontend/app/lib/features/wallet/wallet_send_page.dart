@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/action_mutex.dart';
 import '../../core/api_service.dart';
@@ -220,8 +221,26 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
       if (!mounted) return;
       final checkoutUrl = (result['checkout_url'] ?? '').toString();
       final txId = (result['transaction_id'] ?? '').toString();
-      if (checkoutUrl.isNotEmpty) {
-        final initiatedAt = DateTime.now();
+      final paymentMode = (result['payment_mode'] ?? '').toString();
+      final status = (result['status'] ?? '').toString().toUpperCase();
+      final initiatedAt = DateTime.now();
+
+      // In-app Direct Charge (mobile money): NotchPay a poussé une demande de
+      // validation USSD sur le téléphone — pas de navigateur externe. On ouvre
+      // directement la feuille de suivi qui sonde le statut.
+      if (paymentMode == 'direct_charge' ||
+          (checkoutUrl.isEmpty && status == 'PENDING')) {
+        final paid = await NotchPayPendingSheet.show(
+          context: context,
+          token: token,
+          provider: _provider,
+          initiatedAt: initiatedAt,
+          transactionId: txId,
+        );
+        if (!mounted) return;
+        if (paid == true) Navigator.of(context).pop(true);
+      } else if (checkoutUrl.isNotEmpty) {
+        // Flux hébergé (carte / PayPal) : redirection navigateur puis suivi.
         await _launchTransferCode(checkoutUrl);
         if (!mounted) return;
         final paid = await NotchPayPendingSheet.show(
@@ -392,12 +411,19 @@ class _ProviderPreview extends StatelessWidget {
                     height: 30,
                     fit: BoxFit.cover,
                   )
-                : Image.network(
-                    logoUrl,
+                : CachedNetworkImage(
+                    imageUrl: logoUrl,
                     width: 30,
                     height: 30,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.credit_card),
+                    placeholder: (_, __) => const Center(
+                      child: SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      ),
+                    ),
+                    errorWidget: (_, __, ___) => const Icon(Icons.credit_card),
                   ),
           )
         else

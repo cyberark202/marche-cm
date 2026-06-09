@@ -12,8 +12,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault("QA_BASE", "http://127.0.0.1:8000")
 from qa import Client
 
-WS = "ws://127.0.0.1:8000"
-ORIGIN = "http://127.0.0.1:8000"
+BASE = os.environ.get("QA_BASE", "http://127.0.0.1:8000")
+if "digital-get" in BASE:
+    WS = "wss://cm.digital-get.com"
+    ORIGIN = "https://cm.digital-get.com"
+else:
+    WS = "ws://127.0.0.1:8000"
+    ORIGIN = "http://127.0.0.1:8000"
 PWD = "ChangeMe123!"
 
 

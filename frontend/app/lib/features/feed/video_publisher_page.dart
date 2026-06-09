@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/api_service.dart';
 import '../auth/session_store.dart';
@@ -62,7 +63,17 @@ class _VideoPublisherPageState extends State<VideoPublisherPage> {
           const SizedBox(height: 18),
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(v.coverUrl, height: 210, fit: BoxFit.cover),
+            child: CachedNetworkImage(
+              imageUrl: v.coverUrl,
+              height: 210,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              errorWidget: (_, __, ___) => const Center(
+                child: Icon(Icons.broken_image_outlined, size: 48),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Text(v.description),

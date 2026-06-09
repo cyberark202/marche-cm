@@ -30,6 +30,10 @@ sleep 20
 "${DC[@]}" restart nginx >/dev/null 2>&1 || true
 sleep 3
 
+echo "== seed users =="
+"${DC[@]}" run --rm web python manage.py seed_default_users
+
+
 echo "== ps =="
 "${DC[@]}" ps --format '{{.Service}}  {{.Status}}'
 echo "== web logs (migrate/daphne) =="

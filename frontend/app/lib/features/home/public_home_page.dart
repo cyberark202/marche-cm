@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/app_i18n.dart';
 import '../../core/ui_state_widgets.dart';
@@ -127,12 +128,19 @@ class _PublicHomePageState extends State<PublicHomePage> {
                       child: ListTile(
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(6),
-                          child: Image.network(
-                            p.imageUrl,
+                          child: CachedNetworkImage(
+                            imageUrl: p.imageUrl,
                             width: 46,
                             height: 46,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, _, __) =>
+                            placeholder: (_, __) => const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                            errorWidget: (context, _, __) =>
                                 const Icon(Icons.image_not_supported_outlined),
                           ),
                         ),

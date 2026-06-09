@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/api_service.dart';
 import '../../core/app_config.dart';
@@ -1126,10 +1127,13 @@ class _ProductCard extends StatelessWidget {
                                     color: AppPalette.textFaint, size: 32),
                               ),
                             )
-                          : Image.network(
-                              imageUrl,
+                          : CachedNetworkImage(
+                              imageUrl: imageUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
+                              placeholder: (_, __) => const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              errorWidget: (_, __, ___) => Container(
                                 color: AppPalette.bgSoft,
                                 child: const Center(
                                   child: Icon(Icons.broken_image_outlined,

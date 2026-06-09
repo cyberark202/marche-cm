@@ -169,7 +169,14 @@ class SecurityHeadersMiddleware:
 # ---------------------------------------------------------------------------
 
 _DEFAULT_MAX_BODY_BYTES = 50 * 1024 * 1024  # 50 MB overall limit
-_UPLOAD_PATH_PREFIXES = ("/api/compliance/", "/api/catalog/", "/api/wallets/")
+_UPLOAD_PATH_PREFIXES = (
+    "/api/compliance/",
+    "/api/products/",
+    "/api/wallets/",
+    "/api/compliance-documents/",
+    "/api/auth/kyc/submit/",
+    "/api/auth/profile/",
+)
 
 
 class RequestSizeLimitMiddleware:
@@ -210,10 +217,28 @@ class RequestSizeLimitMiddleware:
             return None
 
     def _max_bytes(self, request: HttpRequest) -> int:
-        upload_max_mb = getattr(settings, "MAX_UPLOAD_IMAGE_MB", 5)
-        for prefix in _UPLOAD_PATH_PREFIXES:
-            if request.path.startswith(prefix):
-                return upload_max_mb * 1024 * 1024
+        if "/publish-video/" in request.path:
+            return getattr(settings, "MAX_UPLOAD_VIDEO_MB", 200) * 1024 * 1024
+
+        image_limit = getattr(settings, "MAX_UPLOAD_IMAGE_MB", 5) * 1024 * 1024
+        doc_limit = getattr(settings, "MAX_UPLOAD_DOCUMENT_MB", 20) * 1024 * 1024
+
+        # Compliance / KYC
+        if any(p in request.path for p in ("/api/compliance/", "/api/compliance-documents/", "/api/auth/kyc/submit/")):
+            return doc_limit
+
+        # Wallets (payment proofs / receipts)
+        if "/api/wallets/" in request.path:
+            return doc_limit
+
+        # Profile update (avatar)
+        if "/api/auth/profile/" in request.path:
+            return image_limit
+
+        # Product creation / updates (images)
+        if "/api/products/" in request.path:
+            return image_limit
+
         return self._global_max
 
 

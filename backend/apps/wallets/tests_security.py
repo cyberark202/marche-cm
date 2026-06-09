@@ -175,6 +175,7 @@ class H3WebhookAuthNoSecretTests(APITestCase):
     NOTCHPAY_ENABLED=False,
     NOTCHPAY_CHECKOUT_WEBHOOK_SECRET=CHECKOUT_SECRET,
     NOTCHPAY_DISBURSE_WEBHOOK_SECRET=DISBURSE_SECRET,
+    NOTCHPAY_WEBHOOK_TOKEN="",
 )
 class H2DisburseAmountValidationTests(APITestCase):
     def setUp(self):

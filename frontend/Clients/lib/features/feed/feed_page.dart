@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/api_service.dart';
 import '../../core/backend_ui_config_service.dart';
@@ -1324,11 +1325,14 @@ class _MiniProductTile extends StatelessWidget {
                   ClipRRect(
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: Image.network(
-                      item.imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: item.imageUrl,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, _, __) => const ColoredBox(
+                      placeholder: (_, __) => const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      errorWidget: (context, _, __) => const ColoredBox(
                           color: Color(0xFFF1F5F9),
                           child: Center(
                               child: Icon(Icons.image_not_supported_outlined))),
@@ -1460,12 +1464,15 @@ class _OfferSection extends StatelessWidget {
                             ClipRRect(
                               borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(12)),
-                              child: Image.network(
-                                item.imageUrl,
+                              child: CachedNetworkImage(
+                                imageUrl: item.imageUrl,
                                 height: 124,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, _, __) => const SizedBox(
+                                placeholder: (_, __) => const Center(
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                errorWidget: (context, _, __) => const SizedBox(
                                     height: 124,
                                     child: ColoredBox(
                                         color: Color(0xFFF1F5F9),
@@ -1656,7 +1663,17 @@ class _VideosScreenState extends State<_VideosScreen> {
                       VideoPostPlayer(
                           videoUrl: video.videoUrl!, coverUrl: video.coverUrl)
                     else
-                      Image.network(video.coverUrl, fit: BoxFit.cover),
+                      CachedNetworkImage(
+                        imageUrl: video.coverUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        errorWidget: (_, __, ___) => const Center(
+                          child: Icon(Icons.broken_image_outlined,
+                              color: Colors.white38, size: 64),
+                        ),
+                      ),
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(

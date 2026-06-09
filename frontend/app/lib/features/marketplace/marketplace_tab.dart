@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/api_service.dart';
 import '../../core/app_config.dart';
@@ -326,12 +327,15 @@ class _ProductCard extends StatelessWidget {
                       borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(AppRadii.lg)),
                       child: imageUrl.isNotEmpty
-                          ? Image.network(
-                              _fullUrl(imageUrl),
+                          ? CachedNetworkImage(
+                              imageUrl: _fullUrl(imageUrl),
                               width: double.infinity,
                               height: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
+                              placeholder: (_, __) => const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              errorWidget: (_, __, ___) =>
                                   _ImagePlaceholder(),
                             )
                           : _ImagePlaceholder(),
@@ -550,14 +554,17 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
                 if (imageUrl.isNotEmpty)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadii.lg),
-                    child: Image.network(
-                      imageUrl.startsWith('http')
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl.startsWith('http')
                           ? imageUrl
                           : '${AppConfig.apiBaseUrl}$imageUrl',
                       height: 200,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      placeholder: (_, __) => const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
                     ),
                   ),
                 const SizedBox(height: 14),

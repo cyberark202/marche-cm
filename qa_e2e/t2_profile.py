@@ -33,9 +33,13 @@ def main():
     passed = r is not None and r.status_code == 200
     db_name = None
     if passed:
-        django_setup()
-        from apps.accounts.models import User
-        db_name = User.objects.filter(email__iexact=BUYER).values_list("first_name", flat=True).first()
+        import qa
+        if qa.is_remote():
+            db_name = qa.remote_eval(f"from apps.accounts.models import User; val = User.objects.filter(email__iexact='{BUYER}').values_list('first_name', flat=True).first()", "val")
+        else:
+            django_setup()
+            from apps.accounts.models import User
+            db_name = User.objects.filter(email__iexact=BUYER).values_list("first_name", flat=True).first()
     record("T2.2", "Update profil (nom) avec challenge -> persisté en base", "major",
            passed and db_name == new_name,
            f"200 + first_name='{new_name}' en base", f"status={r.status_code if r else 'NA'} db_name={db_name}",
@@ -122,11 +126,15 @@ def main():
     kyc_ok = r is not None and r.status_code in (200, 201)
     db_status = None
     if kyc_ok:
-        django_setup()
-        from apps.accounts.models import ComplianceDocument as CD, User as U2
-        u = U2.objects.filter(email__iexact=BUYER).first()
-        doc = CD.objects.filter(user=u, doc_type="CNI").order_by("-id").first()
-        db_status = doc.status if doc else None
+        import qa
+        if qa.is_remote():
+            db_status = qa.remote_eval(f"from apps.accounts.models import ComplianceDocument as CD, User as U2; u = U2.objects.filter(email__iexact='{BUYER}').first(); doc = CD.objects.filter(user=u, doc_type='CNI').order_by('-id').first(); val = doc.status if doc else None", "val")
+        else:
+            django_setup()
+            from apps.accounts.models import ComplianceDocument as CD, User as U2
+            u = U2.objects.filter(email__iexact=BUYER).first()
+            doc = CD.objects.filter(user=u, doc_type="CNI").order_by("-id").first()
+            db_status = doc.status if doc else None
     record("T2.9", "KYC CNI valide (image+signature+consent) accepté + PENDING en base", "critical",
            kyc_ok and db_status == "PENDING", "201 + document PENDING en base",
            f"status={r.status_code if r else 'NA'} db_status={db_status} body={r.text[:160] if r else ''}",
@@ -166,10 +174,14 @@ def main():
     # Register removed the first_name existence check (H-005), but ProfileUpdateSerializer
     # still rejects a display name already used by ANOTHER user. Try to set buyer's name
     # to the seeded supplier's display name.
-    django_setup()
-    from apps.accounts.models import User as U3
-    other = U3.objects.filter(email__iexact="supplier@marche-cm.local").first()
-    other_name = other.first_name if other else "Compte"
+    import qa
+    if qa.is_remote():
+        other_name = qa.remote_eval("from apps.accounts.models import User as U3; other = U3.objects.filter(email__iexact='supplier@marche-cm.local').first(); val = other.first_name if other else 'Compte'", "val")
+    else:
+        django_setup()
+        from apps.accounts.models import User as U3
+        other = U3.objects.filter(email__iexact="supplier@marche-cm.local").first()
+        other_name = other.first_name if other else "Compte"
     c.req("POST", "/api/auth/sensitive-action/request/", json_body={"action_key": "profile.update"}, note="req profile otp 3")
     tokn, coden = set_sensitive_otp(BUYER, "profile.update")
     r = c.req("POST", "/api/auth/profile/", json_body={

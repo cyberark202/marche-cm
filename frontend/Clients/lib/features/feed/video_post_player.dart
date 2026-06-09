@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/app_config.dart';
 
@@ -19,6 +21,7 @@ class VideoPostPlayer extends StatefulWidget {
 
 class _VideoPostPlayerState extends State<VideoPostPlayer> {
   VideoPlayerController? _controller;
+  ChewieController? _chewieController;
   bool _ready = false;
   bool _failed = false;
   bool _muted = false;
@@ -39,13 +42,23 @@ class _VideoPostPlayerState extends State<VideoPostPlayer> {
       await controller.initialize();
       await controller.setVolume(1);
       await controller.setLooping(true);
-      await controller.play();
+      
+      final chewieController = ChewieController(
+        videoPlayerController: controller,
+        autoPlay: true,
+        looping: true,
+        showControls: false,
+        showOptions: false,
+      );
+
       if (!mounted) {
+        chewieController.dispose();
         controller.dispose();
         return;
       }
       setState(() {
         _controller = controller;
+        _chewieController = chewieController;
         _ready = true;
       });
     } catch (_) {
@@ -63,7 +76,9 @@ class _VideoPostPlayerState extends State<VideoPostPlayer> {
     if (oldWidget.videoUrl == widget.videoUrl) {
       return;
     }
+    _chewieController?.dispose();
     _controller?.dispose();
+    _chewieController = null;
     _controller = null;
     _ready = false;
     _failed = false;
@@ -73,6 +88,7 @@ class _VideoPostPlayerState extends State<VideoPostPlayer> {
 
   @override
   void dispose() {
+    _chewieController?.dispose();
     _controller?.dispose();
     super.dispose();
   }
@@ -109,7 +125,7 @@ class _VideoPostPlayerState extends State<VideoPostPlayer> {
               child: SizedBox(
                 width: controller.value.size.width,
                 height: controller.value.size.height,
-                child: VideoPlayer(controller),
+                child: Chewie(controller: _chewieController!),
               ),
             ),
             Positioned.fill(
@@ -249,10 +265,13 @@ class _VideoPostPlayerState extends State<VideoPostPlayer> {
         ),
       );
     }
-    return Image.network(
-      _normalizedPlayableUrl(cover),
+    return CachedNetworkImage(
+      imageUrl: _normalizedPlayableUrl(cover),
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => const ColoredBox(
+      placeholder: (_, __) => const Center(
+        child: CircularProgressIndicator(strokeWidth: 2.5),
+      ),
+      errorWidget: (_, __, ___) => const ColoredBox(
         color: Color(0xFF0F172A),
         child: Center(
           child: Icon(

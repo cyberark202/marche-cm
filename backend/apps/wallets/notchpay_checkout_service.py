@@ -10,6 +10,10 @@ from django.conf import settings
 class NotchPayCheckoutService:
     CREATE_PATH = "/payments"
     RETRIEVE_PATH = "/payments/{reference}"
+    # Direct Charge — completes a payment in-app (USSD push to the customer's
+    # phone) instead of redirecting to NotchPay's hosted checkout page.
+    # Ref: https://developer.notchpay.co/docs/payments/direct
+    CHARGE_PATH = "/payments/{reference}"
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -196,6 +200,96 @@ class NotchPayCheckoutService:
             "checkout_url": checkout_url,
             "reference": payment_reference,
             "provider_transaction_id": payment_id,
+            "response_code": str(result.get("code") or ""),
+            "response_text": str(result.get("message") or ""),
+            "raw": result,
+        }
+
+    # Maps the wallet-level PaymentProvider to NotchPay's Cameroon mobile-money
+    # direct-charge channel ids. Only mobile money supports the in-app USSD
+    # push; cards/PayPal still require the hosted checkout redirect.
+    _PROVIDER_TO_CHARGE_CHANNEL = {
+        "MOBILE_MONEY": "cm.mtn",
+        "ORANGE_MONEY": "cm.orange",
+    }
+
+    @classmethod
+    def channel_for_provider(cls, provider: str) -> str:
+        return cls._PROVIDER_TO_CHARGE_CHANNEL.get(str(provider or "").strip().upper(), "")
+
+    @classmethod
+    def supports_direct_charge(cls, provider: str) -> bool:
+        return bool(cls.channel_for_provider(provider))
+
+    @classmethod
+    def charge(
+        cls,
+        *,
+        reference: str,
+        channel: str,
+        phone: str,
+        client_ip: str | None = None,
+    ) -> dict:
+        """Trigger an in-app Direct Charge on an already-initialized payment.
+
+        NotchPay sends a USSD/OTP prompt to ``phone``; the user validates it on
+        their handset without leaving the app. Returns ``status='processing'``
+        on success — the final settlement is confirmed by the checkout webhook
+        (or by polling ``confirm_invoice``).
+        """
+        if not settings.NOTCHPAY_ENABLED:
+            return {"mode": "SIMULATED", "reference": reference, "status": "complete"}
+        if not cls.is_enabled():
+            return {"mode": "LIVE", "error": "Configuration NotchPay incomplete."}
+        if not channel:
+            return {"mode": "LIVE", "error": "Canal de paiement direct introuvable."}
+        normalized_phone = str(phone or "").strip()
+        if not normalized_phone:
+            return {"mode": "LIVE", "error": "Numero requis pour le paiement direct."}
+
+        payload: dict = {
+            "channel": channel,
+            "data": {"phone": normalized_phone},
+        }
+        if client_ip:
+            payload["client_ip"] = client_ip
+
+        safe_reference = quote(str(reference or "").strip())
+        result = cls._post_json(
+            f"{cls._base_url()}{cls.CHARGE_PATH.format(reference=safe_reference)}",
+            payload,
+        )
+        if result.get("error"):
+            return {
+                "mode": "LIVE",
+                "reference": reference,
+                "error": result.get("error", "Erreur NotchPay charge."),
+                "raw": result.get("raw", {}),
+                "status_code": result.get("status_code"),
+            }
+        if not cls._is_success_code(result.get("code")):
+            return {
+                "mode": "LIVE",
+                "reference": reference,
+                "error": str(result.get("message") or "Echec du paiement direct."),
+                "raw": result,
+                "status_code": result.get("code"),
+            }
+        transaction = result.get("transaction") if isinstance(result.get("transaction"), dict) else {}
+        charge_status = str(transaction.get("status") or "processing").strip().lower()
+        if charge_status in {"failed", "canceled", "cancelled", "rejected"}:
+            return {
+                "mode": "LIVE",
+                "reference": reference,
+                "error": str(result.get("message") or "Paiement direct refuse."),
+                "status": charge_status,
+                "raw": result,
+            }
+        return {
+            "mode": "LIVE",
+            "reference": str(transaction.get("reference") or reference).strip(),
+            "status": charge_status,
+            "provider_transaction_id": str(transaction.get("id") or "").strip(),
             "response_code": str(result.get("code") or ""),
             "response_text": str(result.get("message") or ""),
             "raw": result,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
@@ -209,10 +210,13 @@ class _CoverBg extends StatelessWidget {
     if (coverUrl.isEmpty) {
       return const ColoredBox(color: Color(0xFF0C1A12));
     }
-    return Image.network(
-      coverUrl,
+    return CachedNetworkImage(
+      imageUrl: coverUrl,
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF0C1A12)),
+      placeholder: (_, __) => const Center(
+        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+      ),
+      errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFF0C1A12)),
     );
   }
 }
