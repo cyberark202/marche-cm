@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 
@@ -72,7 +73,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Envoi impossible : ${e.toString()}")),
+        SnackBar(content: Text(ApiError.friendly(e))),
       );
     } finally {
       if (mounted) setState(() => _busy = false);

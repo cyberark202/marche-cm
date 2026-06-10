@@ -45,7 +45,7 @@ class ApiService {
     String? token,
   }) async {
     final firstToken = token ?? AuthTokenManager.instance.accessToken;
-    final first = await send(firstToken).timeout(_timeout);
+    final first = await _guarded(() => send(firstToken));
     if (first.statusCode != 401) {
       return first;
     }
@@ -53,7 +53,57 @@ class ApiService {
     if (refreshed == null || refreshed.isEmpty || refreshed == firstToken) {
       return first;
     }
-    return send(refreshed).timeout(_timeout);
+    return _guarded(() => send(refreshed));
+  }
+
+  /// Runs a network call and converts any transport-level failure into a
+  /// generic, user-safe exception. Raw [SocketException]/[http.ClientException]
+  /// strings embed the host:port (e.g. "Failed host lookup: 'api.…'") and must
+  /// never reach the UI. Security: masks server address on connection errors.
+  Future<T> _guarded<T>(Future<T> Function() call) async {
+    try {
+      return await call().timeout(_timeout);
+    } on TimeoutException {
+      throw Exception(
+          "La requête a expiré. Vérifiez votre connexion puis réessayez.");
+    } catch (e) {
+      if (_isNetworkError(e)) {
+        throw Exception(
+            "Serveur inaccessible. Vérifiez votre connexion puis réessayez.");
+      }
+      rethrow;
+    }
+  }
+
+  static bool _isNetworkError(Object e) {
+    final s = e.toString().toLowerCase();
+    return s.contains("socketexception") ||
+        s.contains("clientexception") ||
+        s.contains("handshakeexception") ||
+        s.contains("failed host lookup") ||
+        s.contains("connection refused") ||
+        s.contains("connection closed") ||
+        s.contains("network is unreachable") ||
+        s.contains("xmlhttprequest");
+  }
+
+  /// Single choke point for non-2xx responses. Extracts the server's
+  /// already-sanitized `detail` message (the Django exception handler never
+  /// leaks internals) and NEVER echoes the request path, full URL or raw body.
+  /// Security: prevents endpoint/route disclosure via error messages.
+  Never _throwHttpError(int status, String body) {
+    String message = "";
+    try {
+      message = _extractDecodedError(jsonDecode(body));
+    } catch (_) {
+      message = "";
+    }
+    if (message.isEmpty) {
+      message = status >= 500
+          ? "Une erreur serveur est survenue. Veuillez réessayer plus tard."
+          : "La requête n'a pas pu être traitée. Veuillez réessayer.";
+    }
+    throw Exception(message);
   }
 
   Future<List<Map<String, dynamic>>> getList(String path,
@@ -63,8 +113,7 @@ class ApiService {
       token: token,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-          "GET $path failed: ${response.statusCode} ${response.body}");
+      _throwHttpError(response.statusCode, response.body);
     }
     final decoded = jsonDecode(response.body);
     if (decoded is List) {
@@ -85,8 +134,7 @@ class ApiService {
       token: token,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-          "GET $path failed: ${response.statusCode} ${response.body}");
+      _throwHttpError(response.statusCode, response.body);
     }
     final decoded = jsonDecode(response.body);
     if (decoded is Map<String, dynamic>) {
@@ -106,8 +154,7 @@ class ApiService {
       token: token,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-          "POST $path failed: ${response.statusCode} ${response.body}");
+      _throwHttpError(response.statusCode, response.body);
     }
     final decoded = jsonDecode(response.body);
     if (decoded is Map<String, dynamic>) {
@@ -127,8 +174,7 @@ class ApiService {
       token: token,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-          "PATCH $path failed: ${response.statusCode} ${response.body}");
+      _throwHttpError(response.statusCode, response.body);
     }
     final decoded = jsonDecode(response.body);
     if (decoded is Map<String, dynamic>) {
@@ -146,8 +192,7 @@ class ApiService {
       token: token,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-          "DELETE $path failed: ${response.statusCode} ${response.body}");
+      _throwHttpError(response.statusCode, response.body);
     }
   }
 
@@ -226,19 +271,18 @@ class ApiService {
     }
 
     final firstToken = token ?? AuthTokenManager.instance.accessToken;
-    var streamed = await sendWithToken(firstToken).timeout(_timeout);
+    var streamed = await _guarded(() => sendWithToken(firstToken));
     if (streamed.statusCode == 401) {
       final refreshed = await AuthTokenManager.instance.refreshAccessToken();
       if (refreshed != null &&
           refreshed.isNotEmpty &&
           refreshed != firstToken) {
-        streamed = await sendWithToken(refreshed).timeout(_timeout);
+        streamed = await _guarded(() => sendWithToken(refreshed));
       }
     }
     final body = await streamed.stream.bytesToString();
     if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
-      throw Exception(
-          "POST multipart $path failed: ${streamed.statusCode} $body");
+      _throwHttpError(streamed.statusCode, body);
     }
     final decoded = jsonDecode(body);
     if (decoded is Map<String, dynamic>) {
@@ -253,8 +297,7 @@ class ApiService {
       token: token,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-          "GET $path failed: ${response.statusCode} ${response.body}");
+      _throwHttpError(response.statusCode, response.body);
     }
     return response.body;
   }

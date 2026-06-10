@@ -183,11 +183,17 @@ urlpatterns = [
 ]
 
 # ── OpenAPI / Swagger ─────────────────────────────────────────────────────
-urlpatterns += [
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/schema/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-]
+# The schema enumerates the full API surface — it is reconnaissance material
+# for an attacker. Only mount the documentation routes when explicitly enabled
+# (settings.ENABLE_API_DOCS, default = DEBUG). In production they 404 entirely,
+# and even when enabled the schema JSON itself requires authentication
+# (SPECTACULAR_SETTINGS["SERVE_PERMISSIONS"]).
+if settings.ENABLE_API_DOCS:
+    urlpatterns += [
+        path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+        path("api/schema/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+        path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    ]
 
 # ── Prometheus metrics ─────────────────────────────────────────────────────
 # Audit ref: [L-002] use the RBAC enum (GENERAL_ADMIN role) instead of

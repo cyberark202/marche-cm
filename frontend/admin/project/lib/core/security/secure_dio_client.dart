@@ -203,6 +203,37 @@ class _ErrorSanitizerInterceptor extends Interceptor {
     handler.next(response);
   }
 
+  // Transport-level failures never carry an HTTP response (DNS, TLS, timeout,
+  // connection refused). Their toString() / underlying SocketException embed
+  // the server host:port. Replace the exception wholesale so no server address
+  // can surface in the UI or logs.
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    handler.reject(DioException(
+      requestOptions: err.requestOptions,
+      type: err.type,
+      response: null,
+      error: null,
+      stackTrace: null,
+      message: _networkMessage(err.type),
+    ));
+  }
+
+  static String _networkMessage(DioExceptionType type) {
+    switch (type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'La requête a expiré. Vérifiez votre connexion puis réessayez.';
+      case DioExceptionType.badCertificate:
+        return 'Connexion sécurisée impossible. Veuillez réessayer.';
+      case DioExceptionType.cancel:
+        return 'Requête annulée.';
+      default:
+        return 'Serveur momentanément injoignable. Veuillez réessayer.';
+    }
+  }
+
   static Response _sanitizeErrorResponse(Response response) {
     final status = response.statusCode ?? 500;
     final body = response.data;

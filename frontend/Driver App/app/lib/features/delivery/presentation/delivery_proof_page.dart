@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 
@@ -73,7 +74,7 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString().replaceFirst("Exception: ", "");
+          _error = ApiError.friendly(e);
           _busy = false;
         });
       }
@@ -92,7 +93,7 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Envoi impossible : ${e.toString()}")),
+        SnackBar(content: Text(ApiError.friendly(e))),
       );
     }
   }

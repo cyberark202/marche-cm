@@ -127,6 +127,12 @@ DATA_ENCRYPTION_KEY = os.getenv("DATA_ENCRYPTION_KEY", "").strip()
 DATA_ENCRYPTION_FALLBACK_KEYS = _env_list("DATA_ENCRYPTION_FALLBACK_KEYS")
 AUTH_LOCKDOWN = _env_bool("AUTH_LOCKDOWN", False)
 
+# Audit ref: [API-DOCS] The OpenAPI schema + Swagger/Redoc UIs map the entire
+# API surface (every route, payload, auth requirement). For a fintech this is
+# reconnaissance material. Disabled by default in production; only served when
+# explicitly enabled (e.g. a staging environment) or in local DEBUG.
+ENABLE_API_DOCS = _env_bool("ENABLE_API_DOCS", DEBUG)
+
 # Debug authentication bypass — hardened against accidental production activation.
 # Audit ref: [H-001] DebugBypassAuthentication peut créer un superuser
 # Rules:
@@ -870,6 +876,9 @@ SPECTACULAR_SETTINGS = {
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Never expose the raw schema JSON to anonymous clients, even when docs are
+    # enabled: require an authenticated session/token to download it.
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
     "SCHEMA_PATH_PREFIX": r"/api/",
     "COMPONENT_SPLIT_REQUEST": True,
     "ENUM_GENERATE_CHOICE_DESCRIPTION": False,

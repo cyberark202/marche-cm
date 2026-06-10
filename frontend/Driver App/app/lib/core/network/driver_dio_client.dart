@@ -33,7 +33,55 @@ class DriverDioClient {
     ));
 
     _dio.interceptors.add(_AuthInterceptor());
+    // Registered AFTER the auth interceptor: any error the auth layer passes
+    // through (non-401, or 401 with a failed refresh) is sanitized here so the
+    // raw URI / SocketException host never reaches the UI.
+    _dio.interceptors.add(_ErrorSanitizerInterceptor());
     _initialized = true;
+  }
+}
+
+// ── Error Sanitizer — strip endpoint URL / server host from every failure ────
+
+class _ErrorSanitizerInterceptor extends Interceptor {
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    final status = err.response?.statusCode ?? 0;
+    String message;
+
+    if (status == 401) {
+      message = "Session expirée. Veuillez vous reconnecter.";
+    } else if (status >= 400 && status < 500) {
+      // The Django exception handler already returns user-safe `detail`
+      // strings (no stack traces / internals), so they are safe to surface.
+      message = _serverDetail(err.response?.data) ??
+          "La requête n'a pas pu être traitée. Veuillez réessayer.";
+    } else if (status >= 500) {
+      message = "Une erreur serveur est survenue. Veuillez réessayer plus tard.";
+    } else {
+      // Transport-level failure (DNS, TLS, timeout, connection refused) — the
+      // underlying error embeds the server host:port; never surface it.
+      message = "Serveur momentanément injoignable. Veuillez réessayer.";
+    }
+
+    handler.reject(DioException(
+      requestOptions: err.requestOptions,
+      type: err.type,
+      response: null,
+      error: null,
+      stackTrace: null,
+      message: message,
+    ));
+  }
+
+  static String? _serverDetail(dynamic data) {
+    if (data is Map) {
+      final raw = (data["detail"] ?? data["message"] ?? data["error"])
+          ?.toString()
+          .trim();
+      if (raw != null && raw.isNotEmpty) return raw;
+    }
+    return null;
   }
 }
 

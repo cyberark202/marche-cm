@@ -10,6 +10,12 @@ __pycache__/
 .env.*
 *.env
 marche-cm.env
+# Backup copies of env files frequently contain REAL secrets (live payment
+# keys, encryption keys). The .bak suffix escapes the *.env glob, so match it
+# explicitly. Audit ref: marche-cm.local.env.bak leaked NotchPay LIVE + Fernet.
+*.bak
+*.env.bak
+marche-cm.local.env*
 .venv/
 venv/
 *.sqlite3
