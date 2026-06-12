@@ -35,7 +35,7 @@ def configure_tracing() -> None:
         logger.info("otel_tracing_configured", extra={"service": service_name, "endpoint": otlp_endpoint})
 
     except ImportError:
-        logger.info("otel_not_available", extra={"msg": "opentelemetry packages not installed — tracing disabled"})
+        logger.info("otel_not_available", extra={"detail": "opentelemetry packages not installed — tracing disabled"})
 
 
 def get_tracer(name: str = "marche-cm"):

@@ -142,5 +142,9 @@ def acquire_lock(
         else:
             logger.warning(
                 "lock_expired",
-                extra={"key": resource_key, "msg": "Lock expired or held by other before release"},
+                # Audit ref: [INFRA-P0-007] `msg` est un attribut RÉSERVÉ du
+                # LogRecord — le passer dans `extra` lève
+                # KeyError("Attempt to overwrite 'msg'...") et faisait crasher
+                # toute tâche utilisant un lock (escrow auto-release). Renommé.
+                extra={"key": resource_key, "detail": "Lock expired or held by other before release"},
             )
