@@ -118,7 +118,7 @@ services:
       redis-server
       --requirepass ${REDIS_PASSWORD}
       --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy volatile-lru
       --appendonly yes
       --protected-mode yes
       --bind 0.0.0.0
@@ -139,6 +139,13 @@ services:
       # nécessite SETUID/SETGID (sinon "setresuid failed", exit 127).
       - SETUID
       - SETGID
+      # Audit ref: [INFRA-P0-002] l'entrypoint (root) fait `find/chown` sur
+      # /data ; appendonlydir est créé 700 par l'uid redis au premier boot →
+      # sans DAC_OVERRIDE root ne peut plus le traverser et le conteneur
+      # boucle en crash à la PREMIÈRE recréation. CHOWN requis pour la même
+      # étape d'entrypoint.
+      - CHOWN
+      - DAC_OVERRIDE
     security_opt:
       - no-new-privileges:true
     deploy:
@@ -244,6 +251,75 @@ services:
         awslogs-group: "/aws/container/marche-cm"
         awslogs-region: "eu-north-1"
         awslogs-stream: "finops-retries"
+        awslogs-create-group: "true"
+
+  # ── Celery workers + beat ─────────────────────────────────────────────────
+  # Audit ref: [INFRA-P0-001] la prod ne lançait AUCUN worker/beat Celery —
+  # auto-release escrow, outbox temps réel, SLA litiges, réconciliation
+  # wallet↔ledger et push FCM asynchrones n'étaient jamais exécutés.
+  # Routage : celery_app.py → queues default / financial (c=1, série) / outbox.
+  worker-default:
+    <<: *backend-base
+    healthcheck:
+      disable: true
+    command: >
+      celery -A celery_app worker -Q default,outbox -c 2
+      --max-tasks-per-child 200 --loglevel INFO
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-group: "/aws/container/marche-cm"
+        awslogs-region: "eu-north-1"
+        awslogs-stream: "worker-default"
+        awslogs-create-group: "true"
+
+  worker-financial:
+    <<: *backend-base
+    healthcheck:
+      disable: true
+    # c=1 obligatoire : la file financial sérialise les opérations monétaires.
+    command: >
+      celery -A celery_app worker -Q financial -c 1
+      --max-tasks-per-child 100 --loglevel INFO
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 384M
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-group: "/aws/container/marche-cm"
+        awslogs-region: "eu-north-1"
+        awslogs-stream: "worker-financial"
+        awslogs-create-group: "true"
+
+  beat:
+    <<: *backend-base
+    healthcheck:
+      disable: true
+    # --pidfile= : /app est en lecture seule pour appuser ; l'état du
+    # scheduler vit dans PostgreSQL (DatabaseScheduler), pas sur disque.
+    command: >
+      celery -A celery_app beat
+      --scheduler django_celery_beat.schedulers:DatabaseScheduler
+      --pidfile= --loglevel INFO
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-group: "/aws/container/marche-cm"
+        awslogs-region: "eu-north-1"
+        awslogs-stream: "beat"
         awslogs-create-group: "true"
 
 volumes:

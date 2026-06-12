@@ -59,6 +59,12 @@ echo "== 5. Collectstatic =="
 echo "== 6. Etat des conteneurs =="
 "${DC[@]}" ps
 
+echo "== 6b. Reload nginx (upstream web recree -> nouvelle IP) =="
+# Audit ref: [INFRA-P0-006] nginx resout les upstreams au chargement ; un
+# conteneur `web` recree par `up -d` change d'IP -> nginx sert des 502 jusqu'au
+# reload. On recharge sa conf pour reprendre les nouvelles IP sans coupure.
+docker exec backend-nginx-1 nginx -s reload 2>/dev/null || "${DC[@]}" restart nginx || true
+
 echo "== 7. Healthcheck HTTPS =="
 ok=0
 for i in $(seq 1 18); do

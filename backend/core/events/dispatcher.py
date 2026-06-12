@@ -8,7 +8,7 @@ import logging
 from datetime import timedelta
 from typing import Callable, Any
 
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from .models import OutboxEvent, OutboxStatus
@@ -38,17 +38,27 @@ def dispatch_pending(batch_size: int = 100) -> int:
     Called by Celery beat every N seconds.
     """
     now = timezone.now()
-    events = (
-        OutboxEvent.objects
-        .select_for_update(skip_locked=True)
-        .filter(status=OutboxStatus.PENDING, next_retry_at__lte=now)
-        .order_by("created_at")[:batch_size]
-    )
-
     processed = 0
-    for event in events:
-        _dispatch_single(event)
-        processed += 1
+    # Audit ref: [INFRA-P0-003] select_for_update exige une transaction
+    # ouverte — en autocommit (worker Celery) chaque batch levait
+    # TransactionManagementError et AUCUN événement outbox n'était dispatché.
+    # skip_locked garde l'exclusion mutuelle entre workers concurrents ; un
+    # crash en cours de batch rollback les statuts → at-least-once préservé.
+    with transaction.atomic():
+        # Audit ref: [INFRA-P0-005] event_bus.publish ne renseigne jamais
+        # next_retry_at (NULL) ; le filtre `next_retry_at__lte=now` excluait
+        # donc TOUT événement fraîchement publié — seuls les retries (qui
+        # datent le champ) étaient visibles. NULL = "dispatchable maintenant".
+        events = list(
+            OutboxEvent.objects
+            .select_for_update(skip_locked=True)
+            .filter(status=OutboxStatus.PENDING)
+            .filter(models.Q(next_retry_at__isnull=True) | models.Q(next_retry_at__lte=now))
+            .order_by("created_at")[:batch_size]
+        )
+        for event in events:
+            _dispatch_single(event)
+            processed += 1
 
     return processed
 
