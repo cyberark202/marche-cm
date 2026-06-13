@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
 import 'security/secure_dio_client.dart';
+import 'upload_mime.dart';
 
 class ApiService {
   static Dio get _dio => SecureDioClient.dio;
@@ -68,14 +69,16 @@ class ApiService {
 
     if (file != null) {
       final fileName = file.name.isEmpty ? 'upload.bin' : file.name;
+      // Declare a concrete MIME — the backend refuses octet-stream (UP-001).
+      final up = normalizeUpload(fileName);
       MultipartFile multipartFile;
 
       if (!kIsWeb && (file.path ?? '').isNotEmpty) {
-        multipartFile =
-            await MultipartFile.fromFile(file.path!, filename: fileName);
+        multipartFile = await MultipartFile.fromFile(file.path!,
+            filename: up.filename, contentType: up.type);
       } else if (file.bytes != null && file.bytes!.isNotEmpty) {
-        multipartFile =
-            MultipartFile.fromBytes(file.bytes!, filename: fileName);
+        multipartFile = MultipartFile.fromBytes(file.bytes!,
+            filename: up.filename, contentType: up.type);
       } else {
         final stream = file.readStream;
         if (stream == null) {
@@ -86,7 +89,8 @@ class ApiService {
         multipartFile = MultipartFile.fromStream(
           () => stream,
           file.size,
-          filename: fileName,
+          filename: up.filename,
+          contentType: up.type,
         );
       }
       formMap[fileFieldName] = multipartFile;

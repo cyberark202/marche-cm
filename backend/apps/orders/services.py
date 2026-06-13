@@ -179,14 +179,14 @@ class OrderFinanceService:
     def _enforce_supplier_fraud_controls(cls, *, order: Order, actor) -> None:
         shipment = getattr(order, "shipment", None)
         if not shipment or not shipment.transit_agent_id:
-            raise FraudRiskError("Aucun transitaire assigne pour la verification fournisseur.")
+            raise FraudRiskError("Aucun livreur assigne pour la verification fournisseur.")
         if shipment.transit_agent_id in {order.seller_id, order.buyer_id}:
-            raise FraudRiskError("Conflit d'interets detecte: transitaire non independant.")
+            raise FraudRiskError("Conflit d'interets detecte: livreur non independant.")
         if not getattr(order.seller, "is_verified", False) or int(getattr(order.seller, "kyc_level", 0) or 0) < 1:
             raise FraudRiskError("Fournisseur non conforme KYC.")
         trust_score = Decimal(str(getattr(shipment.transit_agent, "trust_score", 0) or 0))
         if not getattr(shipment.transit_agent, "is_verified", False) or trust_score < MIN_TRUST_SCORE:
-            raise FraudRiskError("Transitaire a risque: verification renforcee requise.")
+            raise FraudRiskError("Livreur a risque: verification renforcee requise.")
         if actor and actor.id in {order.seller_id, order.buyer_id}:
             raise FraudRiskError("Validation fournisseur invalide: acteur en conflit.")
 
@@ -197,7 +197,7 @@ class OrderFinanceService:
             if order.order_type != OrderType.INTERNATIONAL:
                 raise ValidationError("Cette action est reservee aux commandes internationales.")
             if not hasattr(order, "shipment") or order.shipment.transit_agent_id != actor.id:
-                raise ValidationError("Confirmation reservee au transitaire assigne.")
+                raise ValidationError("Confirmation reservee au livreur assigne.")
             cls._enforce_supplier_fraud_controls(order=order, actor=actor)
 
             verification, _ = LogisticsVerification.objects.select_for_update().get_or_create(order=order)
@@ -222,7 +222,7 @@ class OrderFinanceService:
             order.save(update_fields=["status", "updated_at"])
             write_audit_log(
                 actor=actor,
-                action="Confirmation fournisseur par transitaire",
+                action="Confirmation fournisseur par livreur",
                 action_key="orders.supplier.confirm",
                 metadata={"order_id": order.id},
             )
@@ -235,7 +235,7 @@ class OrderFinanceService:
             if order.order_type != OrderType.INTERNATIONAL:
                 raise ValidationError("Cette action est reservee aux commandes internationales.")
             if not hasattr(order, "shipment") or order.shipment.transit_agent_id != actor.id:
-                raise ValidationError("Upload reserve au transitaire assigne.")
+                raise ValidationError("Upload reserve au livreur assigne.")
             cls._enforce_supplier_fraud_controls(order=order, actor=actor)
             cls._ensure_secure_proof_storage()
             validate_uploaded_file(
@@ -804,7 +804,7 @@ class OrderFinanceService:
             if buyer_wallet.locked_balance < amount:
                 raise InsufficientFundsError("Solde bloque acheteur insuffisant pour liberation logistique.")
             if not order.preferred_transit_agent_id:
-                raise ValidationError("Aucun transitaire beneficiaire configure.")
+                raise ValidationError("Aucun livreur beneficiaire configure.")
             transit_wallet = WalletAccountingService.get_wallet_for_update(user=order.preferred_transit_agent)
 
             WalletAccountingService.mutate_wallet(
@@ -938,7 +938,7 @@ class OrderFinanceService:
             getattr(actor, "is_superuser", False)
             or getattr(actor, "role", None) in {UserRole.GENERAL_ADMIN, UserRole.TRANSIT_AGENT}
         ):
-            raise ValidationError("Action de remboursement reservee a l'administration ou au transitaire.")
+            raise ValidationError("Action de remboursement reservee a l'administration ou au livreur.")
         with transaction.atomic():
             order, refund_amount = cls._apply_locked_refund(order=order, actor=actor, reason=reason)
             if order.escrow_status == EscrowStatus.REFUNDED:

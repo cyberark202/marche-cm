@@ -276,7 +276,7 @@ class _InnovationHubPageState extends State<InnovationHubPage> {
               "Aucun module actionnable pour ce role.",
               const [
                 Text(
-                  "Connectez-vous avec un compte acheteur, vendeur, transitaire ou admin pour acceder aux actions avancees.",
+                  "Connectez-vous avec un compte acheteur, vendeur, livreur ou admin pour acceder aux actions avancees.",
                 ),
               ],
             ),
@@ -324,7 +324,7 @@ class _InnovationHubPageState extends State<InnovationHubPage> {
   Widget _buildEscrow() {
     return _section(
       "1) Escrow multi-parties",
-      "Preview de repartition vendeur/transitaire/plateforme",
+      "Preview de repartition vendeur/livreur/plateforme",
       [
         TextField(
             controller: _orderId,

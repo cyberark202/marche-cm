@@ -199,7 +199,7 @@ class _HeroHeader extends StatelessWidget {
       case UserRole.wholesaler:
         return 'Grossiste';
       case UserRole.transitAgent:
-        return 'Transitaire';
+        return 'Livreur';
       case UserRole.generalAdmin:
         return 'Administrateur';
       default:

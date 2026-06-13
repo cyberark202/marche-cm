@@ -60,7 +60,7 @@ class Command(BaseCommand):
                 "username": "transit_demo",
                 "email": "transit@marche-cm.local",
                 "first_name": "Compte",
-                "last_name": "Transitaire",
+                "last_name": "Livreur",
                 "role": UserRole.TRANSIT_AGENT,
                 "is_staff": False,
                 "is_superuser": False,

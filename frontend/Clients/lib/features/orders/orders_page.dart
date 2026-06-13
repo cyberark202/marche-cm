@@ -158,7 +158,7 @@ class _OrdersPageState extends State<OrdersPage> {
     final send = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Noter le transitaire"),
+        title: const Text("Noter le livreur"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -573,7 +573,7 @@ class _OrdersPageState extends State<OrdersPage> {
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => _rateTransitAgent(shipmentId),
-              child: const Text("Noter le transitaire"),
+              child: const Text("Noter le livreur"),
             ),
           ],
           if (statusUpper == "COMPLETED" &&

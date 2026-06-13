@@ -4,11 +4,35 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_service.dart';
+import '../../core/app_config.dart';
 import '../../core/app_theme.dart';
 import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
+
+bool _isImageName(String name) {
+  final n = name.toLowerCase().split('?').first;
+  return n.endsWith('.png') ||
+      n.endsWith('.jpg') ||
+      n.endsWith('.jpeg') ||
+      n.endsWith('.webp') ||
+      n.endsWith('.gif');
+}
+
+String _absoluteChatUrl(String url) {
+  if (url.isEmpty) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  final base = AppConfig.apiBaseUrl;
+  return url.startsWith('/') ? '$base$url' : '$base/$url';
+}
+
+Future<void> _openChatUrl(String url) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return;
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
 
 class ChatHubPage extends StatefulWidget {
   const ChatHubPage({super.key, this.initialRoomId});
@@ -193,7 +217,8 @@ class _ChatHubPageState extends State<ChatHubPage> {
         fields: {
           'room': _selectedRoomId.toString(),
           'content': _messageController.text.trim(),
-          'type': 'DOCUMENT',
+          // Tag images as IMAGE so the bubble renders them inline (not a link).
+          'type': _isImageName(selected.name) ? 'IMAGE' : 'DOCUMENT',
         },
         file: selected,
         token: token,
@@ -462,6 +487,89 @@ class _MessageBubble extends StatelessWidget {
   final Map<String, dynamic> message;
   final bool isMine;
 
+  /// Renders the message body: inline image for image attachments, a tappable
+  /// file chip for other attachments, plain text otherwise. The raw file link
+  /// is never shown as bare text.
+  Widget _buildBody(String type, String content) {
+    final fileRaw = (message['file'] ?? '').toString();
+    const textStyle = TextStyle(
+        fontSize: 14.5, color: AppPalette.text, height: 1.35);
+
+    if (fileRaw.isNotEmpty) {
+      final url = _absoluteChatUrl(fileRaw);
+      final isImage = type == 'IMAGE' || _isImageName(fileRaw);
+      if (isImage) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: GestureDetector(
+                onTap: () => _openChatUrl(url),
+                child: Image.network(
+                  url,
+                  width: 220,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (c, child, p) => p == null
+                      ? child
+                      : const SizedBox(
+                          width: 220,
+                          height: 150,
+                          child: Center(
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
+                        ),
+                  errorBuilder: (c, e, s) =>
+                      _chip(url, 'Image indisponible'),
+                ),
+              ),
+            ),
+            if (content.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(content, style: textStyle),
+            ],
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _chip(url, 'Pièce jointe'),
+          if (content.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(content, style: textStyle),
+          ],
+        ],
+      );
+    }
+    return Text(content, style: textStyle);
+  }
+
+  Widget _chip(String url, String label) {
+    return InkWell(
+      onTap: () => _openChatUrl(url),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.attach_file_rounded,
+              size: 16, color: AppPalette.textMuted),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                  color: AppPalette.textMuted,
+                  fontSize: 13,
+                  decoration: TextDecoration.underline),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final content = (message['content'] ?? '').toString();
@@ -503,27 +611,7 @@ class _MessageBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (type == 'DOCUMENT')
-                    const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.attach_file_rounded,
-                            size: 16, color: AppPalette.textMuted),
-                        SizedBox(width: 4),
-                        Text('Pièce jointe',
-                            style: TextStyle(
-                                color: AppPalette.textMuted, fontSize: 13)),
-                      ],
-                    )
-                  else
-                    Text(
-                      content,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        color: AppPalette.text,
-                        height: 1.35,
-                      ),
-                    ),
+                  _buildBody(type, content),
                   const SizedBox(height: 3),
                   Row(
                     mainAxisSize: MainAxisSize.min,

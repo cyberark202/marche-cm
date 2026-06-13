@@ -17,7 +17,6 @@ class WalletPage extends StatefulWidget {
 
 class _WalletPageState extends State<WalletPage> {
   final ApiService _api = ApiService();
-  final _pinController = TextEditingController();
   bool _loading = true;
   String? _error;
   bool _balanceVisible = true;
@@ -53,7 +52,6 @@ class _WalletPageState extends State<WalletPage> {
 
   @override
   void dispose() {
-    _pinController.dispose();
     super.dispose();
   }
 
@@ -182,23 +180,6 @@ class _WalletPageState extends State<WalletPage> {
               style: const TextStyle(color: Colors.white60, fontSize: 12),
             ),
           ],
-          const SizedBox(height: 8),
-          // Badge PIN actif
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5B400),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              "PIN actif",
-              style: TextStyle(
-                color: Colors.black87,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -252,19 +233,6 @@ class _WalletPageState extends State<WalletPage> {
                       style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.qr_code, color: Colors.white, size: 20),
-                  onPressed: _setWalletPin,
                 ),
               ),
             ],
@@ -508,48 +476,6 @@ class _WalletPageState extends State<WalletPage> {
         ],
       ),
     );
-  }
-
-  Future<void> _setWalletPin() async {
-    _pinController.clear();
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Configurer PIN wallet"),
-        content: TextField(
-          controller: _pinController,
-          keyboardType: TextInputType.number,
-          maxLength: 4,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: "PIN (4 chiffres)"),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text("Annuler")),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text("Enregistrer")),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted) return;
-    final pin = _pinController.text.trim();
-    final token = context.read<SessionStore>().token;
-    try {
-      await _api.post("/api/auth/wallet-pin/", {"pin": pin}, token: token);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("PIN wallet configuré.")),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(_api.toUserMessage(e,
-                fallback: "Impossible de configurer le PIN."))),
-      );
-    }
   }
 
 }

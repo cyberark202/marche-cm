@@ -557,7 +557,7 @@ class _ActionStepper extends StatelessWidget {
             : null,
       ),
       _Step(
-        title: "Demander un devis transitaire",
+        title: "Demander un devis livreur",
         subtitle: "Express Logistics répond en ~2 h",
         icon: Icons.local_shipping_outlined,
         action: statusUpper == "CONFIRMED" &&
@@ -572,8 +572,8 @@ class _ActionStepper extends StatelessWidget {
         icon: Icons.inventory_outlined,
       ),
       const _Step(
-        title: "Remettre au transitaire",
-        subtitle: "Scanner le QR du transitaire à l'enlèvement",
+        title: "Remettre au livreur",
+        subtitle: "Scanner le QR du livreur à l'enlèvement",
         icon: Icons.qr_code_scanner,
       ),
       const _Step(

@@ -329,7 +329,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
     final session = context.watch<SessionStore>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Espace Transitaire'),
+        title: const Text('Espace Livreur'),
         actions: [
           IconButton(
             onPressed: () => Navigator.of(context).push(

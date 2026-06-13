@@ -75,13 +75,40 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String countryCode,
     String? vehicleType,
   }) async {
-    await DriverAuthApi.register(
+    final payload = await DriverAuthApi.register(
       name: name,
       phoneNumber: phone,
       email: email,
       password: password,
       countryCode: countryCode,
       vehicleType: vehicleType,
+    );
+
+    // Auto-login: the backend forces the role to TRANSIT_AGENT and issues
+    // tokens, so a freshly registered driver lands straight on the KYC
+    // onboarding (router redirects to /onboarding because isOnboarded == false).
+    final access = (payload['access'] ?? '').toString();
+    final refresh = (payload['refresh'] ?? '').toString();
+    if (access.isEmpty) return; // fallback: caller navigates to /login
+
+    final user = payload['user'] is Map<String, dynamic>
+        ? payload['user'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    await DriverSecureStorage.saveTokens(
+        access: access, refresh: refresh.isNotEmpty ? refresh : '');
+    final userId = user['id'] is int ? user['id'] as int : null;
+    final username = (user['username'] ?? user['name'] ?? '').toString();
+    if (userId != null) {
+      await DriverSecureStorage.saveProfile(userId: userId, username: username);
+    }
+
+    final onboarded = await DriverSecureStorage.isOnboarded();
+    state = state.copyWith(
+      isAuthenticated: true,
+      isOnboarded: onboarded,
+      userId: userId,
+      username: username.isNotEmpty ? username : null,
+      isLoading: false,
     );
   }
 

@@ -7,6 +7,7 @@ import '../features/auth/domain/auth_state.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/onboarding_page.dart';
 import '../features/auth/presentation/register_page.dart';
+import '../features/auth/presentation/reset_password_page.dart';
 import '../features/delivery/presentation/active_delivery_page.dart';
 import '../features/delivery/presentation/delivery_proof_page.dart';
 import '../features/delivery/presentation/otp_validation_page.dart';
@@ -38,7 +39,9 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
       final isOnboarded = auth.isOnboarded;
       final loc = state.uri.path;
 
-      final isAuthRoute = loc.startsWith('/login') || loc.startsWith('/register');
+      final isAuthRoute = loc.startsWith('/login') ||
+          loc.startsWith('/register') ||
+          loc.startsWith('/reset');
 
       if (!isAuth && !isAuthRoute) return '/login';
       if (isAuth && !isOnboarded && loc != '/onboarding') return '/onboarding';
@@ -56,6 +59,11 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
         path: '/register',
         pageBuilder: (_, state) =>
             MaterialPage(key: state.pageKey, child: const RegisterPage()),
+      ),
+      GoRoute(
+        path: '/reset',
+        pageBuilder: (_, state) =>
+            MaterialPage(key: state.pageKey, child: const ResetPasswordPage()),
       ),
       GoRoute(
         path: '/onboarding',

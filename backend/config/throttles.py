@@ -274,6 +274,16 @@ class FileUploadThrottle(SlidingWindowThrottle):
         return self._get_ip(request)
 
 
+class PasswordResetThrottle(SlidingWindowThrottle):
+    """5 password-reset operations/hour per IP — anti email-bombing & anti
+    code brute-force (paired with the per-challenge attempt cap)."""
+    scope = "password_reset"
+    rate = "5/hour"
+
+    def get_ident(self, request: Request) -> str:
+        return self._get_ip(request)
+
+
 class WebhookThrottle(SlidingWindowThrottle):
     """200 webhook calls/minute per IP — generous but bounded."""
     scope = "webhook"

@@ -10,6 +10,7 @@ import '../../core/app_logo.dart';
 import '../../core/app_theme.dart';
 import '../../core/backend_ui_config_service.dart';
 import 'auth_api_service.dart';
+import 'password_reset_page.dart';
 import 'session_store.dart';
 
 class AuthPage extends StatefulWidget {
@@ -157,7 +158,7 @@ class _AuthPageState extends State<AuthPage> {
     }
     setState(() => _busy = true);
     try {
-      await _authApi.register(
+      final payload = await _authApi.register(
         name: _regName.text.trim(),
         phoneNumber: _regPhone.text.trim(),
         email: _regEmail.text.trim(),
@@ -166,9 +167,33 @@ class _AuthPageState extends State<AuthPage> {
         city: _regCity.text.trim(),
       );
       if (!mounted) return;
+      final access = (payload["access"] ?? "").toString();
+      final refresh = (payload["refresh"] ?? "").toString();
+      final user = payload["user"] is Map<String, dynamic>
+          ? payload["user"] as Map<String, dynamic>
+          : <String, dynamic>{};
+      if (access.isEmpty) {
+        // Defensive fallback (backend without token issuance): send to login.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("Inscription reussie. Vous pouvez vous connecter.")),
+        );
+        setState(() => _showLogin = true);
+        return;
+      }
+      // Auto-login: open the session straight away (no second login step).
+      final session = context.read<SessionStore>();
+      session.setSession(
+        accessToken: access,
+        refreshTokenValue: refresh.isEmpty ? null : refresh,
+        userRole: session.roleFromBackend((user["role"] ?? "BUYER").toString()),
+        currentUserId: user["id"] is int ? user["id"] as int : null,
+        currentUsername: user["username"]?.toString(),
+      );
+      unawaited(_resolveLocationWithoutGps(accessToken: access, user: user));
+      Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text("Inscription reussie. Vous pouvez vous connecter.")),
+        const SnackBar(content: Text("Bienvenue ! Votre compte a ete cree.")),
       );
     } catch (e) {
       if (!mounted) return;
@@ -502,7 +527,12 @@ class _AuthPageState extends State<AuthPage> {
             const Text("Se souvenir", style: TextStyle(fontSize: 13)),
             const Spacer(),
             TextButton(
-              onPressed: () {},
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      PasswordResetPage(initialEmail: _loginEmail.text.trim()),
+                ),
+              ),
               style: TextButton.styleFrom(
                 foregroundColor: AppPalette.primary,
                 textStyle: const TextStyle(fontSize: 13),

@@ -139,7 +139,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
             ListTile(
               leading: const Icon(Icons.gavel_outlined),
               title: const Text('Litiges'),
-              subtitle: const Text('Contre acheteur ou transitaire'),
+              subtitle: const Text('Contre acheteur ou livreur'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.of(context).push(

@@ -90,9 +90,9 @@ class OrderSerializer(serializers.ModelSerializer):
         if join_grouping and not product.allows_group_campaign:
             raise serializers.ValidationError("Ce produit n'accepte pas le regroupage.")
         if preferred_transit_agent and preferred_transit_agent.role != UserRole.TRANSIT_AGENT:
-            raise serializers.ValidationError("Le transitaire choisi est invalide.")
+            raise serializers.ValidationError("Le livreur choisi est invalide.")
         if not preferred_transit_agent:
-            raise serializers.ValidationError("Selectionnez un transitaire pour cette commande.")
+            raise serializers.ValidationError("Selectionnez un livreur pour cette commande.")
         if transport_mode not in {TransportMode.AIR, TransportMode.SEA}:
             raise serializers.ValidationError("Selectionnez un mode de transport valide (avion ou bateau).")
         if product.weight_kg is None or Decimal(product.weight_kg) <= 0:
@@ -100,7 +100,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
         transit_profile = TransportProfile.objects.filter(user=preferred_transit_agent, is_active=True).first()
         if not transit_profile:
-            raise serializers.ValidationError("Le transitaire choisi n'a pas de configuration tarifaire active.")
+            raise serializers.ValidationError("Le livreur choisi n'a pas de configuration tarifaire active.")
 
         if quantity < product.min_order_qty or quantity > product.max_order_qty:
             raise serializers.ValidationError("Quantite hors plage min/max.")

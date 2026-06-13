@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
 
-/// Discussion — devis transitaire (PDF 12).
+/// Discussion — devis livreur (PDF 12).
 ///
 /// Page autonome qui rend le design du catalogue : bulles texte
-/// (envoyée / reçue), événements système, carte devis transitaire avec actions
+/// (envoyée / reçue), événements système, carte devis livreur avec actions
 /// Accepter / Décliner. Les flux WebSocket réels passent par [ChatHubPage] ;
 /// ce widget supporte une utilisation autonome via la liste [messages].
 class ChatPage extends StatefulWidget {

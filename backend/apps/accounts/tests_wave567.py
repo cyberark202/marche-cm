@@ -340,23 +340,17 @@ class NominatimSSRFGuardTests(TestCase):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Wave 7 — PIN ≥ 6 digits + reject trivial
+# Wave 7 — wallet PIN removed (product decision): endpoint now retired (410)
 # ─────────────────────────────────────────────────────────────────────────────
 
-class WalletPinSixDigitsTests(TestCase):
+class WalletPinRetiredTests(TestCase):
     def setUp(self):
         self.user = _make_user("pin_user")
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
-    def test_four_digit_pin_rejected(self):
-        resp = self.client.post("/api/auth/wallet-pin/", {"pin": "1234"}, format="json")
-        self.assertEqual(resp.status_code, 400)
-
-    def test_trivial_six_digit_pin_rejected(self):
-        resp = self.client.post("/api/auth/wallet-pin/", {"pin": "000000"}, format="json")
-        self.assertEqual(resp.status_code, 400)
-
-    def test_six_digit_pin_accepted(self):
+    def test_wallet_pin_endpoint_is_gone(self):
+        # The PIN was removed; money-out is protected by the emailed OTP. The
+        # endpoint is kept only so older app builds don't crash on a 404.
         resp = self.client.post("/api/auth/wallet-pin/", {"pin": "284931"}, format="json")
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 410)

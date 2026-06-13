@@ -1,3 +1,7 @@
+import java.io.FileInputStream
+import java.util.Properties
+import org.gradle.api.GradleException
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -5,6 +9,14 @@ plugins {
     // END: FlutterFire Configuration
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { stream ->
+        keystoreProperties.load(stream)
+    }
 }
 
 android {
@@ -29,6 +41,18 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            if (!storeFilePath.isNullOrBlank()) {
+                storeFile = rootProject.file(storeFilePath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -37,7 +61,22 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+
+            val hasReleaseSigning =
+                keystorePropertiesFile.exists() &&
+                    !keystoreProperties.getProperty("storeFile").isNullOrBlank() &&
+                    !keystoreProperties.getProperty("storePassword").isNullOrBlank() &&
+                    !keystoreProperties.getProperty("keyAlias").isNullOrBlank() &&
+                    !keystoreProperties.getProperty("keyPassword").isNullOrBlank()
+
+            signingConfig =
+                if (hasReleaseSigning) {
+                    signingConfigs.getByName("release")
+                } else {
+                    throw GradleException(
+                        "Missing Android release signing config. Create android/key.properties and upload-keystore.jks.",
+                    )
+                }
         }
     }
 }

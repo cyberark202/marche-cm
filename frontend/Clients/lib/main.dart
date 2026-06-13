@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import 'core/app_config.dart';
 import 'core/app_i18n.dart';
 import 'core/app_theme.dart';
 import 'core/auth_token_manager.dart';
+import 'core/push_notification_service.dart';
+import 'firebase_options.dart';
 import 'core/realtime_events_service.dart';
 import 'features/auth/auth_page.dart';
 import 'features/auth/session_store.dart';
@@ -17,7 +20,9 @@ import 'features/shell/client_shell.dart';
 import 'features/home/public_home_page.dart';
 import 'features/splash/cm_splash_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   final sessionStore = SessionStore();
   AuthTokenManager.instance.configure(
     getAccessToken: () => sessionStore.token,
@@ -35,6 +40,22 @@ void main() {
       ),
     ),
   );
+  // Restore a persisted session (secure storage) so a returning user is not
+  // forced to log in again after closing the app. Must run after the token
+  // manager is configured (silent refresh of an expired access token).
+  await sessionStore.restoreFromStorage();
+
+  // Firebase (push notifications). Guarded so a failed init — e.g. an
+  // unreachable Firebase CDN on web — never blanks the app.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    await PushNotificationService.initialize();
+  } catch (e) {
+    debugPrint('[Firebase] init skipped: $e');
+  }
+
   runApp(
     MultiProvider(
       providers: [
@@ -309,7 +330,7 @@ class _ProAccountBlockedPage extends StatelessWidget {
                 const SizedBox(height: 12),
                 const Text(
                   "Cette application est réservée aux acheteurs.\n"
-                  "Pour accéder à votre espace professionnel (vendeur, grossiste, fournisseur, transitaire ou admin), "
+                  "Pour accéder à votre espace professionnel (vendeur, grossiste, fournisseur, livreur ou admin), "
                   "veuillez utiliser l'application Marche CM Pro.",
                   textAlign: TextAlign.center,
                 ),

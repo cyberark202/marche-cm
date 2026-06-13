@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 abstract final class AppConfig {
-  static const String _prodBaseUrl = 'https://marche-cm.onrender.com';
+  static const String _prodBaseUrl = 'https://cm.digital-get.com';
   static const String _devBaseUrl = 'http://10.0.2.2:8000';
 
   // Build-time overrides (used for local web testing):
@@ -18,7 +18,7 @@ abstract final class AppConfig {
 
   static String get wsBaseUrl => _wsBaseUrlFromEnv.isNotEmpty
       ? _wsBaseUrlFromEnv
-      : (kDebugMode ? 'ws://10.0.2.2:8000' : 'wss://marche-cm.onrender.com');
+      : (kDebugMode ? 'ws://10.0.2.2:8000' : 'wss://cm.digital-get.com');
 
   // M-5: there is no dedicated driver WebSocket route on the backend. Driver
   // realtime events (orders, logistics, notifications) are delivered over the

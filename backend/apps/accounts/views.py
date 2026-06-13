@@ -18,7 +18,7 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.mail import send_mail
 from django.db.models import Q
 from django.http import Http404, HttpResponse
@@ -42,7 +42,16 @@ from apps.wallets.models import PaymentProvider, TransactionStatus
 from .compliance_preview import generate_compliance_preview
 from .kyc_constants import BUYER_IDENTITY_DOC_TYPES
 from .location_service import update_user_location
-from .models import AuditLog, ComplianceDocument, FCMToken, SensitiveActionChallenge, User, UserRole
+from config.throttles import GlobalAnonThrottle, PasswordResetThrottle
+from .models import (
+    AuditLog,
+    ComplianceDocument,
+    FCMToken,
+    PasswordResetChallenge,
+    SensitiveActionChallenge,
+    User,
+    UserRole,
+)
 from .security import (
     has_action_permission,
     is_sensitive_action_2fa_required,
@@ -442,7 +451,7 @@ class ComplianceDocumentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if not _is_compliance_actor(self.request.user):
-            raise PermissionDenied("Seuls fournisseur, grossiste et transitaire soumettent des certifications.")
+            raise PermissionDenied("Seuls fournisseur, grossiste et livreur soumettent des certifications.")
         document = serializer.save(user=self.request.user)
         if document.user.is_verified:
             document.user.is_verified = False
@@ -560,6 +569,21 @@ class BuyerKycSubmitView(APIView):
         )
 
 
+def _issue_session_tokens(user):
+    """Build the standard authenticated-session payload {access, refresh, user}.
+
+    Used by registration endpoints so a freshly created account is logged in
+    immediately (no separate login round-trip). Mirrors the shape returned by
+    LoginRequestView / GoogleAuthView for a single client-side code path.
+    """
+    refresh = RefreshToken.for_user(user)
+    return {
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "user": UserSerializer(user).data,
+    }
+
+
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "register"
@@ -576,7 +600,7 @@ class RegisterView(APIView):
             action="Inscription utilisateur",
             metadata={"user_id": user.id, "country_code": user.country_code},
         )
-        return response.Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        return response.Response(_issue_session_tokens(user), status=status.HTTP_201_CREATED)
 
 
 class SellerRegisterView(APIView):
@@ -601,7 +625,7 @@ class SellerRegisterView(APIView):
             action="Inscription vendeur",
             metadata={"user_id": user.id, "role": user.role, "country_code": user.country_code},
         )
-        return response.Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        return response.Response(_issue_session_tokens(user), status=status.HTTP_201_CREATED)
 
 
 class DriverRegisterView(APIView):
@@ -621,7 +645,7 @@ class DriverRegisterView(APIView):
             action="Inscription chauffeur",
             metadata={"user_id": user.id, "role": user.role, "country_code": user.country_code},
         )
-        return response.Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        return response.Response(_issue_session_tokens(user), status=status.HTTP_201_CREATED)
 
 
 class LoginRequestView(APIView):
@@ -837,32 +861,13 @@ class WalletPinView(APIView):
     throttle_scope = "wallet"
 
     def post(self, request):
-        pin = str(request.data.get("pin") or "").strip()
-        # Audit ref: [M-007] PIN expanded from 4 → 6 digits.
-        # 10 000 combinations (4 digits) was brute-forceable in ≈ 14 days
-        # under the per-IP rate limits we have today. 1 000 000 combinations
-        # (6 digits) pushes that horizon past 3 years even without lockout.
-        min_len = int(getattr(settings, "WALLET_PIN_MIN_LENGTH", 6))
-        if (
-            len(pin) < min_len
-            or len(pin) > 12
-            or not pin.isdigit()
-            or len(set(pin)) == 1  # reject 000000 / 111111 / etc.
-        ):
-            return response.Response(
-                {"detail": f"PIN invalide: au moins {min_len} chiffres, non triviaux."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        request.user.set_wallet_pin(pin)
-        request.user.wallet_pin_failed_attempts = 0
-        request.user.wallet_pin_locked_until = None
-        request.user.save(update_fields=["wallet_pin_hash", "wallet_pin_failed_attempts", "wallet_pin_locked_until"])
-        write_audit_log(
-            actor=request.user,
-            action="Configuration PIN wallet",
-            metadata={"user_id": request.user.id},
+        # Wallet PIN removed (product decision). The endpoint is kept so older
+        # app builds don't crash, but it no longer sets anything. Money-out
+        # operations are protected by the emailed OTP (wallet.withdraw).
+        return response.Response(
+            {"detail": "Le PIN wallet a ete supprime. Aucune configuration n'est requise."},
+            status=status.HTTP_410_GONE,
         )
-        return response.Response({"detail": "PIN wallet enregistre."})
 
 
 class SensitiveActionRequestView(APIView):
@@ -1031,6 +1036,152 @@ class PasswordChangeView(APIView):
             metadata={"user_id": request.user.id},
         )
         return response.Response({"detail": "Mot de passe mis a jour. Reconnectez-vous."}, status=status.HTTP_200_OK)
+
+
+class PasswordResetRequestView(APIView):
+    """Forgot-password step 1 — email a single-use 6-digit reset code.
+
+    Anti-enumeration: always returns the SAME 200 response whether or not the
+    email maps to an account (and even if the email send fails). The code is
+    PBKDF2-hashed before storage — plaintext is never persisted.
+    """
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [GlobalAnonThrottle, PasswordResetThrottle]
+
+    _GENERIC = (
+        "Si un compte existe pour cet email, un code de reinitialisation vient "
+        "d'etre envoye."
+    )
+
+    def post(self, request):
+        if settings.AUTH_LOCKDOWN:
+            return _auth_disabled_response()
+        email = (request.data.get("email") or "").strip().lower()
+        generic = response.Response({"detail": self._GENERIC}, status=status.HTTP_200_OK)
+        if not email:
+            return generic
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if not user or getattr(user, "is_suspended", False):
+            return generic
+
+        now = timezone.now()
+        # Invalidate any pending code for this user (one live code at a time).
+        PasswordResetChallenge.objects.filter(
+            user=user, used_at__isnull=True, expires_at__gt=now
+        ).update(expires_at=now)
+
+        code = f"{secrets.randbelow(1000000):06d}"
+        ttl = max(1, settings.PASSWORD_RESET_CODE_TTL_MINUTES)
+        PasswordResetChallenge.objects.create(
+            user=user,
+            code_hash=make_password(code),  # hashed — plaintext discarded after send
+            expires_at=now + timedelta(minutes=ttl),
+        )
+        try:
+            send_mail(
+                subject="Reinitialisation de votre mot de passe",
+                message=(
+                    f"Bonjour {user.username},\n\n"
+                    f"Votre code de reinitialisation est: {code}\n"
+                    f"Ce code expire dans {ttl} minute(s).\n\n"
+                    "Si vous n'etes pas a l'origine de cette demande, ignorez ce message."
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except Exception:
+            # Never leak send failures — keep the response indistinguishable.
+            return generic
+
+        # Audit: user_id only — NEVER log the code or the email address.
+        write_audit_log(
+            actor=user,
+            action="Demande reinitialisation mot de passe",
+            action_key="auth.password.reset.request",
+            metadata={"user_id": user.id},
+        )
+        return generic
+
+
+class PasswordResetConfirmView(APIView):
+    """Forgot-password step 2 — verify the code and set a new password.
+
+    On success every refresh token of the account is blacklisted, so all
+    existing sessions are revoked (a reset implies the old password is no
+    longer trusted). The 6-digit code is attempt-capped per challenge.
+    """
+
+    permission_classes = [permissions.AllowAny]
+    # No tight per-IP throttle here: the per-challenge attempt cap already bounds
+    # brute-force (a burned code forces a fresh, throttled request), so a user
+    # mistyping the code is not locked out by the request limiter. The global
+    # anon throttle still applies as a backstop.
+    throttle_classes = [GlobalAnonThrottle]
+
+    _INVALID = "Code invalide ou expire. Recommencez la procedure."
+
+    def post(self, request):
+        if settings.AUTH_LOCKDOWN:
+            return _auth_disabled_response()
+        email = (request.data.get("email") or "").strip().lower()
+        code = str(request.data.get("code") or "").strip()
+        new_password = str(request.data.get("new_password") or "")
+
+        if len(new_password) < 8:
+            return response.Response(
+                {"detail": "Nouveau mot de passe invalide (minimum 8 caracteres)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if not user:
+            return response.Response({"detail": self._INVALID}, status=status.HTTP_400_BAD_REQUEST)
+
+        now = timezone.now()
+        challenge = (
+            PasswordResetChallenge.objects
+            .filter(user=user, used_at__isnull=True, expires_at__gt=now)
+            .order_by("-created_at")
+            .first()
+        )
+        if challenge is None:
+            return response.Response({"detail": self._INVALID}, status=status.HTTP_400_BAD_REQUEST)
+
+        max_attempts = max(1, settings.PASSWORD_RESET_MAX_ATTEMPTS)
+        if challenge.attempts >= max_attempts:
+            challenge.expires_at = now  # burn an over-tried code
+            challenge.save(update_fields=["expires_at"])
+            return response.Response({"detail": self._INVALID}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not check_password(code, challenge.code_hash):
+            challenge.attempts += 1
+            challenge.save(update_fields=["attempts"])
+            remaining = max(0, max_attempts - challenge.attempts)
+            return response.Response(
+                {"detail": f"Code invalide. Tentatives restantes: {remaining}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Success — consume the challenge and rotate the password.
+        challenge.used_at = now
+        challenge.save(update_fields=["used_at"])
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        # Revoke every existing session — the old password is no longer trusted.
+        for token in OutstandingToken.objects.filter(user=user):
+            BlacklistedToken.objects.get_or_create(token=token)
+        write_audit_log(
+            actor=user,
+            action="Reinitialisation mot de passe",
+            action_key="auth.password.reset.confirm",
+            metadata={"user_id": user.id},
+        )
+        return response.Response(
+            {"detail": "Mot de passe reinitialise. Connectez-vous avec votre nouveau mot de passe."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class AuditLogExportView(APIView):

@@ -34,15 +34,24 @@ class VideoCompressionService {
     }
 
     try {
+      // Fail-safe: the video_compress plugin can throw or hang on some devices
+      // (codec quirks, low storage). Any failure — including a timeout — falls
+      // back to the ORIGINAL file so publishing is never blocked by compression.
       final info = await VideoCompress.compressVideo(
         file.path!,
         quality: quality,
         deleteOrigin: false,
         includeAudio: true,
-      );
+      ).timeout(const Duration(minutes: 3));
       if (info?.path == null) return file;
       final size = await File(info!.path!).length();
       return PlatformFile(name: file.name, size: size, path: info.path);
+    } catch (e) {
+      debugPrint('[VideoCompression] skipped (using original): $e');
+      try {
+        VideoCompress.cancelCompression();
+      } catch (_) {}
+      return file;
     } finally {
       sub?.unsubscribe();
     }

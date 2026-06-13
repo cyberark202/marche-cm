@@ -9,6 +9,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/security/secure_dio_client.dart';
+import '../../core/upload_mime.dart';
 
 /// KYC onboarding — wizard fidèle au design `screens-kyc.jsx` (6 écrans) :
 /// intro → type de compte → documents → signature → récapitulatif → succès.
@@ -116,14 +117,17 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
       final cniData = FormData();
       cniData.fields.add(const MapEntry('doc_type', 'CNI'));
       cniData.fields.add(const MapEntry('consent_accepted', 'true'));
+      final cniUp = normalizeUpload(_docs['cni']!.name);
       cniData.files.add(MapEntry(
         'file',
         await MultipartFile.fromFile(_docs['cni']!.path!,
-            filename: _docs['cni']!.name),
+            filename: cniUp.filename, contentType: cniUp.type),
       ));
       cniData.files.add(MapEntry(
         'signature',
-        MultipartFile.fromBytes(_signatureBytes!, filename: 'signature.png'),
+        MultipartFile.fromBytes(_signatureBytes!,
+            filename: 'signature.png',
+            contentType: DioMediaType('image', 'png')),
       ));
       await SecureDioClient.dio.post('/api/auth/kyc/submit/', data: cniData);
 
@@ -149,9 +153,11 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   Future<void> _postDoc(String docType, PlatformFile file) async {
     final data = FormData();
     data.fields.add(MapEntry('doc_type', docType));
+    final up = normalizeUpload(file.name);
     data.files.add(MapEntry(
       'file',
-      await MultipartFile.fromFile(file.path!, filename: file.name),
+      await MultipartFile.fromFile(file.path!,
+          filename: up.filename, contentType: up.type),
     ));
     await SecureDioClient.dio.post('/api/auth/kyc/submit/', data: data);
   }

@@ -338,7 +338,7 @@ class ManagedUserCreateSerializer(serializers.ModelSerializer):
     def validate_role(self, value):
         allowed = {UserRole.SUPPLIER, UserRole.WHOLESALER, UserRole.TRANSIT_AGENT}
         if value not in allowed:
-            raise serializers.ValidationError("L'admin ne peut creer que fournisseur, grossiste ou transitaire.")
+            raise serializers.ValidationError("L'admin ne peut creer que fournisseur, grossiste ou livreur.")
         return value
 
     def validate_username(self, value):
@@ -353,7 +353,7 @@ class ManagedUserCreateSerializer(serializers.ModelSerializer):
         return validate_phone_format(value)
 
     def validate(self, attrs):
-        """Validation croisée pour les transitaires."""
+        """Validation croisée pour les livreurs."""
         role = attrs.get("role")
         if role == UserRole.TRANSIT_AGENT:
             air = attrs.get("air_price_per_kg")

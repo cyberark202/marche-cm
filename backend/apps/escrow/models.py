@@ -65,7 +65,7 @@ ESCROW_TRANSITIONS: dict[str, list[str]] = {
 class ReleaseCondition(models.TextChoices):
     BUYER_CONFIRMED = "BUYER_CONFIRMED", "Confirmation acheteur"
     ADMIN_VALIDATED = "ADMIN_VALIDATED", "Validation admin"
-    TRANSIT_CONFIRMED = "TRANSIT_CONFIRMED", "Confirmation transitaire"
+    TRANSIT_CONFIRMED = "TRANSIT_CONFIRMED", "Confirmation livreur"
     PURCHASE_PROOF = "PURCHASE_PROOF", "Preuve d'achat"
     AUTO_RELEASE_TIMER = "AUTO_RELEASE_TIMER", "Libération automatique (timer)"
     DISPUTE_RESOLVED = "DISPUTE_RESOLVED", "Litige résolu"

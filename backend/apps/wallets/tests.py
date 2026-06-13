@@ -104,38 +104,9 @@ class WalletFlowTests(APITestCase):
         self.assertEqual(wallet.balance, Decimal("4000.00"))
         self.assertEqual(wallet.blocked_balance, Decimal("0.00"))
 
-    @override_settings(WALLET_PIN_MAX_ATTEMPTS=2, WALLET_PIN_LOCK_MINUTES=5)
-    def test_wallet_pin_lockout_after_invalid_attempts(self):
-        payload = {
-            "amount": "1000",
-            "source_phone": "+237699111222",
-            "provider": PaymentProvider.MOBILE_MONEY,
-            "pin": "1111",
-        }
-        first = self.client.post(reverse("wallet-topup"), payload, format="json")
-        second = self.client.post(reverse("wallet-topup"), payload, format="json")
-
-        self.assertEqual(first.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(second.status_code, status.HTTP_423_LOCKED)
-
-        self.user.refresh_from_db()
-        self.assertIsNotNone(self.user.wallet_pin_locked_until)
-
-        self.user.wallet_pin_locked_until = timezone.now() - timedelta(minutes=1)
-        self.user.wallet_pin_failed_attempts = 0
-        self.user.save(update_fields=["wallet_pin_locked_until", "wallet_pin_failed_attempts"])
-
-        ok = self.client.post(
-            reverse("wallet-topup"),
-            {
-                "amount": "1000",
-                "source_phone": "+237699111222",
-                "provider": PaymentProvider.MOBILE_MONEY,
-                "pin": "0000",
-            },
-            format="json",
-        )
-        self.assertEqual(ok.status_code, status.HTTP_200_OK)
+    # Removed: test_wallet_pin_lockout_after_invalid_attempts — the wallet PIN
+    # was removed (product decision). Top-up/withdraw no longer verify a PIN;
+    # withdrawals remain protected by the emailed OTP (wallet.withdraw).
 
     @override_settings(
         NOTCHPAY_WEBHOOK_TOKEN="test-webhook-token",

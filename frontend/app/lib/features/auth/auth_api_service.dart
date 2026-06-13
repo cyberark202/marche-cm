@@ -11,7 +11,10 @@ class AuthApiService {
   /// backend endpoint `/api/auth/register/seller/` rejects any role outside
   /// {SUPPLIER, WHOLESALER}, so the server is the source of truth even if the
   /// client is tampered with.
-  Future<void> registerSeller({
+  /// Registers a SUPPLIER / WHOLESALER and returns the authenticated session
+  /// payload `{access, refresh, user}` so the caller logs the seller in
+  /// immediately (lands on the dashboard / pending-verification screen).
+  Future<Map<String, dynamic>> registerSeller({
     required String name,
     required String phoneNumber,
     required String email,
@@ -36,6 +39,9 @@ class AuthApiService {
 
     final response = await _dio.post('/api/auth/register/seller/', data: payload);
     _assertOk(response, 'registerSeller');
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    throw Exception('Reponse d\'inscription invalide.');
   }
 
   Future<Map<String, dynamic>> login({
@@ -67,6 +73,33 @@ class AuthApiService {
     final data = response.data;
     if (data is Map<String, dynamic>) return data;
     throw Exception('Reponse profil invalide.');
+  }
+
+  /// Forgot-password step 1 — request an emailed reset code (always 200,
+  /// anti-enumeration).
+  Future<void> requestPasswordReset({required String email}) async {
+    final response = await _dio.post(
+      '/api/auth/password/reset/request/',
+      data: {'email': email.trim().toLowerCase()},
+    );
+    _assertOk(response, 'requestPasswordReset');
+  }
+
+  /// Forgot-password step 2 — confirm the code and set a new password.
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final response = await _dio.post(
+      '/api/auth/password/reset/confirm/',
+      data: {
+        'email': email.trim().toLowerCase(),
+        'code': code.trim(),
+        'new_password': newPassword,
+      },
+    );
+    _assertOk(response, 'confirmPasswordReset');
   }
 
   Future<Map<String, dynamic>> resolveLocation({

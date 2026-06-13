@@ -80,3 +80,14 @@ frontend/diag*
 frontend/shot.py
 frontend/seed_out.txt
 artifacts_junction/
+
+# Audit / deploy working artifacts (SSM outputs, AWS inventory, code bundles).
+# May embed infra details; kept out of git. Audit ref: prior secret leak.
+resultats/
+AUDIT.zip
+.icontmp/
+*.tar.gz
+
+# Marketing site lives outside this repo's history (~173 MB of bundled APKs in
+# public/downloads). Built/deployed separately.
+MarketCM_vitrineSite/

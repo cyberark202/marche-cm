@@ -289,7 +289,7 @@ class _SellerDisputeTile extends StatelessWidget {
   String _roleLabel(String? role) {
     switch (role) {
       case 'BUYER':         return 'Acheteur';
-      case 'TRANSIT_AGENT': return 'Transitaire';
+      case 'TRANSIT_AGENT': return 'Livreur';
       case 'SUPPLIER':      return 'Fournisseur';
       case 'WHOLESALER':    return 'Grossiste';
       default:              return role ?? '—';
@@ -329,7 +329,7 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
   ];
 
   static const _groupsVsTransit = [
-    ('INTERNAL_THEFT',  'Vol interne par le transitaire', Icons.no_backpack_outlined),
+    ('INTERNAL_THEFT',  'Vol interne par le livreur', Icons.no_backpack_outlined),
     ('FALSE_TRACKING',  'Fausse mise a jour de suivi', Icons.location_off_outlined),
     ('DAMAGED_GOODS',   'Marchandise endommagee en transit', Icons.broken_image_outlined),
     ('LOST_PARCEL',     'Colis perdu', Icons.search_off_outlined),
@@ -463,7 +463,7 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
               ),
               const SizedBox(height: 16),
               _GroupSection(
-                title: 'Probleme avec le transitaire',
+                title: 'Probleme avec le livreur',
                 icon: Icons.local_shipping_outlined,
                 color: Colors.orange,
                 types: _groupsVsTransit,

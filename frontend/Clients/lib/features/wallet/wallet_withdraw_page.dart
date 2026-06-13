@@ -21,7 +21,6 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
       SensitiveActionService();
   final _destinationPhone = TextEditingController();
   final _withdrawAmount = TextEditingController();
-  final _pin = TextEditingController();
   String _provider = '';
   List<Map<String, String>> _providerChoices = const [];
   Map<String, String> _providerLogo = const {};
@@ -37,7 +36,6 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
   void dispose() {
     _destinationPhone.dispose();
     _withdrawAmount.dispose();
-    _pin.dispose();
     super.dispose();
   }
 
@@ -177,8 +175,6 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
       return;
     }
     if (!mounted || verification == null) return;
-    final pin = await _collectPin();
-    if (!mounted || pin == null) return;
 
     setState(() => _busy = true);
     try {
@@ -189,7 +185,6 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
           'provider': _provider,
           'destination_phone': destinationValue,
           'destination_account': destinationValue,
-          'pin': pin,
           'challenge_token': verification.challengeToken,
           'verification_code': verification.verificationCode,
           'idempotency_key': DateTime.now().microsecondsSinceEpoch.toString(),
@@ -210,53 +205,6 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<String?> _collectPin() async {
-    _pin.clear();
-    String? pinError;
-    final ok = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Entrez votre PIN wallet"),
-          content: TextField(
-            controller: _pin,
-            keyboardType: TextInputType.number,
-            maxLength: 4,
-            obscureText: true,
-            autofocus: true,
-            onChanged: (_) => setDialogState(() => pinError = null),
-            decoration: InputDecoration(
-              labelText: "Code PIN (4 chiffres)",
-              prefixIcon: const Icon(Icons.lock_outline),
-              errorText: pinError,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Annuler"),
-            ),
-            FilledButton(
-              onPressed: () {
-                final pin = _pin.text.trim();
-                if (pin.length != 4 || !RegExp(r'^\d{4}$').hasMatch(pin)) {
-                  setDialogState(() => pinError = "PIN invalide — 4 chiffres requis");
-                  return;
-                }
-                Navigator.pop(ctx, true);
-              },
-              child: const Text("Valider"),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (ok != true) return null;
-    return _pin.text.trim();
   }
 
   @override

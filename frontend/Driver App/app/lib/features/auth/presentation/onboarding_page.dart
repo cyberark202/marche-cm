@@ -8,6 +8,21 @@ import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import '../application/auth_notifier.dart';
 
+/// Derives a safe (filename, MIME) pair for a KYC upload. The backend rejects
+/// a missing/octet-stream Content-Type (UP-001), and an unknown extension, so
+/// we declare a concrete image MIME and ensure the filename carries one.
+({String filename, String mime}) _normalizeUpload(String name) {
+  final n = name.toLowerCase();
+  if (n.endsWith('.png')) return (filename: name, mime: 'image/png');
+  if (n.endsWith('.webp')) return (filename: name, mime: 'image/webp');
+  if (n.endsWith('.jpg') || n.endsWith('.jpeg')) {
+    return (filename: name, mime: 'image/jpeg');
+  }
+  if (n.endsWith('.pdf')) return (filename: name, mime: 'application/pdf');
+  // No recognized extension (e.g. a raw camera capture) — assume JPEG.
+  return (filename: '$name.jpg', mime: 'image/jpeg');
+}
+
 class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
 
@@ -64,10 +79,19 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       // compliance documents — the admin reviews them and grants the
       // TRANSIT_AGENT role on approval. The backend stores one file per
       // document, so each photo is posted as its own compliance document.
+      //
+      // The per-part Content-Type MUST be set: the backend rejects uploads
+      // with a missing/octet-stream MIME (upload hardening UP-001). Without
+      // this, every KYC submission 400'd and the driver could never onboard.
       Future<void> upload(String docType, PlatformFile file) async {
+        final upload = _normalizeUpload(file.name);
         final form = FormData.fromMap({
           'doc_type': docType,
-          'file': await MultipartFile.fromFile(file.path!, filename: file.name),
+          'file': await MultipartFile.fromFile(
+            file.path!,
+            filename: upload.filename,
+            contentType: DioMediaType.parse(upload.mime),
+          ),
         });
         await DriverDioClient.dio.post('/api/compliance-documents/', data: form);
       }

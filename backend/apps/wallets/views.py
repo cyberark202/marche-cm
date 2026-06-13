@@ -471,6 +471,10 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         return None
 
     def _validate_wallet_security(self, request, amount, purpose):
+        # Wallet PIN removed (product decision). Withdrawals stay protected by an
+        # INDEPENDENT second factor: the one-time code emailed via the
+        # "wallet.withdraw" sensitive-action challenge. Top-ups no longer require
+        # any PIN. The legacy wallet_pin_* columns are retained but unused.
         if purpose == "WITHDRAW":
             verified, message = verify_sensitive_action_challenge(
                 user=request.user,
@@ -480,59 +484,12 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             )
             if not verified:
                 return response.Response({"detail": message}, status=status.HTTP_403_FORBIDDEN)
-        request.user.refresh_from_db(fields=["wallet_pin_hash", "wallet_pin_failed_attempts", "wallet_pin_locked_until"])
-        if request.user.is_wallet_pin_locked():
-            remaining_seconds = int((request.user.wallet_pin_locked_until - timezone.now()).total_seconds())
-            remaining_minutes = max(1, (remaining_seconds + 59) // 60)
-            return response.Response(
-                {
-                    "detail": (
-                        f"PIN wallet temporairement bloque apres plusieurs erreurs. "
-                        f"Reessayez dans {remaining_minutes} minute(s)."
-                    )
-                },
-                status=status.HTTP_423_LOCKED,
-            )
-        pin = str(request.data.get("pin") or "").strip()
-        # Audit ref: [N-001] verify path must accept the same PIN lengths as
-        # WalletPinView accepts on set (6-12 digits). The previous hard-coded
-        # 4 was an auto-DOS — every new PIN set under M-007 was instantly
-        # rejected here, locking users out of topup/withdraw. We accept the
-        # legacy 4-digit hashes still in DB by allowing min length down to 4
-        # on verify (backwards compatible until the migration job re-prompts).
-        min_len = max(4, int(getattr(settings, "WALLET_PIN_VERIFY_MIN_LENGTH", 4)))
-        if not pin.isdigit() or not (min_len <= len(pin) <= 12):
-            return response.Response(
-                {"detail": f"PIN wallet invalide ({min_len} a 12 chiffres)."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if not request.user.check_wallet_pin(pin):
-            locked = request.user.register_wallet_pin_failure(
-                max_attempts=settings.WALLET_PIN_MAX_ATTEMPTS,
-                lock_minutes=settings.WALLET_PIN_LOCK_MINUTES,
-            )
-            if locked:
-                return response.Response(
-                    {
-                        "detail": (
-                            f"PIN wallet bloque pendant {settings.WALLET_PIN_LOCK_MINUTES} minute(s) "
-                            f"apres trop de tentatives."
-                        )
-                    },
-                    status=status.HTTP_423_LOCKED,
-                )
-            remaining_attempts = max(0, settings.WALLET_PIN_MAX_ATTEMPTS - request.user.wallet_pin_failed_attempts)
-            return response.Response(
-                {"detail": f"PIN wallet invalide. Tentatives restantes: {remaining_attempts}."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        request.user.reset_wallet_pin_failures()
         return None
 
     @decorators.action(detail=False, methods=["post"])
     def request_otp(self, request):
         return response.Response(
-            {"detail": "OTP desactive. Utilisez uniquement le PIN wallet."},
+            {"detail": "Endpoint desactive. Le retrait utilise le code de securite par email."},
             status=status.HTTP_410_GONE,
         )
 

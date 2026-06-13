@@ -55,6 +55,31 @@ class DriverAuthApi {
     return resp.data as Map<String, dynamic>;
   }
 
+  /// Forgot-password step 1 — request an emailed reset code (always 200,
+  /// anti-enumeration). Errors are sanitized by the Dio interceptor.
+  static Future<void> requestPasswordReset({required String email}) async {
+    await DriverDioClient.dio.post(
+      '/api/auth/password/reset/request/',
+      data: {'email': email.trim().toLowerCase()},
+    );
+  }
+
+  /// Forgot-password step 2 — confirm the code and set a new password.
+  static Future<void> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await DriverDioClient.dio.post(
+      '/api/auth/password/reset/confirm/',
+      data: {
+        'email': email.trim().toLowerCase(),
+        'code': code.trim(),
+        'new_password': newPassword,
+      },
+    );
+  }
+
   static String _extractError(Map data) {
     final errors = data['errors'] ?? data['detail'] ?? data['non_field_errors'];
     if (errors is List && errors.isNotEmpty) return errors.first.toString();

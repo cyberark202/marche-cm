@@ -128,7 +128,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => context.push('/reset'),
+                        child: const Text('Mot de passe oublié ?'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
                     SizedBox(
                       width: double.infinity,

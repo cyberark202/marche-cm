@@ -178,7 +178,7 @@ class _ProfileTabState extends State<ProfileTab> {
         _SettingsTile(
           icon: Icons.security_outlined,
           label: 'Centre de sécurité',
-          subtitle: '2FA, PIN wallet, sessions',
+          subtitle: '2FA, sessions',
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const SecurityCenterPage()),
@@ -446,7 +446,7 @@ class _ProfileHeader extends StatelessWidget {
       case UserRole.wholesaler:
         return 'Grossiste';
       case UserRole.transitAgent:
-        return 'Transitaire';
+        return 'Livreur';
       case UserRole.generalAdmin:
         return 'Administrateur';
       default:

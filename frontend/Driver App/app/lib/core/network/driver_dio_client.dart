@@ -80,6 +80,18 @@ class _ErrorSanitizerInterceptor extends Interceptor {
           ?.toString()
           .trim();
       if (raw != null && raw.isNotEmpty) return raw;
+      // DRF field/validation errors, e.g. {"file": ["..."]} or
+      // {"non_field_errors": ["..."]}. Surface the first concrete message so a
+      // validation failure (wrong MIME, file too large…) is never masked by a
+      // generic fallback.
+      for (final value in data.values) {
+        if (value is List && value.isNotEmpty) {
+          final first = value.first?.toString().trim();
+          if (first != null && first.isNotEmpty) return first;
+        } else if (value is String && value.trim().isNotEmpty) {
+          return value.trim();
+        }
+      }
     }
     return null;
   }

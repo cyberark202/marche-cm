@@ -7,7 +7,7 @@ class AppConfig {
   // The key MUST be the identifier "API_BASE_URL", not a URL literal.
   static const String _apiBaseUrlFromEnv = String.fromEnvironment(
     "API_BASE_URL",
-    defaultValue: "https://marche-cm.onrender.com",
+    defaultValue: "https://cm.digital-get.com",
   );
 
   static String get apiBaseUrl {
@@ -15,12 +15,12 @@ class AppConfig {
       return _apiBaseUrlFromEnv;
     }
     if (kIsWeb) {
-      return "https://marche-cm.onrender.com";
+      return "https://cm.digital-get.com";
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return "https://marche-cm.onrender.com";
+      return "https://cm.digital-get.com";
     }
-    return "https://marche-cm.onrender.com";
+    return "https://cm.digital-get.com";
   }
 
   static const String googleClientId = String.fromEnvironment(

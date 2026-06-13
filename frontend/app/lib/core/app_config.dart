@@ -7,7 +7,7 @@ class AppConfig {
   // The key must be an identifier, NOT a URL string.
   static const String _apiBaseUrlFromEnv = String.fromEnvironment(
     "API_BASE_URL",
-    defaultValue: "https://marche-cm.onrender.com",
+    defaultValue: "https://cm.digital-get.com",
   );
 
   static String get apiBaseUrl {
@@ -24,14 +24,14 @@ class AppConfig {
     // These are intentionally HTTP because TLS is not available on loopback
     // during local development. _assertHttpsInRelease blocks them in release.
     if (kIsWeb) {
-      return "http://localhost:5000";
+      return "https://cm.digital-get.com";
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
       // 10.0.2.2 is the Android emulator's alias for the host machine.
-      return "https://marche-cm.onrender.com";
+      return "https://cm.digital-get.com";
     }
     // iOS simulator / desktop dev
-    return "https://marche-cm.onrender.com";
+    return "https://cm.digital-get.com";
   }
 
   // MITM protection: crash fast in release builds rather than silently

@@ -14,7 +14,7 @@ class UserRole(models.TextChoices):
     GENERAL_ADMIN = "GENERAL_ADMIN", "Administrateur General"
     SUPPLIER = "SUPPLIER", "Fournisseur"
     WHOLESALER = "WHOLESALER", "Grossiste"
-    TRANSIT_AGENT = "TRANSIT_AGENT", "Transitaire"
+    TRANSIT_AGENT = "TRANSIT_AGENT", "Livreur"
     BUYER = "BUYER", "Acheteur"
 
 
@@ -217,6 +217,31 @@ class SensitiveActionChallenge(models.Model):
     action_key = models.CharField(max_length=80)
     challenge_token = models.CharField(max_length=128, unique=True, db_index=True)
     # PBKDF2-SHA256 hash of the OTP — plaintext is NEVER persisted (OWASP ASVS V2.7).
+    code_hash = models.CharField(max_length=128)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class PasswordResetChallenge(models.Model):
+    """Unauthenticated "forgot password" code (the user is not logged in).
+
+    A 6-digit code is emailed to the account owner; the plaintext is NEVER
+    persisted — only a PBKDF2 hash (OWASP ASVS V2.7). Codes are single-use,
+    time-boxed and attempt-limited. Anti-enumeration: the *request* endpoint
+    always returns the same response whether or not the email maps to an
+    account, and a successful reset blacklists all the user's refresh tokens.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="password_reset_challenges",
+    )
     code_hash = models.CharField(max_length=128)
     expires_at = models.DateTimeField()
     attempts = models.PositiveSmallIntegerField(default=0)

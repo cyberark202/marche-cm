@@ -50,7 +50,7 @@ class DisputeMultiviewPage extends StatelessWidget {
       _Perspective(
         role: 'Livreur',
         name: accused,
-        sub: 'Mis en cause · vue transitaire',
+        sub: 'Mis en cause · vue livreur',
         icon: Icons.local_shipping_outlined,
         tone: _Tone.warn,
         kind: _PerspectiveKind.carrier,
@@ -294,7 +294,7 @@ class _PerspectiveDetailPage extends StatelessWidget {
           'Statut : témoin',
         ),
       _PerspectiveKind.carrier => (
-          'Le transitaire est mis en cause. Son paiement est gelé en attendant arbitrage.',
+          'Le livreur est mis en cause. Son paiement est gelé en attendant arbitrage.',
           'Issues possibles : faveur / 50-50 / défaveur',
         ),
       _PerspectiveKind.arbiter => ('', ''),

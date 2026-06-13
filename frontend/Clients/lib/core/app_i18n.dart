@@ -88,8 +88,8 @@ class AppI18n {
       "en": "Why can a payment be rejected?"
     },
     "support.faq.a2": {
-      "fr": "Verifiez votre PIN wallet et les limites KYC configurees sur votre compte.",
-      "en": "Check your wallet PIN and KYC limits configured on your account."
+      "fr": "Verifiez le code de securite envoye par email et les limites KYC configurees sur votre compte.",
+      "en": "Check the security code sent by email and the KYC limits configured on your account."
     },
     "support.faq.q3": {
       "fr": "Comment devenir vendeur verifie ?",

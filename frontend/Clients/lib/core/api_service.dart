@@ -5,9 +5,28 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 
 import 'app_config.dart';
 import 'auth_token_manager.dart';
+
+/// Derives a safe (filename, MIME) pair for a multipart upload. The backend
+/// rejects a missing/octet-stream Content-Type (UP-001) and unknown
+/// extensions, so we declare a concrete type and ensure the name carries one.
+({String name, MediaType type}) _normalizeUpload(String filename) {
+  final n = filename.toLowerCase();
+  if (n.endsWith(".png")) return (name: filename, type: MediaType("image", "png"));
+  if (n.endsWith(".webp")) return (name: filename, type: MediaType("image", "webp"));
+  if (n.endsWith(".gif")) return (name: filename, type: MediaType("image", "gif"));
+  if (n.endsWith(".jpg") || n.endsWith(".jpeg")) {
+    return (name: filename, type: MediaType("image", "jpeg"));
+  }
+  if (n.endsWith(".pdf")) {
+    return (name: filename, type: MediaType("application", "pdf"));
+  }
+  // No recognized extension (e.g. a raw camera capture) — assume JPEG.
+  return (name: "$filename.jpg", type: MediaType("image", "jpeg"));
+}
 
 class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
@@ -236,12 +255,14 @@ class ApiService {
       request.headers.addAll(_headers(t)..remove("Content-Type"));
       request.fields.addAll(fields);
       if (file != null) {
+        final upload = _normalizeUpload(fileName);
         if (fileBytes != null && fileBytes.isNotEmpty) {
           request.files.add(
             http.MultipartFile.fromBytes(
               fileFieldName,
               fileBytes,
-              filename: fileName,
+              filename: upload.name,
+              contentType: upload.type,
             ),
           );
         } else if ((filePath ?? "").isNotEmpty) {
@@ -249,7 +270,8 @@ class ApiService {
             await http.MultipartFile.fromPath(
               fileFieldName,
               filePath!,
-              filename: fileName,
+              filename: upload.name,
+              contentType: upload.type,
             ),
           );
         } else {
@@ -259,11 +281,13 @@ class ApiService {
         }
       }
       for (final extra in extraBytesFiles) {
+        final extraUpload = _normalizeUpload(extra.filename);
         request.files.add(
           http.MultipartFile.fromBytes(
             extra.field,
             extra.bytes,
-            filename: extra.filename,
+            filename: extraUpload.name,
+            contentType: extraUpload.type,
           ),
         );
       }

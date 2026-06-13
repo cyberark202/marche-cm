@@ -10,13 +10,13 @@ class AppConfig {
 
   static const String _apiBaseUrlFromEnv = String.fromEnvironment(
     "API_BASE_URL",
-    defaultValue: "https://marche-cm.onrender.com",
+    defaultValue: "https://cm.digital-get.com",
   );
 
   static String get apiBaseUrl {
     final String url = _apiBaseUrlFromEnv.isNotEmpty
         ? _apiBaseUrlFromEnv
-        : "https://marche-cm.onrender.com";
+        : "https://cm.digital-get.com";
     _assertHttpsInRelease(url);
     return url;
   }

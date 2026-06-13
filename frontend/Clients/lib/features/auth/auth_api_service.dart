@@ -11,7 +11,10 @@ class AuthApiService {
 
   Uri _uri(String path) => Uri.parse("${AppConfig.apiBaseUrl}$path");
 
-  Future<void> register({
+  /// Registers a buyer and returns the authenticated session payload
+  /// `{access, refresh, user}` so the caller can log the user in immediately
+  /// (no separate login round-trip).
+  Future<Map<String, dynamic>> register({
     required String name,
     required String phoneNumber,
     required String email,
@@ -39,6 +42,11 @@ class AuthApiService {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(_extractError(response.body, response.statusCode));
     }
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    throw Exception("Reponse d'inscription invalide.");
   }
 
   Future<Map<String, dynamic>> login({
@@ -74,6 +82,40 @@ class AuthApiService {
       return decoded;
     }
     throw Exception("Reponse Google invalide.");
+  }
+
+  /// Forgot-password step 1 — request an emailed reset code. The backend always
+  /// responds 200 (anti-enumeration), so success here just means "code sent if
+  /// the account exists".
+  Future<void> requestPasswordReset({required String email}) async {
+    final response = await _client.post(
+      _uri("/api/auth/password/reset/request/"),
+      headers: const {"Content-Type": "application/json"},
+      body: jsonEncode({"email": email.trim().toLowerCase()}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractError(response.body, response.statusCode));
+    }
+  }
+
+  /// Forgot-password step 2 — confirm the emailed code and set a new password.
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final response = await _client.post(
+      _uri("/api/auth/password/reset/confirm/"),
+      headers: const {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "email": email.trim().toLowerCase(),
+        "code": code.trim(),
+        "new_password": newPassword,
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractError(response.body, response.statusCode));
+    }
   }
 
   Future<Map<String, dynamic>> me(String accessToken) async {

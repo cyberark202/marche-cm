@@ -19,7 +19,6 @@ class WalletPage extends StatefulWidget {
 
 class _WalletPageState extends State<WalletPage> {
   final ApiService _api = ApiService();
-  final _pinController = TextEditingController();
 
   bool _loading = true;
   String? _error;
@@ -80,7 +79,6 @@ class _WalletPageState extends State<WalletPage> {
 
   @override
   void dispose() {
-    _pinController.dispose();
     super.dispose();
   }
 
@@ -315,15 +313,6 @@ class _WalletPageState extends State<WalletPage> {
                 },
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickActionTile(
-                icon: Icons.pin_outlined,
-                label: 'PIN wallet',
-                color: AppPalette.secondary,
-                onTap: _setWalletPin,
-              ),
-            ),
           ],
         ),
       ],
@@ -550,47 +539,6 @@ class _WalletPageState extends State<WalletPage> {
     final h = local.hour.toString().padLeft(2, '0');
     final min = local.minute.toString().padLeft(2, '0');
     return '$d/$m ${h}h$min';
-  }
-
-  Future<void> _setWalletPin() async {
-    _pinController.clear();
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Configurer PIN wallet'),
-        content: TextField(
-          controller: _pinController,
-          keyboardType: TextInputType.number,
-          maxLength: 4,
-          obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'PIN (4 chiffres)',
-            counterText: '',
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Enregistrer')),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted) return;
-    final token = context.read<SessionStore>().token;
-    try {
-      await _api.post('/api/auth/wallet-pin/', {'pin': _pinController.text.trim()},
-          token: token);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PIN wallet configuré.')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_api.toUserMessage(e))));
-    }
   }
 
 }

@@ -1291,7 +1291,7 @@ class _OrderSheetState extends State<_OrderSheet> {
     final qty = int.tryParse(_quantityController.text.trim()) ?? 0;
     if (_transitAgentId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Sélectionnez un transitaire.")),
+        const SnackBar(content: Text("Sélectionnez un livreur.")),
       );
       return;
     }
@@ -1321,7 +1321,7 @@ class _OrderSheetState extends State<_OrderSheet> {
           content: Text(
             _api.toUserMessage(e,
                 fallback:
-                    "Échec commande. Vérifiez quantité, regroupage et transitaire."),
+                    "Échec commande. Vérifiez quantité, regroupage et livreur."),
           ),
         ),
       );
@@ -1424,7 +1424,7 @@ class _OrderSheetState extends State<_OrderSheet> {
                     .toList(),
                 onChanged: (v) => setState(() => _transitAgentId = v),
                 decoration: const InputDecoration(
-                  labelText: "Transitaire souhaité",
+                  labelText: "Livreur souhaité",
                   prefixIcon: Icon(Icons.directions_boat_outlined),
                 ),
               ),

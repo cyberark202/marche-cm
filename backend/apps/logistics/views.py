@@ -293,7 +293,7 @@ class TransportProfileViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if self.request.user.role != UserRole.TRANSIT_AGENT:
-            raise PermissionDenied("Profil reserve au transitaire.")
+            raise PermissionDenied("Profil reserve au livreur.")
         profile = serializer.save(user=self.request.user)
         broadcast_event("logistics", "transport_profile_created", {"id": profile.id, "user_id": profile.user_id})
 
@@ -327,7 +327,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         shipment = self.get_object()
         if request.user.role != UserRole.TRANSIT_AGENT:
             return response.Response(
-                {"detail": "Action reservee aux transitaires."},
+                {"detail": "Action reservee aux livreurs."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         if shipment.status in {ShipmentStatus.DELIVERED, ShipmentStatus.CANCELLED}:
@@ -337,7 +337,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             )
         if shipment.transit_agent_id and shipment.transit_agent_id != request.user.id:
             return response.Response(
-                {"detail": "Un autre transitaire est deja assigne."},
+                {"detail": "Un autre livreur est deja assigne."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         serializer = TransportQuoteSerializer(data=request.data)
@@ -368,7 +368,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             return response.Response({"detail": "Ce devis n'est plus en attente."}, status=status.HTTP_400_BAD_REQUEST)
         if shipment.transit_agent_id and shipment.transit_agent_id != quote.transit_agent_id:
             return response.Response(
-                {"detail": "Impossible de reassigner un autre transitaire."},
+                {"detail": "Impossible de reassigner un autre livreur."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         TransportQuote.objects.filter(shipment=shipment).exclude(id=quote.id).update(status=QuoteStatus.REJECTED)
@@ -378,7 +378,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         shipment.shipping_fee = quote.fee
         shipment.save(update_fields=["transit_agent", "shipping_fee", "updated_at"])
         broadcast_event("logistics", "quote_accepted", {"shipment_id": shipment.id, "quote_id": quote.id})
-        return response.Response({"detail": "Devis accepte et transitaire assigne."})
+        return response.Response({"detail": "Devis accepte et livreur assigne."})
 
     @decorators.action(detail=True, methods=["post"])
     def update_status(self, request, pk=None):
@@ -433,7 +433,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
     def submit_proof(self, request, pk=None):
         shipment = self.get_object()
         if request.user.id != shipment.transit_agent_id:
-            return response.Response({"detail": "Reserve au transitaire assigne."}, status=status.HTTP_403_FORBIDDEN)
+            return response.Response({"detail": "Reserve au livreur assigne."}, status=status.HTTP_403_FORBIDDEN)
         if shipment.status not in {ShipmentStatus.IN_TRANSIT, ShipmentStatus.AT_CUSTOMS, ShipmentStatus.OUT_FOR_DELIVERY}:
             return response.Response(
                 {"detail": "Statut expedition incompatible avec la preuve de livraison."},
@@ -500,7 +500,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         broadcast_event("logistics", "delivery_validated", {"shipment_id": shipment.id, "order_id": order.id})
         broadcast_event("orders", "completed", {"id": order.id})
         broadcast_event("wallets", "escrow_released", {"order_id": order.id})
-        return response.Response({"detail": "Livraison validee, funds debloques vendeur + transitaire."})
+        return response.Response({"detail": "Livraison validee, funds debloques vendeur + livreur."})
 
     @decorators.action(detail=True, methods=["post"])
     def open_dispute(self, request, pk=None):
@@ -613,7 +613,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         """Log a physical custody transfer event. Required for chain-of-custody integrity."""
         shipment = self.get_object()
         if not has_action_permission(request.user, "custody.log") and not _is_general_admin(request.user):
-            return response.Response({"detail": "Action reservee au transitaire."}, status=status.HTTP_403_FORBIDDEN)
+            return response.Response({"detail": "Action reservee au livreur."}, status=status.HTTP_403_FORBIDDEN)
         if request.user.id not in {shipment.transit_agent_id, shipment.seller_id} and not _is_general_admin(request.user):
             return response.Response({"detail": "Vous n'etes pas associe a cette expedition."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -668,7 +668,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             OrderFinanceService.register_supplier_confirmation(order=shipment.order, actor=request.user)
         except (ValidationError, FraudRiskError) as exc:
             return response.Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return response.Response({"detail": "Fournisseur confirme par le transitaire."}, status=status.HTTP_200_OK)
+        return response.Response({"detail": "Fournisseur confirme par le livreur."}, status=status.HTTP_200_OK)
 
     @decorators.action(detail=True, methods=["post"], url_path="supplier/proof")
     def upload_supplier_proof(self, request, pk=None):
@@ -701,7 +701,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         if request.user.id != shipment.buyer_id:
             return response.Response({"detail": "Reserve a l'acheteur."}, status=status.HTTP_403_FORBIDDEN)
         if not shipment.transit_agent_id:
-            return response.Response({"detail": "Aucun transitaire assigne."}, status=status.HTTP_400_BAD_REQUEST)
+            return response.Response({"detail": "Aucun livreur assigne."}, status=status.HTTP_400_BAD_REQUEST)
         serializer = TransitAgentRatingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         rating, _ = TransitAgentRating.objects.update_or_create(

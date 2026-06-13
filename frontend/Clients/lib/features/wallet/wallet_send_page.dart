@@ -22,7 +22,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
   final ApiService _api = ApiService();
   final _sourceAccount = TextEditingController();
   final _amount = TextEditingController();
-  final _pin = TextEditingController();
   String _provider = '';
   List<Map<String, String>> _providerChoices = const [];
   Map<String, String> _providerLogo = const {};
@@ -42,7 +41,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
   void dispose() {
     _sourceAccount.dispose();
     _amount.dispose();
-    _pin.dispose();
     super.dispose();
   }
 
@@ -218,8 +216,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
     if (!mounted || confirm != true) return;
 
     final token = context.read<SessionStore>().token;
-    final pin = await _collectPin();
-    if (!mounted || pin == null) return;
 
     setState(() => _busy = true);
     try {
@@ -230,7 +226,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
           'source_account': sourceValue,
           'amount': amountValue,
           'provider': _provider,
-          'pin': pin,
           'idempotency_key': DateTime.now().microsecondsSinceEpoch.toString(),
         },
         token: token,
@@ -285,50 +280,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
     }
   }
 
-  Future<String?> _collectPin() async {
-    _pin.clear();
-    String? pinError;
-    final ok = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Code PIN wallet"),
-          content: TextField(
-            controller: _pin,
-            keyboardType: TextInputType.number,
-            maxLength: 4,
-            obscureText: true,
-            autofocus: true,
-            onChanged: (_) => setDialogState(() => pinError = null),
-            decoration: InputDecoration(
-              labelText: "PIN (4 chiffres)",
-              prefixIcon: const Icon(Icons.lock_outline),
-              errorText: pinError,
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text("Annuler")),
-            FilledButton(
-                onPressed: () {
-                  final pin = _pin.text.trim();
-                  if (pin.length != 4 || !RegExp(r'^\d{4}$').hasMatch(pin)) {
-                    setDialogState(() =>
-                        pinError = "PIN invalide — 4 chiffres requis.");
-                    return;
-                  }
-                  Navigator.pop(ctx, true);
-                },
-                child: const Text("Valider")),
-          ],
-        ),
-      ),
-    );
-    if (ok != true) return null;
-    return _pin.text.trim();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -524,7 +475,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            "Confirmation OTP requise. Un code à 6 chiffres sera envoyé par SMS, puis votre PIN wallet sera demandé.",
+                            "Vérifiez le destinataire et le montant avant de confirmer le transfert.",
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,

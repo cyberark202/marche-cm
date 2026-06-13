@@ -9,6 +9,7 @@ import '../../core/app_config.dart';
 import '../../core/app_theme.dart';
 import '../../core/backend_ui_config_service.dart';
 import 'auth_api_service.dart';
+import 'password_reset_page.dart';
 import 'seller_register_page.dart';
 import 'session_store.dart';
 
@@ -162,7 +163,7 @@ class _AuthPageState extends State<AuthPage> {
     }
     setState(() => _busy = true);
     try {
-      await _authApi.registerSeller(
+      final payload = await _authApi.registerSeller(
         name: _regName.text.trim(),
         phoneNumber: _regPhone.text.trim(),
         email: _regEmail.text.trim(),
@@ -173,10 +174,35 @@ class _AuthPageState extends State<AuthPage> {
         companyName: _regCompany.text.trim(),
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text("Inscription reussie. Vous pouvez vous connecter.")),
-      );
+      // Point 6 — connexion directe après création de compte. Le backend renvoie
+      // déjà les tokens de session (RegisterView -> _issue_session_tokens).
+      final access = (payload["access"] ?? "").toString();
+      final refresh = (payload["refresh"] ?? "").toString();
+      if (access.isNotEmpty) {
+        final user = payload["user"] is Map<String, dynamic>
+            ? payload["user"] as Map<String, dynamic>
+            : await _authApi.me(access);
+        if (!mounted) return;
+        final session = context.read<SessionStore>();
+        session.setSession(
+          accessToken: access,
+          refreshTokenValue: refresh.isEmpty ? null : refresh,
+          userRole:
+              session.roleFromBackend((user["role"] ?? "SUPPLIER").toString()),
+          currentUserId: user["id"] is int ? user["id"] as int : null,
+          currentUsername: user["username"]?.toString(),
+        );
+        unawaited(_resolveLocationWithoutGps(accessToken: access, user: user));
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Compte créé. Bienvenue !")),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("Inscription reussie. Vous pouvez vous connecter.")),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       _showError(e);
@@ -435,7 +461,19 @@ class _AuthPageState extends State<AuthPage> {
               _fieldDecoration(label: "Mot de passe", icon: Icons.lock_outline),
           obscureText: true,
         ),
-        const SizedBox(height: 18),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    PasswordResetPage(initialEmail: _loginEmail.text.trim()),
+              ),
+            ),
+            child: const Text("Mot de passe oublié ?"),
+          ),
+        ),
+        const SizedBox(height: 6),
         SizedBox(
           height: 52,
           child: FilledButton(

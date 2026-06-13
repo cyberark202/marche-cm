@@ -68,10 +68,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         vehicleType: _vehicleType,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Compte créé ! Connectez-vous.')),
-      );
-      context.go('/login');
+      if (ref.read(authProvider).isAuthenticated) {
+        // Auto-login succeeded — the router redirects to /onboarding (KYC).
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Compte créé ! Vérifions votre identité.')),
+        );
+      } else {
+        // Defensive fallback (backend without token issuance).
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Compte créé ! Connectez-vous.')),
+        );
+        context.go('/login');
+      }
     } catch (e) {
       if (mounted) {
         setState(() {

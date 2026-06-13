@@ -77,7 +77,7 @@ class _CartPageState extends State<CartPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
-                  "Sélectionnez un transitaire pour le produit #${entry.productId}.")),
+                  "Sélectionnez un livreur pour le produit #${entry.productId}.")),
         );
         return;
       }
@@ -630,7 +630,7 @@ class _CartLineCard extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 6),
               child: Text(
-                "Aucun transitaire disponible pour le moment.",
+                "Aucun livreur disponible pour le moment.",
                 style: TextStyle(
                     fontSize: 12, color: AppPalette.textMuted),
               ),
@@ -737,7 +737,7 @@ class _TransitOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = (profile["company_name"] ?? "Transitaire").toString();
+    final name = (profile["company_name"] ?? "Livreur").toString();
     final eta =
         int.tryParse("${profile["average_eta_days"] ?? 0}") ?? 0;
     final airPrice =
@@ -913,7 +913,7 @@ class _EscrowRecap extends StatelessWidget {
         children: [
           _RecapLine(label: "Sous-total produits", value: subtotal),
           const SizedBox(height: 6),
-          _RecapLine(label: "Transitaire", value: shipping),
+          _RecapLine(label: "Livreur", value: shipping),
           const SizedBox(height: 6),
           _RecapLine(label: "Commission plateforme (2,5%)", value: commission),
           const Padding(

@@ -5,9 +5,9 @@ import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
 
-/// Suivi commande — timeline transitaire (PDF 10).
+/// Suivi commande — timeline livreur (PDF 10).
 ///
-/// Affiche le statut, l'itinéraire, le produit, le transitaire et un stepper
+/// Affiche le statut, l'itinéraire, le produit, le livreur et un stepper
 /// vertical des étapes (commande → enlevée → en transit → preuve → libération).
 class OrderTrackingPage extends StatefulWidget {
   const OrderTrackingPage({
@@ -601,7 +601,7 @@ class _TransitCard extends StatelessWidget {
           IconButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Discussion transitaire à venir.")),
+                const SnackBar(content: Text("Discussion livreur à venir.")),
               );
             },
             icon: Container(
@@ -676,7 +676,7 @@ class _TimelineList extends StatelessWidget {
         icon: Icons.shopping_bag_outlined,
       ),
       _TimelineStep(
-        title: "Devis transitaire accepté",
+        title: "Devis livreur accepté",
         subtitle: shipment?["accepted_quote_amount"] != null
             ? "${shipment!["accepted_quote_amount"]} FCFA"
             : "En attente d'acceptation",
@@ -701,7 +701,7 @@ class _TimelineList extends StatelessWidget {
       ),
       const _TimelineStep(
         title: "Libération séquestre",
-        subtitle: "Fonds débloqués pour le vendeur et le transitaire",
+        subtitle: "Fonds débloqués pour le vendeur et le livreur",
         icon: Icons.lock_open_outlined,
       ),
     ];

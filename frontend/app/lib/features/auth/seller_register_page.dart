@@ -1,8 +1,10 @@
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/app_theme.dart';
 import 'auth_api_service.dart';
+import 'session_store.dart';
 
 class SellerRegisterPage extends StatefulWidget {
   const SellerRegisterPage({super.key});
@@ -32,7 +34,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
   String? _error;
 
   // ISOLATION: the professional app registers SUPPLIER / WHOLESALER only.
-  // Transitaires (chauffeurs) utilisent l'application Market CM Driver.
+  // Livreurs (chauffeurs) utilisent l'application Market CM Driver.
   static const _roles = [
     ('SUPPLIER', 'Fournisseur', Icons.factory_outlined,
         'Produisez ou importez des marchandises'),
@@ -76,7 +78,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      await _authApi.registerSeller(
+      final payload = await _authApi.registerSeller(
         name: _nameCtrl.text.trim(),
         phoneNumber: _phoneCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
@@ -87,13 +89,39 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
         companyName: _companyCtrl.text.trim(),
       );
       if (!mounted) return;
+      final access = (payload['access'] ?? '').toString();
+      final refresh = (payload['refresh'] ?? '').toString();
+      final user = payload['user'] is Map<String, dynamic>
+          ? payload['user'] as Map<String, dynamic>
+          : <String, dynamic>{};
+      if (access.isEmpty) {
+        // Defensive fallback (backend without token issuance): back to login.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Compte professionnel créé ! Connectez-vous.'),
+            backgroundColor: Color(0xFF059669),
+          ),
+        );
+        Navigator.of(context).pop();
+        return;
+      }
+      // Auto-login: open the session; the root router lands the seller on the
+      // dashboard (or the pending-verification screen until KYC is approved).
+      final session = context.read<SessionStore>();
+      session.setSession(
+        accessToken: access,
+        refreshTokenValue: refresh.isEmpty ? null : refresh,
+        userRole: session.roleFromBackend((user['role'] ?? _role).toString()),
+        currentUserId: user['id'] is int ? user['id'] as int : null,
+        currentUsername: user['username']?.toString(),
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Compte professionnel créé ! Connectez-vous.'),
+          content: Text('Bienvenue ! Votre compte professionnel a été créé.'),
           backgroundColor: Color(0xFF059669),
         ),
       );
-      Navigator.of(context).pop();
+      Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (e) {
       if (!mounted) return;
       setState(() {

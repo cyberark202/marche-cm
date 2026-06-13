@@ -1,8 +1,11 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/app_theme.dart';
+import 'core/push_notification_service.dart';
 import 'core/security/secure_dio_client.dart';
+import 'firebase_options.dart';
 import 'features/auth/admin_login_page.dart';
 import 'features/auth/session_store.dart';
 import 'features/shell/admin_shell.dart';
@@ -27,6 +30,17 @@ void main() async {
 
   // Restore an admin session from secure storage (survives restarts).
   await session.restoreFromStorage();
+
+  // Firebase (web console). Guarded so a failed init — e.g. an unreachable
+  // Firebase CDN on web — never blanks the console.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    await PushNotificationService.initialize();
+  } catch (e) {
+    debugPrint('[Firebase] init skipped: $e');
+  }
 
   runApp(
     ChangeNotifierProvider<AdminSessionStore>.value(

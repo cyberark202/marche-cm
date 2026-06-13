@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/ui_kit.dart';
+import 'admin_reset_password_page.dart';
 import 'auth_api_service.dart';
 import 'session_store.dart';
 
@@ -160,7 +161,19 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                             )
                           : const Text('Se connecter'),
                     ),
-                    const SizedBox(height: 18),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AdminResetPasswordPage(
+                                initialEmail: _email.text.trim()),
+                          ),
+                        ),
+                        child: const Text('Mot de passe oublié ?'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(

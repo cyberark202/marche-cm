@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Design System — Pro (vendeurs, grossistes, fournisseurs, transitaires, admin)
+/// Design System — Pro (vendeurs, grossistes, fournisseurs, livreurs, admin)
 ///
 /// Tonalité : business, sobre, professionnel, lisible.
 /// Palette : teal profond (primary), indigo (secondary), ambre (accent).

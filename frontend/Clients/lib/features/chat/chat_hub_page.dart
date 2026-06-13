@@ -4,8 +4,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_service.dart';
+import '../../core/app_config.dart';
 import '../../core/app_theme.dart';
 import '../../core/realtime_events_service.dart';
 import '../../core/ui_state_widgets.dart';
@@ -35,7 +37,7 @@ class _ChatHubPageState extends State<ChatHubPage> {
   int _page = 1;
   bool _hasMore = true;
   String _query = "";
-  int _selectedFilter = 0; // 0=Tous, 1=Fournisseurs, 2=Transitaires, 3=Support
+  int _selectedFilter = 0; // 0=Tous, 1=Fournisseurs, 2=Livreurs, 3=Support
 
   String? _safePlatformFilePath(PlatformFile file) {
     if (kIsWeb) return null;
@@ -193,7 +195,8 @@ class _ChatHubPageState extends State<ChatHubPage> {
         fields: {
           "room": _selectedRoomId.toString(),
           "content": _messageController.text.trim(),
-          "type": "DOCUMENT",
+          // Tag images as IMAGE so the bubble renders them inline (not as a link).
+          "type": _isImageName(selected.name) ? "IMAGE" : "DOCUMENT",
         },
         file: selected,
         token: token,
@@ -255,6 +258,110 @@ class _ChatHubPageState extends State<ChatHubPage> {
       Color(0xFFE5484D),
     ];
     return colors[index % colors.length];
+  }
+
+  bool _isImageName(String name) {
+    final n = name.toLowerCase().split('?').first;
+    return n.endsWith('.png') ||
+        n.endsWith('.jpg') ||
+        n.endsWith('.jpeg') ||
+        n.endsWith('.webp') ||
+        n.endsWith('.gif');
+  }
+
+  bool _isImageMessage(String type, String fileUrl) =>
+      type.toUpperCase() == "IMAGE" || _isImageName(fileUrl);
+
+  String _absoluteUrl(String url) {
+    if (url.isEmpty) return url;
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    final base = AppConfig.apiBaseUrl;
+    return url.startsWith("/") ? "$base$url" : "$base/$url";
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  /// Renders a message: inline image for image attachments, a tappable file
+  /// chip for other attachments, plain text otherwise. The raw file link is
+  /// never shown as bare text.
+  Widget _messageBody(Map<String, dynamic> msg) {
+    final content = (msg["content"] ?? "").toString();
+    final type = (msg["type"] ?? "TEXT").toString();
+    final fileRaw = (msg["file"] ?? "").toString();
+
+    if (fileRaw.isNotEmpty) {
+      final url = _absoluteUrl(fileRaw);
+      if (_isImageMessage(type, fileRaw)) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: GestureDetector(
+                onTap: () => _openUrl(url),
+                child: Image.network(
+                  url,
+                  width: 220,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (c, child, progress) => progress == null
+                      ? child
+                      : const SizedBox(
+                          width: 220,
+                          height: 150,
+                          child: Center(
+                              child: CircularProgressIndicator(strokeWidth: 2)),
+                        ),
+                  errorBuilder: (c, e, s) =>
+                      _fileChip(url, "Image indisponible"),
+                ),
+              ),
+            ),
+            if (content.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(content),
+            ],
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _fileChip(url, "Pièce jointe"),
+          if (content.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(content),
+          ],
+        ],
+      );
+    }
+    return Text(content);
+  }
+
+  Widget _fileChip(String url, String label) {
+    return InkWell(
+      onTap: () => _openUrl(url),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.insert_drive_file_outlined, size: 18),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                  decoration: TextDecoration.underline,
+                  fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -356,7 +463,7 @@ class _ChatHubPageState extends State<ChatHubPage> {
                 ),
                 const SizedBox(width: 8),
                 _FilterChip(
-                  label: "Transitaires",
+                  label: "Livreurs",
                   selected: _selectedFilter == 2,
                   onTap: () => setState(() => _selectedFilter = 2),
                 ),
@@ -533,7 +640,7 @@ class _ChatHubPageState extends State<ChatHubPage> {
                           ),
                         ],
                       ),
-                      child: Text((msg["content"] ?? "").toString()),
+                      child: _messageBody(msg),
                     ),
                   ),
                   if (mine)

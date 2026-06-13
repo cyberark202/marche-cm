@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'wallet_security_dialogs.dart';
 
 class WithdrawalPage extends StatefulWidget {
   const WithdrawalPage({super.key});
@@ -16,12 +17,14 @@ class WithdrawalPage extends StatefulWidget {
 class _WithdrawalPageState extends State<WithdrawalPage> {
   final _amountCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  String _provider = 'MTN_MO_MO';
+  // Provider codes must match the backend PaymentProvider choices
+  // (apps/wallets/models.py): MTN MoMo maps to "MOBILE_MONEY".
+  String _provider = 'MOBILE_MONEY';
   bool _busy = false;
   String? _error;
 
   static const _providers = [
-    ('MTN_MO_MO', 'MTN Mobile Money', Color(0xFFFFCC00)),
+    ('MOBILE_MONEY', 'MTN Mobile Money', Color(0xFFFFCC00)),
     ('ORANGE_MONEY', 'Orange Money', Color(0xFFFF6600)),
   ];
 
@@ -43,15 +46,30 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
       setState(() => _error = 'Numéro de téléphone invalide.');
       return;
     }
+
+    // Withdrawals are protected by a one-time email challenge (the wallet PIN
+    // was removed product-wide). Collect the code before posting.
+    final verification = await collectSensitiveActionCode(
+      context,
+      actionKey: 'wallet.withdraw',
+      actionLabel: 'Retrait wallet',
+    );
+    if (!mounted || verification == null) return;
+
     setState(() { _busy = true; _error = null; });
     try {
       // Audit ref: [Front-Driver] backend exposes WalletViewSet.withdraw at
-      // /api/wallets/withdraw/ (wallets/views.py:670). The previous
-      // /api/wallets/driver/withdraw/ path was a 404.
+      // /api/wallets/withdraw/ (wallets/views.py:751). Destination is read from
+      // `destination_account`/`destination_phone`; the challenge pair is
+      // mandatory.
       await DriverDioClient.dio.post('/api/wallets/withdraw/', data: {
         'amount': amount,
         'provider': _provider,
-        'phone_number': phone,
+        'destination_phone': phone,
+        'destination_account': phone,
+        'challenge_token': verification.challengeToken,
+        'verification_code': verification.verificationCode,
+        'idempotency_key': DateTime.now().microsecondsSinceEpoch.toString(),
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
