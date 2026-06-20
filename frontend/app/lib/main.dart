@@ -10,6 +10,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'core/app_config.dart';
+import 'core/app_gate.dart';
 import 'core/app_i18n.dart';
 import 'core/app_theme.dart';
 import 'core/push_notification_service.dart';
@@ -116,7 +117,10 @@ class MarcheCmApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
       ],
       theme: AppTheme.light(),
-      home: const _RootEntryPoint(),
+      home: AppGate(
+        systemEvents: RealtimeEventsService.instance.events,
+        child: const _RootEntryPoint(),
+      ),
     );
   }
 }

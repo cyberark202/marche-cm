@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import 'core/app_config.dart';
+import 'core/app_gate.dart';
 import 'core/app_i18n.dart';
 import 'core/app_theme.dart';
 import 'core/auth_token_manager.dart';
@@ -80,7 +81,7 @@ class ClientsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = context.watch<SessionStore>();
     return MaterialApp(
-      title: 'Marche CM Clients',
+      title: 'Market CM Clients',
       debugShowCheckedModeBanner: false,
       locale: session.appLocale,
       supportedLocales: const [
@@ -94,7 +95,10 @@ class ClientsApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
       ],
       theme: AppTheme.light(),
-      home: const _RootEntryPoint(),
+      home: AppGate(
+        systemEvents: RealtimeEventsService.instance.events,
+        child: const _RootEntryPoint(),
+      ),
     );
   }
 }
@@ -337,7 +341,7 @@ class _ProAccountBlockedPage extends StatelessWidget {
                 const Text(
                   "Cette application est réservée aux acheteurs.\n"
                   "Pour accéder à votre espace professionnel (vendeur, grossiste, fournisseur, livreur ou admin), "
-                  "veuillez utiliser l'application Marche CM Pro.",
+                  "veuillez utiliser l'application Market CM Pro.",
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),

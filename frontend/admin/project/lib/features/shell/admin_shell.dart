@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/cm_components.dart';
 import '../audit/audit_page.dart';
 import '../config/configuration_page.dart';
 import '../dashboard/admin_dashboard_page.dart';
@@ -42,35 +43,16 @@ class _AdminShellState extends State<AdminShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: _goTo,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Accueil',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.group_outlined),
-            selectedIcon: Icon(Icons.group),
-            label: 'Comptes',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.gavel_outlined),
-            selectedIcon: Icon(Icons.gavel),
-            label: 'Litiges',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: 'Wallet',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
-          ),
+      bottomNavigationBar: CmBottomNav(
+        currentIndex: _index,
+        onSelect: _goTo,
+        items: const [
+          CmNavItem(icon: Icons.dashboard_outlined, label: 'Accueil'),
+          CmNavItem(icon: Icons.group_outlined, label: 'Comptes'),
+          CmNavItem(icon: Icons.gavel_outlined, label: 'Litiges'),
+          CmNavItem(
+              icon: Icons.account_balance_wallet_outlined, label: 'Wallet'),
+          CmNavItem(icon: Icons.person_outline, label: 'Profil'),
         ],
       ),
     );

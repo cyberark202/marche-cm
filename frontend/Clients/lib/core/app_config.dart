@@ -23,6 +23,11 @@ class AppConfig {
     return "https://cm.digital-get.com";
   }
 
+  // Identité de l'app pour la gouvernance runtime (/api/app/runtime-config/).
+  // appVersion DOIT rester aligné sur la version de pubspec.yaml (sans le +build).
+  static const String appId = "clients";
+  static const String appVersion = "0.1.0";
+
   static const String googleClientId = String.fromEnvironment(
     "GOOGLE_CLIENT_ID",
     defaultValue: "",

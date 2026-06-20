@@ -52,7 +52,11 @@ class RealtimeEventsService {
     _doConnect(token: token, topics: topics);
   }
 
-  void _doConnect({required String token, required List<String> topics}) {
+  void _doConnect({
+    required String token,
+    required List<String> topics,
+    bool resync = false,
+  }) {
     _cancelSubscription();
     _reconnectTimer?.cancel();
 
@@ -76,6 +80,17 @@ class RealtimeEventsService {
     );
     _connected = true;
     _connectedToken = token;
+
+    // Gap recovery: a best-effort broadcast WS does NOT replay events missed
+    // while disconnected. On every *re*connection we emit a synthetic resync
+    // event per topic so each subscribed page re-fetches its REST state and
+    // closes the gap. The first connection is skipped — pages already load in
+    // initState.
+    if (resync) {
+      for (final topic in topics) {
+        _controller.add({"topic": topic, "type": "resync", "payload": const {}});
+      }
+    }
   }
 
   void _scheduleReconnect() {
@@ -95,7 +110,7 @@ class RealtimeEventsService {
     _reconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
       final freshToken = await TokenRepository.getAccessToken();
       if (freshToken == null || freshToken.isEmpty) return;
-      _doConnect(token: freshToken, topics: _connectedTopics);
+      _doConnect(token: freshToken, topics: _connectedTopics, resync: true);
     });
   }
 

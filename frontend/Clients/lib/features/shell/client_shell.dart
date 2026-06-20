@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_icons.dart';
+import '../../core/cm_components.dart';
 import '../buyer/buyer_store.dart';
 import '../chat/chat_hub_page.dart';
 import '../orders/orders_page.dart';
@@ -42,48 +44,20 @@ class _ClientShellState extends State<ClientShell> {
             ProfileHubPage(),
           ],
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: [
-            const NavigationDestination(
-              icon: Icon(Icons.shopping_bag_outlined),
-              selectedIcon: Icon(Icons.shopping_bag),
-              label: "Boutique",
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.smart_display_outlined),
-              selectedIcon: Icon(Icons.smart_display),
-              label: "Vidéos",
-            ),
-            NavigationDestination(
-              icon: Badge(
-                label: Text(unread.toString()),
-                isLabelVisible: unread > 0,
-                child: const Icon(Icons.chat_bubble_outline),
-              ),
-              selectedIcon: Badge(
-                label: Text(unread.toString()),
-                isLabelVisible: unread > 0,
-                child: const Icon(Icons.chat_bubble),
-              ),
+        bottomNavigationBar: CmBottomNav(
+          currentIndex: _index,
+          onSelect: (i) => setState(() => _index = i),
+          items: [
+            const CmNavItem(icon: AppIcons.shoppingBag, label: "Boutique"),
+            const CmNavItem(icon: AppIcons.video, label: "Vidéos"),
+            CmNavItem(
+              icon: AppIcons.chat,
               label: "Messages",
+              badge: unread,
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long),
-              label: "Commandes",
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              selectedIcon: Icon(Icons.account_balance_wallet),
-              label: "Wallet",
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: "Profil",
-            ),
+            const CmNavItem(icon: AppIcons.receipt, label: "Commandes"),
+            const CmNavItem(icon: AppIcons.wallet, label: "Wallet"),
+            const CmNavItem(icon: AppIcons.person, label: "Profil"),
           ],
         ),
       ),

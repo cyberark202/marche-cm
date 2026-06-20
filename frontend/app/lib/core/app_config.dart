@@ -10,6 +10,11 @@ class AppConfig {
     defaultValue: "https://cm.digital-get.com",
   );
 
+  // Identité pour la gouvernance runtime (/api/app/runtime-config/).
+  // appVersion DOIT rester aligné sur pubspec.yaml (sans le +build).
+  static const String appId = "app";
+  static const String appVersion = "0.1.0";
+
   static String get apiBaseUrl {
     final String url = _resolveBaseUrl();
     _assertHttpsInRelease(url);

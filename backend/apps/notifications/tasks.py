@@ -76,21 +76,38 @@ def _send_websocket(user_id: int, notification) -> str:
     try:
         from asgiref.sync import async_to_sync
         from channels.layers import get_channel_layer
-        layer = get_channel_layer()
-        if not layer:
-            return "no_channel_layer"
-        async_to_sync(layer.group_send)(
-            f"notification_{user_id}",
-            {
-                "type": "notification_message",
-                "data": {
-                    "id": notification.pk,
-                    "title": notification.title,
-                    "body": notification.body,
-                    "created_at": notification.created_at.isoformat(),
-                },
-            },
+
+        from apps.notifications.realtime import broadcast_user_event
+
+        payload = {
+            "id": notification.pk,
+            # Le client (main.dart) lit notification_id pour la déduplication et
+            # le mark-as-read ; on l'expose en plus de `id` pour rester compatible.
+            "notification_id": notification.pk,
+            "title": notification.title,
+            "body": notification.body,
+            "created_at": notification.created_at.isoformat(),
+        }
+
+        # Canal canonique : les apps Flutter écoutent /ws/events/ et rejoignent le
+        # groupe user_<id> (cf. EventsConsumer). Sans cette diffusion, la cloche de
+        # notification ne remontait jamais en live — seul le NotificationConsumer
+        # (groupe notification_<id>), auquel aucun client ne se connecte, était servi.
+        broadcast_user_event(
+            user_id=user_id,
+            topic="notifications",
+            event_type="notification_created",
+            payload=payload,
         )
+
+        # Rétrocompat : on continue d'alimenter notification_<id> pour tout client
+        # branché sur le NotificationConsumer historique.
+        layer = get_channel_layer()
+        if layer:
+            async_to_sync(layer.group_send)(
+                f"notification_{user_id}",
+                {"type": "notification_message", "data": payload},
+            )
         return "sent"
     except Exception as exc:
         logger.warning("ws_notification_error", extra={"user_id": user_id, "error": str(exc)})

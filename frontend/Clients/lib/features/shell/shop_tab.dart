@@ -11,6 +11,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/api_service.dart';
 import '../../core/app_config.dart';
 import '../../core/app_theme.dart';
+import '../../core/cm_components.dart';
 import '../../core/backend_ui_config_service.dart';
 import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
@@ -647,31 +648,37 @@ class _ShopTabState extends State<ShopTab> {
         children: [
           Row(
             children: [
-              const CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.white24,
-                child: Icon(Icons.storefront, color: Colors.white, size: 18),
+              CmAvatar(
+                name: (session.username ?? "").trim().isEmpty
+                    ? "Marché"
+                    : session.username!,
+                size: 38,
+                ring: true,
               ),
-              const SizedBox(width: 8),
-              const Expanded(
+              const SizedBox(width: 10),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      "Catalogue",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 19,
-                          letterSpacing: -0.3),
-                    ),
-                    Text(
-                      "Marché.cm — fournisseurs vérifiés",
+                    const Text(
+                      "Bonjour,",
                       style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      (session.username ?? "").trim().isEmpty
+                          ? "Bienvenue 🇨🇲"
+                          : "${session.username} 🇨🇲",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          letterSpacing: -0.2),
                     ),
                   ],
                 ),

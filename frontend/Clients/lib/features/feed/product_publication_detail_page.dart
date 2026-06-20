@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/api_service.dart';
 import '../../core/app_config.dart';
 import '../../core/app_theme.dart';
+import '../../core/cm_components.dart';
 import '../auth/session_store.dart';
 import '../chat/chat_hub_page.dart';
 import 'feed_models.dart';
@@ -378,19 +379,6 @@ class _SupplierCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = () {
-      final src = product.sellerDisplayName.trim();
-      if (src.isEmpty) return "·";
-      final parts = src.split(RegExp(r"\s+"));
-      if (parts.length == 1) {
-        return parts.first
-            .substring(0, parts.first.length.clamp(0, 2))
-            .toUpperCase();
-      }
-      return (parts[0].isNotEmpty ? parts[0][0] : "") +
-          (parts[1].isNotEmpty ? parts[1][0] : "");
-    }();
-
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -401,24 +389,7 @@ class _SupplierCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: AppPalette.gradientPrimary,
-              borderRadius: BorderRadius.circular(AppRadii.md),
-              boxShadow: AppPalette.shadowSoft,
-            ),
-            child: Text(
-              initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
-            ),
-          ),
+          CmAvatar(name: product.sellerDisplayName, size: 52),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(

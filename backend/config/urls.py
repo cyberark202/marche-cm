@@ -63,6 +63,7 @@ from apps.disputes.views import DisputeCaseViewSet
 from apps.fraud.views import FraudAssessmentViewSet, UserRiskProfileViewSet
 from apps.compliance.views import KYCApplicationViewSet
 from apps.audit.views import AuditEventViewSet
+from apps.appconfig.views import RuntimeConfigView
 from apps.ledger.views import LedgerAccountViewSet, LedgerTransactionViewSet
 
 router = DefaultRouter()
@@ -104,6 +105,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", HealthView.as_view(), name="health"),
     path("api/ui-config/", UiConfigView.as_view(), name="ui-config"),
+    path("api/app/runtime-config/", RuntimeConfigView.as_view(), name="app-runtime-config"),
     path(
         "api/auth/register/",
         AuthDisabledView.as_view() if settings.AUTH_LOCKDOWN else RegisterView.as_view(),

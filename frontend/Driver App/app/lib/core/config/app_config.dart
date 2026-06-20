@@ -1,6 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 abstract final class AppConfig {
+  // Identité pour la gouvernance runtime (/api/app/runtime-config/).
+  // appVersion DOIT rester aligné sur pubspec.yaml (sans le +build).
+  static const String appId = 'driver';
+  static const String appVersion = '1.0.0';
+
   static const String _prodBaseUrl = 'https://cm.digital-get.com';
   static const String _devBaseUrl = 'http://10.0.2.2:8000';
 

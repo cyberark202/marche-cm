@@ -247,6 +247,7 @@ INSTALLED_APPS = [
     "apps.fraud",
     "apps.compliance",
     "apps.realtime",
+    "apps.appconfig",
     "django_celery_beat",
     "django_celery_results",
     "drf_spectacular",

@@ -17,6 +17,7 @@ ALLOWED_TOPICS = {
     "compliance",
     "notifications",
     "support",
+    "system",
 }
 
 

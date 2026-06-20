@@ -25,6 +25,8 @@ dependencies:
 
   # WebSocket
   web_socket_channel: ^3.0.1
+  # Runtime-config fetch (forced-update / kill switch) — aligné sur les autres apps.
+  http: ^1.2.2
 
   # Location
   geolocator: ^13.0.2

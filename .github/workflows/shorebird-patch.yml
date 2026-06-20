@@ -1,0 +1,57 @@
+# Pousse un patch Shorebird (code Dart à chaud) sur une app, depuis CI.
+#
+# ⚠️ TEMPLATE — à activer après avoir câblé les secrets ci-dessous. Tant qu'ils
+#    n'existent pas, le job échoue volontairement à l'étape de signing.
+#    Le chemin recommandé au quotidien reste LOCAL : frontend/shorebird/patch.sh
+#    (le keystore vit sur ta machine, pas en CI).
+#
+# Secrets requis (Settings > Secrets and variables > Actions):
+#   SHOREBIRD_TOKEN          -> 'shorebird login:ci' puis copier le token
+#   ANDROID_KEYSTORE_BASE64  -> base64 de upload-keystore.jks
+#   ANDROID_KEY_PROPERTIES   -> contenu complet de android/key.properties
+name: Shorebird Patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "App à patcher"
+        required: true
+        type: choice
+        options: [app, clients, driver, admin]
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Résoudre le dossier de l'app
+        id: app
+        run: |
+          case "${{ inputs.app }}" in
+            app)     echo "dir=frontend/app" >> "$GITHUB_OUTPUT" ;;
+            clients) echo "dir=frontend/Clients" >> "$GITHUB_OUTPUT" ;;
+            driver)  echo "dir=frontend/Driver App/app" >> "$GITHUB_OUTPUT" ;;
+            admin)   echo "dir=frontend/admin/project" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Restaurer le keystore de signing
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KP: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          if [ -z "$KS" ] || [ -z "$KP" ]; then
+            echo "::error::Secrets de signing manquants (ANDROID_KEYSTORE_BASE64 / ANDROID_KEY_PROPERTIES)."
+            exit 1
+          fi
+          d="${{ steps.app.outputs.dir }}/android"
+          echo "$KS" | base64 -d > "$d/upload-keystore.jks"
+          printf '%s\n' "$KP" > "$d/key.properties"
+
+      - uses: shorebirdtech/setup-shorebird@v1
+
+      - name: Pousser le patch
+        env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+        run: bash "frontend/shorebird/patch.sh" "${{ inputs.app }}"

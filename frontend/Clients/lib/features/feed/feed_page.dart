@@ -1234,7 +1234,7 @@ class _ProductsScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _OfferSection(
             title: "Meilleures offres",
-            subtitle: "Trouvez les meilleurs prix sur Marche CM",
+            subtitle: "Trouvez les meilleurs prix sur Market CM",
             products: bestDeals,
             favoriteProductIds: favoriteProductIds,
             onToggleFavorite: onToggleFavorite,

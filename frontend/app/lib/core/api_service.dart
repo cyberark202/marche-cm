@@ -32,7 +32,7 @@ class ApiService {
     _assertOk(response, 'GET $path');
     final data = response.data;
     if (data is Map<String, dynamic>) return data;
-    throw Exception('GET $path returned unexpected payload.');
+    throw Exception('Réponse inattendue du serveur.');
   }
 
   Future<Map<String, dynamic>> post(String path, Map<String, dynamic> body,
@@ -178,10 +178,24 @@ class ApiService {
 
   String toUserMessage(
     Object error, {
-    String fallback = 'Une erreur est survenue. Reessayez.',
+    String fallback = 'Une erreur est survenue. Réessayez.',
   }) {
     if (error is TimeoutException) {
       return 'La requête a expiré. Vérifiez votre connexion et réessayez.';
+    }
+    if (error is DioException) {
+      final data = error.response?.data;
+      final detail = data is Map
+          ? (data['detail'] ?? data['message'] ?? '').toString().trim()
+          : '';
+      if (detail.isNotEmpty) return detail;
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.connectionError) {
+        return 'Serveur inaccessible. Vérifiez votre connexion puis réessayez.';
+      }
+      return 'Erreur réseau. Réessayez.';
     }
     final raw = error.toString().replaceFirst('Exception: ', '').trim();
     if (raw.isEmpty) return fallback;
@@ -190,7 +204,7 @@ class ApiService {
     if (lower.contains('connection refused') ||
         lower.contains('failed host lookup') ||
         lower.contains('socketexception')) {
-      return 'Serveur inaccessible. Verifiez votre connexion puis reessayez.';
+      return 'Serveur inaccessible. Vérifiez votre connexion puis réessayez.';
     }
 
     return raw.isEmpty ? fallback : raw;

@@ -2,8 +2,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/app_gate.dart';
 import 'core/app_theme.dart';
 import 'core/push_notification_service.dart';
+import 'core/realtime_events_service.dart';
 import 'core/security/secure_dio_client.dart';
 import 'firebase_options.dart';
 import 'features/auth/admin_login_page.dart';
@@ -59,7 +61,10 @@ class AdminConsoleApp extends StatelessWidget {
       title: 'Market CM Admin',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      home: const _RootEntryPoint(),
+      home: AppGate(
+        systemEvents: RealtimeEventsService.instance.events,
+        child: const _RootEntryPoint(),
+      ),
     );
   }
 }
@@ -86,6 +91,7 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
     }
 
     final session = context.watch<AdminSessionStore>();
+    _syncRealtime(session);
 
     // Surface a one-shot auth notice (expired session, rejected role…).
     final notice = session.authNotice;
@@ -105,5 +111,15 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
       return const AdminLoginPage();
     }
     return const AdminShell();
+  }
+
+  // Connecte le flux temps réel (/ws/events/) quand un admin est authentifié ;
+  // alimente notamment l'AppGate (topic "system") pour kill switch instantané.
+  void _syncRealtime(AdminSessionStore session) {
+    if (session.isAuthenticated && session.isAdmin) {
+      RealtimeEventsService.instance.connectFromStorage();
+    } else {
+      RealtimeEventsService.instance.disconnect();
+    }
   }
 }

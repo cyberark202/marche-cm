@@ -88,15 +88,13 @@ class _InnovationHubPageState extends State<InnovationHubPage> {
       if (!mounted) return;
       setState(() => _results[key] = output);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$key: OK")),
+        const SnackBar(content: Text("Succès.")),
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _results[key] = {"error": e.toString()});
+      setState(() => _results[key] = {"error": "Erreur"});
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text("$key: ${e.toString().replaceFirst("Exception: ", "")}")),
+        SnackBar(content: Text(_api.toUserMessage(e))),
       );
     } finally {
       if (mounted) setState(() => _busy = false);

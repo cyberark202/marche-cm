@@ -29,6 +29,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       username: username,
       isLoading: false,
     );
+    // If the local flag says not onboarded, verify with backend in background.
+    // Handles reconnection on a new device after KYC was already validated.
+    if (!onboarded) _syncKycStatus();
+  }
+
+  Future<void> _syncKycStatus() async {
+    try {
+      final me = await DriverAuthApi.me();
+      if (me['is_verified'] == true) {
+        await DriverSecureStorage.setOnboarded(true);
+        state = state.copyWith(isOnboarded: true);
+      }
+    } catch (_) {}
   }
 
   Future<void> login({required String email, required String password}) async {
@@ -57,7 +70,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
           userId: userId, username: username);
     }
 
-    final onboarded = await DriverSecureStorage.isOnboarded();
+    // Sync KYC status from the login payload so a driver reconnecting on a
+    // new device (cleared storage) is not forced through onboarding again.
+    final isVerified = user['is_verified'] == true;
+    if (isVerified) await DriverSecureStorage.setOnboarded(true);
+    final onboarded = isVerified || await DriverSecureStorage.isOnboarded();
+
     state = state.copyWith(
       isAuthenticated: true,
       isOnboarded: onboarded,

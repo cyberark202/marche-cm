@@ -159,7 +159,7 @@ class ApiService {
     if (decoded is Map<String, dynamic>) {
       return decoded;
     }
-    throw Exception("GET $path returned unexpected payload.");
+    throw Exception("Réponse inattendue du serveur.");
   }
 
   Future<Map<String, dynamic>> post(String path, Map<String, dynamic> body,
