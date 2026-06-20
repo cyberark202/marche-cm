@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/roles.dart';
 import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
+import 'create_managed_user_page.dart';
 import 'user_detail_page.dart';
 
 /// Screen 33 — Users directory with search + role filters.
@@ -37,8 +38,15 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = _repo.users());
+    setState(() => _future = _repo.users(query: _search.text));
     await _future;
+  }
+
+  /// Server-side search so results are not capped at the first paginated page
+  /// (PAGE_SIZE=20). Triggered on submit; local [_filter] still refines the
+  /// loaded set by role bucket / KYC instantly.
+  void _searchOnServer() {
+    setState(() => _future = _repo.users(query: _search.text));
   }
 
   List<Map<String, dynamic>> _filter(List<Map<String, dynamic>> users) {
@@ -61,6 +69,16 @@ class _UsersPageState extends State<UsersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final created = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(builder: (_) => const CreateManagedUserPage()),
+          );
+          if (created == true) _refresh();
+        },
+        icon: const Icon(Icons.person_add_alt_1),
+        label: const Text('Compte géré'),
+      ),
       body: SafeArea(
         child: FutureBuilder<List<Map<String, dynamic>>>(
           future: _future,
@@ -119,9 +137,16 @@ class _UsersPageState extends State<UsersPage> {
           TextField(
             controller: _search,
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              hintText: 'Nom, email, téléphone…',
-              prefixIcon: Icon(Icons.search),
+            onSubmitted: (_) => _searchOnServer(),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Nom, email, code réf…',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.arrow_forward),
+                tooltip: 'Rechercher sur le serveur',
+                onPressed: _searchOnServer,
+              ),
               isDense: true,
             ),
           ),

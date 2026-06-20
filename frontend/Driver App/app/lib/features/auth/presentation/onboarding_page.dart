@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,7 +33,7 @@ class OnboardingPage extends ConsumerStatefulWidget {
 
 class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   int _step = 0;
-  String _docType = 'CNI';
+  String _docType = 'CNI';  
   PlatformFile? _frontFile;
   PlatformFile? _backFile;
   PlatformFile? _licenseFile;
@@ -48,7 +49,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       allowMultiple: false,
-      withData: false,
+      // withData charge les octets en mémoire : indispensable sur le Web, où
+      // l'upload se fait par bytes (l'adaptateur HTTP navigateur ne sait pas
+      // streamer un corps de requête multipart).
+      withData: true,
       withReadStream: true,
     );
     if (result == null || result.files.isEmpty) return;
@@ -85,16 +89,41 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       // this, every KYC submission 400'd and the driver could never onboard.
       Future<void> upload(String docType, PlatformFile file) async {
         final upload = _normalizeUpload(file.name);
-        final form = FormData.fromMap({
-          'doc_type': docType,
-          'file': await MultipartFile.fromFile(
+        final MultipartFile mf;
+        if (kIsWeb && file.bytes != null) {
+          // Flutter Web: the browser HTTP adapter cannot stream a request
+          // body, so MultipartFile.fromStream hangs and the POST never
+          // leaves the page. Send the in-memory bytes instead.
+          mf = MultipartFile.fromBytes(
+            file.bytes!,
+            filename: upload.filename,
+            contentType: DioMediaType.parse(upload.mime),
+          );
+        } else if (file.readStream != null) {
+          // Native: stream the file (no full in-memory copy).
+          mf = MultipartFile.fromStream(
+            () => file.readStream!,
+            file.size,
+            filename: upload.filename,
+            contentType: DioMediaType.parse(upload.mime),
+          );
+        } else if (file.path != null) {
+          // Native platforms: use the filesystem path.
+          mf = await MultipartFile.fromFile(
             file.path!,
             filename: upload.filename,
             contentType: DioMediaType.parse(upload.mime),
-          ),
+          );
+        } else {
+          throw StateError('Impossible de lire le fichier sélectionné.');
+        }
+        final form = FormData.fromMap({
+          'doc_type': docType,
+          'file': mf,
         });
         await DriverDioClient.dio.post('/api/compliance-documents/', data: form);
       }
+
 
       await upload(_docType, _frontFile!);
       if (_backFile != null) await upload('CNI_VERSO', _backFile!);

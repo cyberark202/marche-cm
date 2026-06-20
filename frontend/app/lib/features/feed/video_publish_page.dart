@@ -146,6 +146,18 @@ class _VideoPublishPageState extends State<VideoPublishPage> {
     }
   }
 
+  void _togglePreviewPlayback() {
+    final controller = _previewController;
+    if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+    if (controller.value.isPlaying) {
+      controller.pause();
+    } else {
+      controller.play();
+    }
+  }
+
   Future<void> _publish() async {
     if (_submitting) return;
     if (_videoFile == null) {
@@ -338,9 +350,32 @@ class _VideoPublishPageState extends State<VideoPublishPage> {
           const SizedBox(height: 14),
           if (_loadingPreview) const Center(child: CircularProgressIndicator()),
           if (_previewController != null)
-            AspectRatio(
-              aspectRatio: _previewController!.value.aspectRatio,
-              child: VideoPlayer(_previewController!),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _togglePreviewPlayback,
+              child: AspectRatio(
+                aspectRatio: _previewController!.value.aspectRatio,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    VideoPlayer(_previewController!),
+                    // Une seule pression sur la vidéo bascule lecture/pause ;
+                    // l'icône n'apparaît que lorsque la vidéo est en pause.
+                    ValueListenableBuilder<VideoPlayerValue>(
+                      valueListenable: _previewController!,
+                      builder: (context, value, _) => AnimatedOpacity(
+                        opacity: value.isPlaying ? 0 : 1,
+                        duration: const Duration(milliseconds: 160),
+                        child: const Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white,
+                          size: 64,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
         ],
       ),

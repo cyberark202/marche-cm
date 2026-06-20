@@ -43,6 +43,113 @@ class _UserDetailPageState extends State<UserDetailPage> {
     await _future;
   }
 
+  bool _busy = false;
+
+  Future<void> _toggleSuspension(Map<String, dynamic> u) async {
+    final suspended = u['is_suspended'] == true;
+    final id = u['id'];
+    if (id is! int) return;
+
+    String reason = '';
+    if (!suspended) {
+      final controller = TextEditingController();
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Suspendre le compte'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                  'Le compte sera déconnecté (login, jetons et websocket révoqués). '
+                  'Indiquez le motif (journalisé).'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                    hintText: 'Motif de la suspension', isDense: true),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Annuler')),
+            FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Suspendre')),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      reason = controller.text.trim();
+    }
+
+    setState(() => _busy = true);
+    try {
+      if (suspended) {
+        await _repo.unsuspendUser(id);
+      } else {
+        await _repo.suspendUser(id, reason: reason);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(suspended ? 'Compte réactivé.' : 'Compte suspendu.')));
+      await _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(_repo.errorMessage(e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _moderation(Map<String, dynamic> u) {
+    final role = '${u['role']}';
+    final suspended = u['is_suspended'] == true;
+    // The backend forbids suspending an admin; hide the control for those.
+    final isAdmin = role == 'GENERAL_ADMIN';
+    if (isAdmin) return const SizedBox.shrink();
+    final reason = '${u['suspension_reason'] ?? ''}'.trim();
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(suspended ? Icons.lock_outline : Icons.verified_user_outlined,
+                  size: 18,
+                  color: suspended ? AppPalette.danger : AppPalette.success),
+              const SizedBox(width: 8),
+              Text(suspended ? 'Compte suspendu' : 'Compte actif',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          if (suspended && reason.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('Motif : $reason',
+                style: const TextStyle(
+                    fontSize: 12.5, color: AppPalette.textMuted)),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: suspended
+                  ? null
+                  : FilledButton.styleFrom(backgroundColor: AppPalette.danger),
+              onPressed: _busy ? null : () => _toggleSuspension(u),
+              icon: Icon(suspended ? Icons.lock_open : Icons.block),
+              label: Text(suspended ? 'Réactiver le compte' : 'Suspendre le compte'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,6 +175,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [
               _identity(u, name, role, verified),
+              const SizedBox(height: 14),
+              _moderation(u),
               const SizedBox(height: 14),
               _stats(u),
               const SizedBox(height: 16),

@@ -104,6 +104,58 @@ class ApiService {
     return {'ok': true};
   }
 
+  /// BUG-S1 — multipart avec une galerie de fichiers envoyes sous une cle
+  /// repetee (`fileFieldName`, defaut `gallery_images`). Le backend lit
+  /// `request.FILES.getlist(...)`. `method` permet POST (creation) ou PATCH
+  /// (ajout d'images a un produit existant).
+  Future<Map<String, dynamic>> sendMultipartFiles(
+    String path, {
+    required Map<String, String> fields,
+    required List<PlatformFile> files,
+    String fileFieldName = 'gallery_images',
+    String method = 'POST',
+    String? token,
+  }) async {
+    final formData = FormData();
+    fields.forEach((key, value) => formData.fields.add(MapEntry(key, value)));
+
+    for (final file in files) {
+      final fileName = file.name.isEmpty ? 'upload.bin' : file.name;
+      final up = normalizeUpload(fileName);
+      MultipartFile multipartFile;
+      if (!kIsWeb && (file.path ?? '').isNotEmpty) {
+        multipartFile = await MultipartFile.fromFile(file.path!,
+            filename: up.filename, contentType: up.type);
+      } else if (file.bytes != null && file.bytes!.isNotEmpty) {
+        multipartFile = MultipartFile.fromBytes(file.bytes!,
+            filename: up.filename, contentType: up.type);
+      } else {
+        final stream = file.readStream;
+        if (stream == null) {
+          throw Exception(
+            'Le fichier sélectionné est inaccessible sur cette plateforme.',
+          );
+        }
+        multipartFile = MultipartFile.fromStream(
+          () => stream,
+          file.size,
+          filename: up.filename,
+          contentType: up.type,
+        );
+      }
+      formData.files.add(MapEntry(fileFieldName, multipartFile));
+    }
+
+    final upper = method.toUpperCase();
+    final response = upper == 'PATCH'
+        ? await _dio.patch(path, data: formData)
+        : await _dio.post(path, data: formData);
+    _assertOk(response, '$upper multipart $path');
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    return {'ok': true};
+  }
+
   Future<String> downloadText(String path, {String? token}) async {
     final response = await _dio.get(
       path,

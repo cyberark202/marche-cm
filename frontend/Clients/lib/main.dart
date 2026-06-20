@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:country_picker/country_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -45,15 +46,20 @@ void main() async {
   // manager is configured (silent refresh of an expired access token).
   await sessionStore.restoreFromStorage();
 
-  // Firebase (push notifications). Guarded so a failed init — e.g. an
-  // unreachable Firebase CDN on web — never blanks the app.
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    await PushNotificationService.initialize();
-  } catch (e) {
-    debugPrint('[Firebase] init skipped: $e');
+  // Firebase (push notifications). Disabled on web: the firebase_messaging web
+  // init can HANG (no VAPID configured / unreachable push endpoints), and a
+  // hanging await — unlike an exception — is not caught by try/catch, so it
+  // would block runApp() and blank the app. Mobile keeps Firebase. Matches the
+  // guard already used by the Pro app.
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      await PushNotificationService.initialize();
+    } catch (e) {
+      debugPrint('[Firebase] init skipped: $e');
+    }
   }
 
   runApp(

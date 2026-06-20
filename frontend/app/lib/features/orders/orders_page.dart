@@ -485,8 +485,14 @@ class _OrdersPageState extends State<OrdersPage> {
                                     _reviewOrder(order["id"] as int),
                                 child: const Text("Laisser avis"),
                               ),
-                            if ((order["status"] ?? "").toString() !=
-                                "COMPLETED")
+                            // confirm_delivery est une action RESERVEE a
+                            // l'acheteur cote backend (403 sinon). L'afficher au
+                            // vendeur provoquait "Action non disponible". Le
+                            // vendeur n'a pas a valider la reception: l'acheteur
+                            // confirme, ce qui declenche le deblocage du sequestre.
+                            if (isBuyer &&
+                                (order["status"] ?? "").toString() !=
+                                    "COMPLETED")
                               TextButton(
                                 onPressed: () =>
                                     _confirmDelivery(order["id"] as int),

@@ -15,11 +15,34 @@ class AdminRepository {
       _api.getObject('/api/admin/dashboard/');
 
   // ── Users ─────────────────────────────────────────────────────────────────
-  Future<List<Map<String, dynamic>>> users() => _api.getList('/api/users/');
+  /// [query] is matched server-side (username/email/name/reference) so the
+  /// directory is not capped at the first paginated page. Without it, any user
+  /// past the first 20 rows was invisible and unsearchable.
+  Future<List<Map<String, dynamic>>> users({String query = ''}) {
+    final q = query.trim();
+    final path = q.isEmpty
+        ? '/api/users/'
+        : '/api/users/?q=${Uri.encodeQueryComponent(q)}';
+    return _api.getList(path);
+  }
   Future<List<Map<String, dynamic>>> onlineUsers() =>
       _api.getList('/api/users/online/');
   Future<Map<String, dynamic>> user(int id) =>
       _api.getObject('/api/users/$id/');
+
+  /// Suspend a non-admin account (login + tokens + websocket revoked server-side).
+  Future<Map<String, dynamic>> suspendUser(int id, {required String reason}) =>
+      _api.post('/api/users/$id/suspend/', {'reason': reason});
+
+  /// Lift a suspension and restore access.
+  Future<Map<String, dynamic>> unsuspendUser(int id) =>
+      _api.post('/api/users/$id/unsuspend/', const {});
+
+  /// Create a managed business account (SUPPLIER / WHOLESALER / TRANSIT_AGENT).
+  /// The backend forbids creating a GENERAL_ADMIN here.
+  Future<Map<String, dynamic>> createManagedUser(
+          Map<String, dynamic> payload) =>
+      _api.post('/api/users/create_managed_user/', payload);
 
   // ── Orders & shipments (aggregates) ────────────────────────────────────────
   Future<List<Map<String, dynamic>>> orders() => _api.getList('/api/orders/');

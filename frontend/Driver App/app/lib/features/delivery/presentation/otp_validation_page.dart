@@ -17,7 +17,17 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
   final _controllers = List.generate(4, (_) => TextEditingController());
   final _focusNodes = List.generate(4, (_) => FocusNode());
   bool _busy = false;
+  bool _sending = false;
   String? _error;
+  String? _info;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ask the backend to send a fresh OTP to the buyer as soon as the driver
+    // reaches the doorstep, so the buyer can read it back to confirm handover.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _sendCode());
+  }
 
   @override
   void dispose() {
@@ -28,6 +38,20 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
 
   String get _otp => _controllers.map((c) => c.text).join();
 
+  Future<void> _sendCode() async {
+    setState(() { _sending = true; _error = null; });
+    try {
+      await DriverDioClient.dio.post(
+        '/api/shipments/${widget.shipmentId}/issue_delivery_otp/',
+      );
+      if (mounted) setState(() => _info = 'Code envoyé au client par notification.');
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Impossible d\'envoyer le code. Réessayez.');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
   Future<void> _validate() async {
     if (_otp.length < 4) {
       setState(() => _error = 'Entrez le code à 4 chiffres fourni par le client.');
@@ -35,11 +59,13 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      // Audit ref: [Front-Driver] backend exposes
-      // ShipmentViewSet.validate_delivery (logistics/views.py:451). The
-      // previous /validate-otp/ path was a 404.
+      // Audit ref: [D-01] Driver-side confirmation. The backend
+      // ShipmentViewSet.confirm_delivery verifies the buyer's OTP, marks the
+      // shipment DELIVERED and releases escrow. (The old call to
+      // validate_delivery was a buyer-only endpoint → 403 for the driver, and
+      // ignored the OTP entirely.)
       await DriverDioClient.dio.post(
-        '/api/shipments/${widget.shipmentId}/validate_delivery/',
+        '/api/shipments/${widget.shipmentId}/confirm_delivery/',
         data: {'otp': _otp},
       );
       if (!mounted) return;
@@ -100,6 +126,23 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
               style: TextStyle(fontSize: 13, color: DriverPalette.textSecondary, height: 1.5),
             ),
             const SizedBox(height: 32),
+            if (_info != null && _error == null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF6EE7B7)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.mark_email_read_outlined, size: 16, color: Color(0xFF059669)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_info!,
+                      style: const TextStyle(color: Color(0xFF059669), fontSize: 13))),
+                ]),
+              ),
+              const SizedBox(height: 20),
+            ],
             if (_error != null) ...[
               Container(
                 padding: const EdgeInsets.all(12),
@@ -162,7 +205,15 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
                         style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _sending ? null : _sendCode,
+              icon: _sending
+                  ? const SizedBox(width: 14, height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.sms_outlined, size: 16),
+              label: Text(_sending ? 'Envoi du code…' : 'Renvoyer le code au client'),
+            ),
             TextButton.icon(
               onPressed: () => context.push('/active/proof/${widget.shipmentId}'),
               icon: const Icon(Icons.camera_alt_outlined, size: 16),

@@ -276,10 +276,12 @@ class _OrdersPageState extends State<OrdersPage> {
 
   List<Map<String, dynamic>> get _filteredOrders {
     if (_selectedTab == 0) {
-      // En cours: tout sauf COMPLETED et CANCELLED
+      // En cours: tout sauf COMPLETED, CANCELLED et DISPUTED.
+      // Audit ref: [BUG-10] DISPUTED ne doit plus apparaître ici mais sous
+      // l'onglet "Litiges".
       return _orders.where((o) {
         final s = (o["status"] ?? "").toString().toUpperCase();
-        return s != "COMPLETED" && s != "CANCELLED";
+        return s != "COMPLETED" && s != "CANCELLED" && s != "DISPUTED";
       }).toList();
     } else if (_selectedTab == 1) {
       // Livrées: COMPLETED ou DELIVERED
@@ -288,10 +290,12 @@ class _OrdersPageState extends State<OrdersPage> {
         return s == "COMPLETED" || s == "DELIVERED";
       }).toList();
     } else {
-      // Litiges: CANCELLED
+      // Litiges & annulées: DISPUTED (litige réel) ou CANCELLED.
+      // Audit ref: [BUG-10] l'onglet filtrait uniquement CANCELLED, donc une
+      // commande en litige (DISPUTED) n'apparaissait nulle part comme telle.
       return _orders.where((o) {
         final s = (o["status"] ?? "").toString().toUpperCase();
-        return s == "CANCELLED";
+        return s == "DISPUTED" || s == "CANCELLED";
       }).toList();
     }
   }
@@ -299,7 +303,7 @@ class _OrdersPageState extends State<OrdersPage> {
   int get _inProgressCount => _orders
       .where((o) {
         final s = (o["status"] ?? "").toString().toUpperCase();
-        return s != "COMPLETED" && s != "CANCELLED";
+        return s != "COMPLETED" && s != "CANCELLED" && s != "DISPUTED";
       })
       .length;
 
@@ -361,7 +365,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   ),
                   const SizedBox(width: 8),
                   _TabChip(
-                    label: "Litiges",
+                    label: "Litiges & annulées",
                     selected: _selectedTab == 2,
                     onTap: () => setState(() => _selectedTab = 2),
                   ),

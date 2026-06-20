@@ -270,7 +270,7 @@ class _CatalogProductCard extends StatelessWidget {
     final images = product['images'];
     final imageUrl = images is List && images.isNotEmpty
         ? (images.first['url'] ?? images.first['image'] ?? '').toString()
-        : '';
+        : (product['image'] ?? product['image_url'] ?? '').toString();
     final seller = (product['seller_name'] ?? product['owner_name'] ?? '').toString();
 
     return Container(

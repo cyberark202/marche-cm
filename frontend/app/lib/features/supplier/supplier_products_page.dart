@@ -124,8 +124,9 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
     final minPrice = TextEditingController(text: _defaultMinPrice.toString());
     final maxPrice = TextEditingController(text: _defaultMaxPrice.toString());
     final weightKg = TextEditingController(text: "1.000");
-    PlatformFile? imageFile;
-    String imageName = "";
+    // BUG-S1 — galerie multi-images (jusqu'a 10). La 1re image sert de vignette.
+    final List<PlatformFile> galleryFiles = [];
+    const int maxImages = 10;
 
     await showDialog<void>(
       context: context,
@@ -181,36 +182,65 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                 Row(
                   children: [
                     OutlinedButton.icon(
-                      onPressed: () async {
-                        final picked = await FilePicker.platform.pickFiles(
-                          type: FileType.image,
-                          allowMultiple: false,
-                          withData: kIsWeb,
-                        );
-                        if (picked == null || picked.files.isEmpty) return;
-                        final selected = picked.files.single;
-                        final hasPath = _safePlatformFilePath(selected) != null;
-                        final hasBytes = selected.bytes != null &&
-                            selected.bytes!.isNotEmpty;
-                        if (!hasPath && !hasBytes) return;
-                        setDialogState(() {
-                          imageFile = selected;
-                          imageName = selected.name;
-                        });
-                      },
+                      onPressed: galleryFiles.length >= maxImages
+                          ? null
+                          : () async {
+                              final picked =
+                                  await FilePicker.platform.pickFiles(
+                                type: FileType.image,
+                                allowMultiple: true,
+                                withData: kIsWeb,
+                              );
+                              if (picked == null || picked.files.isEmpty) {
+                                return;
+                              }
+                              final usable = picked.files.where((f) {
+                                final hasPath =
+                                    _safePlatformFilePath(f) != null;
+                                final hasBytes =
+                                    f.bytes != null && f.bytes!.isNotEmpty;
+                                return hasPath || hasBytes;
+                              }).toList();
+                              setDialogState(() {
+                                final room = maxImages - galleryFiles.length;
+                                galleryFiles
+                                    .addAll(usable.take(room < 0 ? 0 : room));
+                              });
+                            },
                       icon: const Icon(Icons.image_outlined),
-                      label: const Text("Importer image"),
+                      label: const Text("Importer images"),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        imageName.isEmpty ? "Aucune image" : imageName,
+                        galleryFiles.isEmpty
+                            ? "Aucune image"
+                            : "${galleryFiles.length}/$maxImages image(s)",
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
+                if (galleryFiles.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (var i = 0; i < galleryFiles.length; i++)
+                          Chip(
+                            label: Text(
+                              galleryFiles[i].name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onDeleted: () => setDialogState(
+                                () => galleryFiles.removeAt(i)),
+                          ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -250,7 +280,7 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                       "Prix invalide: le prix min doit etre inferieur ou egal au prix max.",
                     );
                   }
-                  await _api.postMultipart(
+                  await _api.sendMultipartFiles(
                     "/api/products/",
                     fields: {
                       "title": title.text.trim(),
@@ -263,11 +293,10 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                       "price_for_max_qty": parsedMaxPrice.toString(),
                       "weight_kg": parsedWeight.toStringAsFixed(3),
                       "allows_group_campaign": "false",
-                      "is_active": "true",
                     },
                     token: token,
-                    file: imageFile,
-                    fileFieldName: "image",
+                    files: galleryFiles,
+                    fileFieldName: "gallery_images",
                   );
                   if (!mounted || !ctx.mounted) return;
                   Navigator.pop(ctx);

@@ -19,8 +19,8 @@ class _CartPageState extends State<CartPage> {
   final ApiService _api = ApiService();
   List<Map<String, dynamic>> _transportProfiles = const [];
   bool _loadingProfiles = true;
-
-  static const double _platformCommissionRate = 0.025;
+  // Audit ref: [BUG-04] anti double-soumission du checkout.
+  bool _submitting = false;
 
   double _shippingRateForItem(CartEntry item) {
     final profile = _transportProfiles.cast<Map<String, dynamic>?>().firstWhere(
@@ -70,6 +70,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _checkout(BuyerStore store) async {
+    if (_submitting) return; // Audit ref: [BUG-04] bloque le double-clic.
     final token = context.read<SessionStore>().token;
     final productsById = {for (final p in widget.products) p.id: p};
     for (final entry in store.cartItems) {
@@ -116,9 +117,10 @@ class _CartPageState extends State<CartPage> {
       final eta = _etaDaysForItem(entry);
       if (eta > maxEtaDays) maxEtaDays = eta;
     }
-    final commission =
-        (productTotal + shippingTotal) * _platformCommissionRate;
-    final grandTotal = productTotal + shippingTotal + commission;
+    // Audit ref: [BUG-05] l'acheteur séquestre produits + transport. La
+    // commission plateforme est prélevée côté vendeur à la libération, elle
+    // n'est PAS ajoutée au montant bloqué de l'acheteur.
+    final grandTotal = productTotal + shippingTotal;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -128,7 +130,6 @@ class _CartPageState extends State<CartPage> {
           "Articles : $itemsCount\n"
           "Produits : ${productTotal.toStringAsFixed(0)} FCFA\n"
           "Transport : ${shippingTotal.toStringAsFixed(0)} FCFA\n"
-          "Commission : ${commission.toStringAsFixed(0)} FCFA\n"
           "Total à séquestrer : ${grandTotal.toStringAsFixed(0)} FCFA\n"
           "ETA : ${maxEtaDays > 0 ? '$maxEtaDays jour(s)' : 'à confirmer'}\n\n"
           "Vous mandatez Marché CM pour séquestrer ces fonds via le prestataire "
@@ -146,29 +147,34 @@ class _CartPageState extends State<CartPage> {
       ),
     );
     if (confirm != true || !mounted) return;
+    setState(() => _submitting = true);
 
     var successCount = 0;
     final failures = <String>[];
-    for (final entry in store.cartItems) {
-      try {
-        await _api.post(
-          "/api/orders/",
-          {
-            "product": entry.productId,
-            "quantity": entry.quantity,
-            "join_grouping": entry.joinGrouping,
-            "preferred_transit_agent": entry.preferredTransitAgentId,
-            "transport_mode": entry.transportMode,
-          },
-          token: token,
-        );
-        successCount += 1;
-      } catch (e) {
-        failures.add(_api.toUserMessage(
-          e,
-          fallback: "Échec commande produit #${entry.productId}.",
-        ));
+    try {
+      for (final entry in store.cartItems) {
+        try {
+          await _api.post(
+            "/api/orders/",
+            {
+              "product": entry.productId,
+              "quantity": entry.quantity,
+              "join_grouping": entry.joinGrouping,
+              "preferred_transit_agent": entry.preferredTransitAgentId,
+              "transport_mode": entry.transportMode,
+            },
+            token: token,
+          );
+          successCount += 1;
+        } catch (e) {
+          failures.add(_api.toUserMessage(
+            e,
+            fallback: "Échec commande produit #${entry.productId}.",
+          ));
+        }
       }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
     if (!mounted) return;
     if (successCount > 0) store.clearCart();
@@ -204,9 +210,8 @@ class _CartPageState extends State<CartPage> {
       shippingTotal +=
           product.weightKg * entry.quantity * _shippingRateForItem(entry);
     }
-    final commission =
-        (productTotal + shippingTotal) * _platformCommissionRate;
-    final grandTotal = productTotal + shippingTotal + commission;
+    // Audit ref: [BUG-05] commission prélevée côté vendeur, non ajoutée ici.
+    final grandTotal = productTotal + shippingTotal;
 
     return Scaffold(
       backgroundColor: AppPalette.bg,
@@ -262,7 +267,6 @@ class _CartPageState extends State<CartPage> {
                         _EscrowRecap(
                           subtotal: productTotal,
                           shipping: shippingTotal,
-                          commission: commission,
                           total: grandTotal,
                         ),
                         const SizedBox(height: 12),
@@ -302,6 +306,7 @@ class _CartPageState extends State<CartPage> {
           ? null
           : _CartFooter(
               total: grandTotal,
+              submitting: _submitting,
               onCheckout: () => _checkout(store),
             ),
     );
@@ -890,13 +895,11 @@ class _EscrowRecap extends StatelessWidget {
   const _EscrowRecap({
     required this.subtotal,
     required this.shipping,
-    required this.commission,
     required this.total,
   });
 
   final double subtotal;
   final double shipping;
-  final double commission;
   final double total;
 
   @override
@@ -915,7 +918,14 @@ class _EscrowRecap extends StatelessWidget {
           const SizedBox(height: 6),
           _RecapLine(label: "Livreur", value: shipping),
           const SizedBox(height: 6),
-          _RecapLine(label: "Commission plateforme (2,5%)", value: commission),
+          const Text(
+            "Commission plateforme prélevée côté vendeur — non incluse.",
+            style: TextStyle(
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+              color: AppPalette.textMuted,
+            ),
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 10),
             child: Divider(height: 1, color: AppPalette.borderSoft),
@@ -982,9 +992,14 @@ class _RecapLine extends StatelessWidget {
 }
 
 class _CartFooter extends StatelessWidget {
-  const _CartFooter({required this.total, required this.onCheckout});
+  const _CartFooter({
+    required this.total,
+    required this.onCheckout,
+    this.submitting = false,
+  });
   final double total;
   final VoidCallback onCheckout;
+  final bool submitting;
 
   @override
   Widget build(BuildContext context) {
@@ -1030,9 +1045,16 @@ class _CartFooter extends StatelessWidget {
             SizedBox(
               height: 50,
               child: FilledButton.icon(
-                onPressed: onCheckout,
-                icon: const Icon(Icons.lock_outline, size: 18),
-                label: const Text("Séquestrer & payer"),
+                onPressed: submitting ? null : onCheckout,
+                icon: submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.lock_outline, size: 18),
+                label: Text(submitting ? "Traitement…" : "Séquestrer & payer"),
                 style: FilledButton.styleFrom(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 22, vertical: 0),
