@@ -3,6 +3,8 @@ from rest_framework.exceptions import AuthenticationFailed
 import re
 import secrets
 from django.conf import settings
+from django.contrib.auth.password_validation import validate_password as dj_validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -23,6 +25,23 @@ def validate_phone_format(value):
     if not digits.isdigit() or len(digits) < 8:
         raise serializers.ValidationError(_("Numéro de téléphone invalide."))
     return f"+{digits}"
+
+
+def validate_password_strength(value):
+    """Apply Django's AUTH_PASSWORD_VALIDATORS to an API-provided password.
+
+    Audit ref: [BUG-01] the registration / password serializers used
+    ``set_password`` directly, so the configured validators (min length,
+    common-password, numeric-only, attribute-similarity) NEVER ran on the
+    public API — only ``min_length=8`` was enforced. This bridges the DRF
+    layer to ``django.contrib.auth.password_validation`` so weak passwords
+    (``password``, ``12345678``) are rejected at registration and reset.
+    """
+    try:
+        dj_validate_password(value)
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError(list(exc.messages))
+    return value
 
 
 def generate_unique_username(full_name):
@@ -78,6 +97,8 @@ class UserSerializer(serializers.ModelSerializer):
             "kyc_level",
             "is_online",
             "last_seen_at",
+            "is_suspended",
+            "suspension_reason",
         )
 
     def get_avatar_url(self, obj):
@@ -352,6 +373,9 @@ class ManagedUserCreateSerializer(serializers.ModelSerializer):
     def validate_phone_number(self, value):
         return validate_phone_format(value)
 
+    def validate_password(self, value):
+        return validate_password_strength(value)
+
     def validate(self, attrs):
         """Validation croisée pour les livreurs."""
         role = attrs.get("role")
@@ -441,6 +465,9 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_phone_number(self, value):
         return validate_phone_format(value)
 
+    def validate_password(self, value):
+        return validate_password_strength(value)
+
     def validate(self, attrs):
         # Role is always BUYER for public registration (HiddenField above).
         return attrs
@@ -528,6 +555,9 @@ class SellerRegisterSerializer(serializers.ModelSerializer):
     def validate_phone_number(self, value):
         return validate_phone_format(value)
 
+    def validate_password(self, value):
+        return validate_password_strength(value)
+
     def create(self, validated_data):
         full_name = validated_data.pop("name").strip()
         password = validated_data.pop("password")
@@ -586,6 +616,9 @@ class DriverRegisterSerializer(serializers.ModelSerializer):
 
     def validate_phone_number(self, value):
         return validate_phone_format(value)
+
+    def validate_password(self, value):
+        return validate_password_strength(value)
 
     def create(self, validated_data):
         from apps.logistics.models import TransportProfile

@@ -53,6 +53,12 @@ class Shipment(models.Model):
     status = models.CharField(max_length=20, choices=ShipmentStatus.choices, default=ShipmentStatus.PICKUP_PENDING)
     expected_delivery_at = models.DateTimeField(null=True, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
+    # Delivery OTP — issued to the BUYER (SMS/notification) and read back to the
+    # assigned driver at the doorstep. The driver submits it via confirm_delivery;
+    # possessing the buyer's secret proves physical handover + buyer consent.
+    # Only the salted hash is persisted (never the plaintext code).
+    delivery_otp_hash = models.CharField(max_length=128, blank=True)
+    delivery_otp_expires_at = models.DateTimeField(null=True, blank=True)
     # 48-hour window after delivery during which quality/quantity disputes may be opened.
     contest_deadline = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

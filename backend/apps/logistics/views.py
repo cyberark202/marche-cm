@@ -1,8 +1,10 @@
 import hashlib
+import secrets
 from datetime import timedelta
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import IntegrityError, transaction
-from django.db.models import Avg
+from django.db.models import Avg, Q
 from django.utils import timezone
 from rest_framework import decorators, permissions, response, status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -11,6 +13,7 @@ from apps.accounts.models import UserRole
 from apps.accounts.security import has_action_permission, write_audit_log
 from apps.accounts.upload_security import validate_uploaded_file
 from apps.notifications.realtime import broadcast_event
+from apps.notifications.service import create_realtime_notification
 from apps.orders.models import OrderStatus, OrderType
 from apps.orders.services import FraudRiskError, OrderFinanceService
 
@@ -58,8 +61,24 @@ _EVIDENCE_ALLOWED_TYPES = {
 _EVIDENCE_MAX_MB = 50
 
 
+_DELIVERY_OTP_TTL = timedelta(minutes=30)
+
+
 def _is_general_admin(user):
     return user.is_superuser or user.role == UserRole.GENERAL_ADMIN
+
+
+def _require_driver_kyc(user):
+    """Audit ref: [D-02] A transit agent must be KYC-verified before being
+    entrusted with a parcel under escrow. Gates quoting, custody logging and
+    delivery proof — the international supplier flow already enforced this, the
+    local/quote flow did not."""
+    if _is_general_admin(user):
+        return
+    if not getattr(user, "is_verified", False) or int(getattr(user, "kyc_level", 0) or 0) < 1:
+        raise PermissionDenied(
+            "KYC livreur incomplet: vérifiez votre identité (CNI + permis) avant de prendre une mission."
+        )
 
 
 def _compute_file_sha256(file_obj) -> str:
@@ -312,7 +331,14 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         if user.role in {UserRole.SUPPLIER, UserRole.WHOLESALER}:
             return self.queryset.filter(seller=user)
         if user.role == UserRole.TRANSIT_AGENT:
-            return self.queryset.filter(transit_agent=user)
+            # A transit agent sees the shipments assigned to them, plus shipments
+            # still open for bidding (no agent assigned and not terminal) so they
+            # can discover and quote them. Without this, get_object() 404'd on any
+            # unassigned shipment and post_quote was unreachable.
+            open_for_bidding = Q(transit_agent__isnull=True) & ~Q(
+                status__in=[ShipmentStatus.DELIVERED, ShipmentStatus.CANCELLED]
+            )
+            return self.queryset.filter(Q(transit_agent=user) | open_for_bidding)
         return self.queryset.none()
 
     def perform_create(self, serializer):
@@ -330,6 +356,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 {"detail": "Action reservee aux livreurs."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        _require_driver_kyc(request.user)
         if shipment.status in {ShipmentStatus.DELIVERED, ShipmentStatus.CANCELLED}:
             return response.Response(
                 {"detail": "Impossible de deviser une expedition terminee."},
@@ -434,6 +461,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         shipment = self.get_object()
         if request.user.id != shipment.transit_agent_id:
             return response.Response({"detail": "Reserve au livreur assigne."}, status=status.HTTP_403_FORBIDDEN)
+        _require_driver_kyc(request.user)
         if shipment.status not in {ShipmentStatus.IN_TRANSIT, ShipmentStatus.AT_CUSTOMS, ShipmentStatus.OUT_FOR_DELIVERY}:
             return response.Response(
                 {"detail": "Statut expedition incompatible avec la preuve de livraison."},
@@ -501,6 +529,117 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         broadcast_event("orders", "completed", {"id": order.id})
         broadcast_event("wallets", "escrow_released", {"order_id": order.id})
         return response.Response({"detail": "Livraison validee, funds debloques vendeur + livreur."})
+
+    @decorators.action(detail=True, methods=["post"])
+    def issue_delivery_otp(self, request, pk=None):
+        """Audit ref: [D-01] The assigned driver requests a delivery OTP on
+        arrival. A fresh 4-digit code is sent to the BUYER (notification/SMS);
+        only its salted hash is stored. The driver never sees the code — they
+        must obtain it from the buyer in person, which is the proof of handover."""
+        shipment = self.get_object()
+        if request.user.id != shipment.transit_agent_id:
+            return response.Response({"detail": "Reserve au livreur assigne."}, status=status.HTTP_403_FORBIDDEN)
+        _require_driver_kyc(request.user)
+        if shipment.status not in {ShipmentStatus.IN_TRANSIT, ShipmentStatus.AT_CUSTOMS, ShipmentStatus.OUT_FOR_DELIVERY}:
+            return response.Response(
+                {"detail": "Statut expedition incompatible avec l'envoi du code de livraison."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        code = f"{secrets.randbelow(10000):04d}"
+        shipment.delivery_otp_hash = make_password(code)
+        shipment.delivery_otp_expires_at = timezone.now() + _DELIVERY_OTP_TTL
+        shipment.save(update_fields=["delivery_otp_hash", "delivery_otp_expires_at", "updated_at"])
+        create_realtime_notification(
+            user=shipment.buyer,
+            title="Code de livraison",
+            body=f"Communiquez le code {code} au livreur pour confirmer la réception de votre colis.",
+            payload={"shipment_id": shipment.id, "type": "delivery_otp"},
+        )
+        write_audit_log(
+            actor=request.user,
+            action="Emission OTP de livraison",
+            action_key="logistics.delivery.otp.issue",
+            metadata={"shipment_id": shipment.id},
+        )
+        return response.Response({"detail": "Code envoye au client."})
+
+    @decorators.action(detail=True, methods=["post"])
+    def confirm_delivery(self, request, pk=None):
+        """Audit ref: [D-01] Driver-side delivery confirmation. The driver
+        submits the OTP obtained from the buyer; a valid, unexpired code proves
+        physical handover AND buyer consent, so funds are released with the
+        buyer as the confirming actor (the buyer-only invariant is preserved
+        because possession of the buyer's secret stands in for their consent)."""
+        shipment = self.get_object()
+        if request.user.id != shipment.transit_agent_id:
+            return response.Response({"detail": "Reserve au livreur assigne."}, status=status.HTTP_403_FORBIDDEN)
+        _require_driver_kyc(request.user)
+        if shipment.status not in {ShipmentStatus.OUT_FOR_DELIVERY, ShipmentStatus.IN_TRANSIT, ShipmentStatus.AT_CUSTOMS}:
+            return response.Response({"detail": "Cette expedition n'est pas livrable pour le moment."}, status=status.HTTP_400_BAD_REQUEST)
+        otp = str(request.data.get("otp") or "").strip()
+        if not otp:
+            return response.Response({"detail": "Code de livraison requis."}, status=status.HTTP_400_BAD_REQUEST)
+        if not shipment.delivery_otp_hash or not shipment.delivery_otp_expires_at:
+            return response.Response(
+                {"detail": "Aucun code actif. Demandez l'envoi du code au client."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if timezone.now() > shipment.delivery_otp_expires_at:
+            return response.Response({"detail": "Code expire. Demandez un nouveau code."}, status=status.HTTP_400_BAD_REQUEST)
+        if not check_password(otp, shipment.delivery_otp_hash):
+            return response.Response({"detail": "Code invalide. Verifiez aupres du client."}, status=status.HTTP_400_BAD_REQUEST)
+        proof = getattr(shipment, "delivery_proof", None)
+        if not proof:
+            return response.Response(
+                {"detail": "Preuve photo manquante: uploadez la preuve de livraison avant de confirmer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        order = shipment.order
+        if order.status not in {OrderStatus.SHIPPING, OrderStatus.DELIVERED, OrderStatus.ADMIN_APPROVED, OrderStatus.CONFIRMED}:
+            return response.Response(
+                {"detail": f"Transition commande invalide: {order.status} -> DELIVERED."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        now = timezone.now()
+        proof.validated = True
+        proof.save(update_fields=["validated"])
+        # OTP is single-use: burn it once consumed.
+        shipment.delivery_otp_hash = ""
+        shipment.delivery_otp_expires_at = None
+        shipment.status = ShipmentStatus.DELIVERED
+        shipment.delivered_at = now
+        shipment.contest_deadline = now + timedelta(hours=48)
+        shipment.save(update_fields=[
+            "delivery_otp_hash", "delivery_otp_expires_at",
+            "status", "delivered_at", "contest_deadline", "updated_at",
+        ])
+        order.status = OrderStatus.DELIVERED
+        order.save(update_fields=["status", "updated_at"])
+        # Funds are released on behalf of the buyer (OTP possession = consent).
+        try:
+            if order.order_type == OrderType.INTERNATIONAL:
+                OrderFinanceService.release_logistics_escrow_after_buyer_confirmation(order=order, actor=shipment.buyer)
+            else:
+                OrderFinanceService.release_local_escrow_after_buyer_confirmation(order=order, actor=shipment.buyer)
+        except (ValidationError, FraudRiskError) as exc:
+            return response.Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        write_audit_log(
+            actor=request.user,
+            action="Confirmation livraison par OTP",
+            action_key="logistics.delivery.otp.confirm",
+            metadata={"shipment_id": shipment.id, "order_id": order.id},
+        )
+        order.refresh_from_db(fields=["status", "escrow_status"])
+        if order.status == OrderStatus.DISPUTED:
+            return response.Response(
+                {"detail": "Livraison validee mais payout en echec: fonds replaces en litige admin."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        _refresh_transport_profile_stats(shipment.transit_agent_id)
+        broadcast_event("logistics", "delivery_validated", {"shipment_id": shipment.id, "order_id": order.id})
+        broadcast_event("orders", "completed", {"id": order.id})
+        broadcast_event("wallets", "escrow_released", {"order_id": order.id})
+        return response.Response({"detail": "Livraison confirmee, funds debloques vendeur + livreur."})
 
     @decorators.action(detail=True, methods=["post"])
     def open_dispute(self, request, pk=None):
@@ -616,6 +755,10 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             return response.Response({"detail": "Action reservee au livreur."}, status=status.HTTP_403_FORBIDDEN)
         if request.user.id not in {shipment.transit_agent_id, shipment.seller_id} and not _is_general_admin(request.user):
             return response.Response({"detail": "Vous n'etes pas associe a cette expedition."}, status=status.HTTP_403_FORBIDDEN)
+        # [D-02] KYC gate applies to the transit agent only (the seller logging a
+        # handover is already KYC-verified through the seller onboarding flow).
+        if request.user.id == shipment.transit_agent_id:
+            _require_driver_kyc(request.user)
 
         event_type = str(request.data.get("event_type") or "").strip().upper()
         valid_types = {v for v, _ in CustodyEventType.choices}

@@ -25,7 +25,7 @@ from .serializers import (
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.select_related("category", "seller").prefetch_related("seller__compliance_documents").all()
+    queryset = Product.objects.select_related("category", "seller").prefetch_related("seller__compliance_documents", "images").all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -37,7 +37,9 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = self.queryset
         if self.action in {"list", "retrieve", "image_search"}:
-            queryset = queryset.filter(is_active=True)
+            # Audit ref: [BUG-03] hide products of suspended/deactivated sellers
+            # so a buyer cannot order from an account that can no longer operate.
+            queryset = queryset.filter(is_active=True, seller__is_active=True)
         search_query = (self.request.query_params.get("q") or "").strip().lower()
         if search_query:
             terms = [term for term in re.split(r"\s+", search_query) if term]
@@ -50,7 +52,10 @@ class ProductViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         if self.request.user.role not in {UserRole.SUPPLIER, UserRole.WHOLESALER}:
             raise PermissionDenied("Seuls fournisseur et grossiste peuvent publier.")
-        product = serializer.save(seller=self.request.user)
+        # Audit ref: [BUG-S1] atomicite produit + galerie : si la persistance des
+        # images echoue, le produit ne doit pas rester orphelin.
+        with transaction.atomic():
+            product = serializer.save(seller=self.request.user)
         broadcast_event(
             "products",
             "created",
@@ -61,19 +66,51 @@ class ProductViewSet(viewsets.ModelViewSet):
         if not (self.request.user.is_superuser or self.request.user.role == UserRole.GENERAL_ADMIN):
             if serializer.instance.seller_id != self.request.user.id:
                 raise PermissionDenied("Modification reservee au vendeur proprietaire.")
-        serializer.save()
+        with transaction.atomic():
+            serializer.save()
 
     def perform_destroy(self, instance):
-        if not (self.request.user.is_superuser or self.request.user.role == UserRole.GENERAL_ADMIN):
-            if instance.seller_id != self.request.user.id:
-                raise PermissionDenied("Suppression reservee au vendeur proprietaire.")
-        instance.delete()
+        # R-01 — SOFT delete only. `Order.product` is on_delete=CASCADE: a hard
+        # `instance.delete()` would cascade-delete every order (incl. paid /
+        # escrowed ones) referencing the product, destroying financial history.
+        # Deactivating hides it from the public catalogue (get_queryset filters
+        # is_active=True) while preserving all relational/financial records.
+        is_admin = self.request.user.is_superuser or self.request.user.role == UserRole.GENERAL_ADMIN
+        if not is_admin and instance.seller_id != self.request.user.id:
+            raise PermissionDenied("Suppression reservee au vendeur proprietaire.")
+        if instance.is_active:
+            instance.is_active = False
+            instance.save(update_fields=["is_active"])
+        write_audit_log(
+            actor=self.request.user,
+            action="Produit desactive (soft-delete)",
+            action_key="catalog.product.deactivate",
+            metadata={
+                "product_id": instance.id,
+                "seller_id": instance.seller_id,
+                "by_admin": bool(is_admin),
+            },
+        )
+        broadcast_event("products", "deactivated", {"id": instance.id, "seller_id": instance.seller_id})
 
     @action(detail=False, methods=["get"], url_path="mine")
     def mine(self, request):
         products = self.queryset.filter(seller=request.user)
         serializer = self.get_serializer(products, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["delete"], url_path="images/(?P<image_id>[0-9]+)")
+    def delete_image(self, request, pk=None, image_id=None):
+        """Audit ref: [BUG-S1] retrait d'une image de galerie par le proprietaire."""
+        product = self.get_object()
+        if not (request.user.is_superuser or request.user.role == UserRole.GENERAL_ADMIN):
+            if product.seller_id != request.user.id:
+                raise PermissionDenied("Suppression reservee au vendeur proprietaire.")
+        image = product.images.filter(id=image_id).first()
+        if image is None:
+            return Response({"detail": "Image introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        image.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=False,
@@ -290,7 +327,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="recommended")
     def recommended(self, request):
-        products = list(self.queryset.filter(is_active=True))
+        products = list(self.queryset.filter(is_active=True, seller__is_active=True))
         profile = BuyerPreferenceProfile.objects.filter(user=request.user).first()
 
         interactions = {
@@ -346,7 +383,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         q = (request.query_params.get("q") or "").strip()
         if not q:
             return Response([], status=status.HTTP_200_OK)
-        products = self.queryset.filter(is_active=True)
+        products = self.queryset.filter(is_active=True, seller__is_active=True)
         terms = self._tokenize_text(q)
         if terms:
             products = [

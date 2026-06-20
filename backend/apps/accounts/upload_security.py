@@ -61,8 +61,11 @@ _MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
     ".mp4": (b"ftyp", b"\x00\x00\x00"),
     # MP3 frame sync OR ID3v2 tag header
     ".mp3": (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"),
-    # MOV/M4V: same container as MP4
+    # MOV/M4V: same container as MP4 (ftyp box at offset 4)
     ".mov": (b"ftyp", b"\x00\x00\x00"),
+    ".m4v": (b"ftyp", b"\x00\x00\x00"),
+    # WebM/Matroska: EBML header magic
+    ".webm": (b"\x1a\x45\xdf\xa3",),
 }
 
 
@@ -75,7 +78,7 @@ def _content_matches_extension(ext: str, head: bytes) -> bool:
         return False
     if ext == ".webp":
         return head.startswith(b"RIFF") and b"WEBP" in head[:16]
-    if ext in (".mp4", ".mov"):
+    if ext in (".mp4", ".mov", ".m4v"):
         # ftyp box at offset 4: head[4:8] == b"ftyp"
         return len(head) >= 8 and head[4:8] == b"ftyp"
     return any(head.startswith(sig) for sig in expected)

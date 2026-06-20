@@ -803,9 +803,21 @@ class OrderFinanceService:
             buyer_wallet = WalletAccountingService.get_wallet_for_update(user=order.buyer)
             if buyer_wallet.locked_balance < amount:
                 raise InsufficientFundsError("Solde bloque acheteur insuffisant pour liberation logistique.")
-            if not order.preferred_transit_agent_id:
+            # Audit ref: [D-03] Pay the driver who actually carried the parcel.
+            # The escrow beneficiary was provisioned at lock time from
+            # ``preferred_transit_agent`` (a placeholder), but the real agent is
+            # the one assigned when the buyer accepted a quote
+            # (``shipment.transit_agent``). When they differ, the accepted agent
+            # is authoritative — otherwise the wrong driver gets paid.
+            shipment = getattr(order, "shipment", None)
+            beneficiary = (
+                shipment.transit_agent
+                if shipment is not None and shipment.transit_agent_id
+                else order.preferred_transit_agent
+            )
+            if beneficiary is None:
                 raise ValidationError("Aucun livreur beneficiaire configure.")
-            transit_wallet = WalletAccountingService.get_wallet_for_update(user=order.preferred_transit_agent)
+            transit_wallet = WalletAccountingService.get_wallet_for_update(user=beneficiary)
 
             WalletAccountingService.mutate_wallet(
                 wallet=buyer_wallet,
@@ -816,7 +828,7 @@ class OrderFinanceService:
                 reference=f"order:{order.id}:logistics_release:buyer_lock",
                 order=order,
                 escrow=escrow,
-                counterparty=order.preferred_transit_agent,
+                counterparty=beneficiary,
                 created_by=actor,
             )
             WalletAccountingService.mutate_wallet(
@@ -931,6 +943,22 @@ class OrderFinanceService:
         return order, refund_amount
 
     @classmethod
+    def _restore_product_stock(cls, order: Order) -> None:
+        """Audit ref: [BUG-02] return decremented inventory to the product when
+        an order is cancelled / fully refunded (goods not delivered).
+
+        MUST run inside an open ``transaction.atomic()`` block. No-op when the
+        product has no inventory cap (``available_qty IS NULL``).
+        """
+        from apps.catalog.models import Product
+
+        product = Product.objects.select_for_update().filter(pk=order.product_id).first()
+        if product is None or product.available_qty is None:
+            return
+        product.available_qty = product.available_qty + order.quantity
+        product.save(update_fields=["available_qty"])
+
+    @classmethod
     def refund_order_locked_funds(cls, *, order: Order, actor, reason: str = ""):
         # Defense en profondeur: seuls admin, staff et transit_agent (gestion
         # litige logistique) peuvent declencher un remboursement systeme.
@@ -948,6 +976,10 @@ class OrderFinanceService:
             else:
                 order.status = OrderStatus.DISPUTED
             order.save(update_fields=["status", "escrow_status", "updated_at"])
+            # Audit ref: [BUG-02] restore stock only when funds were actually
+            # returned to the buyer (order not fulfilled).
+            if order.escrow_status == EscrowStatus.REFUNDED and refund_amount > ZERO:
+                cls._restore_product_stock(order)
             write_audit_log(
                 actor=actor,
                 action="Remboursement commande",
@@ -1003,6 +1035,10 @@ class OrderFinanceService:
             )
             refreshed.status = OrderStatus.CANCELLED
             refreshed.save(update_fields=["status", "escrow_status", "updated_at"])
+            # Audit ref: [BUG-02] restore stock only when funds were actually
+            # returned to the buyer (order not fulfilled).
+            if refund_amount > ZERO:
+                cls._restore_product_stock(refreshed)
             write_audit_log(
                 actor=actor,
                 action="Annulation commande",

@@ -3,7 +3,7 @@ from django.conf import settings
 
 from apps.accounts.upload_security import scrub_image_metadata, validate_uploaded_file
 from apps.accounts.models import UserRole
-from .models import Product, ProductCategory, ProductFavorite, SavedProductFilter, VideoComment, VideoLike
+from .models import Product, ProductCategory, ProductFavorite, ProductImage, SavedProductFilter, VideoComment, VideoLike
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -39,6 +39,10 @@ class ProductSerializer(serializers.ModelSerializer):
     price_for_max_qty = serializers.DecimalField(
         max_digits=12, decimal_places=2, required=False, allow_null=True
     )
+    # Audit ref: [BUG-S1] Galerie multi-images. `images` est en lecture seule
+    # (liste {id,url,position}). L'upload se fait via le champ multipart repete
+    # `gallery_images` lu directement depuis request.FILES (cf. _collect_gallery_files).
+    images = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -52,6 +56,19 @@ class ProductSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(obj.seller.avatar.url)
         return obj.seller.avatar.url
+
+    def get_images(self, obj):
+        request = self.context.get("request")
+        result = []
+        for img in obj.images.all():
+            try:
+                url = img.image.url
+            except ValueError:
+                continue
+            if request:
+                url = request.build_absolute_uri(url)
+            result.append({"id": img.id, "url": url, "position": img.position})
+        return result
 
     def get_seller_is_verified(self, obj):
         seller = obj.seller
@@ -160,7 +177,55 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Pour publier une video, ajoutez une description et des tags."
             )
+        # Audit ref: [BUG-S1] valider et scruber la galerie AVANT toute ecriture
+        # DB, pour qu'une galerie invalide renvoie 400 sans creer le produit.
+        self._gallery_files = self._collect_gallery_files()
         return attrs
+
+    # Audit ref: [BUG-S1] limite dure d'images par produit, alignee sur le modele.
+    MAX_GALLERY_IMAGES = ProductImage.MAX_IMAGES_PER_PRODUCT
+
+    def _collect_gallery_files(self):
+        """Lit `gallery_images` depuis request.FILES, valide chaque fichier
+        (extension/MIME/magic-bytes/taille) et renvoie la liste scrubbee.
+        Applique le plafond total (existantes + nouvelles)."""
+        request = self.context.get("request")
+        if request is None or not hasattr(request, "FILES"):
+            return []
+        files = request.FILES.getlist("gallery_images")
+        if not files:
+            return []
+        existing = self.instance.images.count() if self.instance is not None else 0
+        if existing + len(files) > self.MAX_GALLERY_IMAGES:
+            raise serializers.ValidationError(
+                f"Un produit ne peut pas depasser {self.MAX_GALLERY_IMAGES} images "
+                f"(deja {existing}, +{len(files)} demandees)."
+            )
+        scrubbed = []
+        for uploaded in files:
+            validate_uploaded_file(
+                uploaded,
+                field_label="Image produit",
+                allowed_extensions={".png", ".jpg", ".jpeg", ".webp"},
+                max_mb=settings.MAX_UPLOAD_IMAGE_MB,
+                allowed_content_types={"image/png", "image/jpeg", "image/webp"},
+            )
+            scrubbed.append(scrub_image_metadata(uploaded))
+        return scrubbed
+
+    def _save_gallery(self, product):
+        files = getattr(self, "_gallery_files", None) or []
+        if not files:
+            return
+        start = product.images.count()
+        created = [
+            ProductImage.objects.create(product=product, image=uploaded, position=start + idx)
+            for idx, uploaded in enumerate(files)
+        ]
+        # Backfill de l'image principale (vignette) si absente.
+        if not product.image and created:
+            product.image = created[0].image
+            product.save(update_fields=["image"])
 
     def validate_image(self, value):
         validate_uploaded_file(
@@ -196,14 +261,18 @@ class ProductSerializer(serializers.ModelSerializer):
         # Audit ref: [C-2] server controls activation — always publish on create,
         # regardless of request content type (JSON or multipart).
         validated_data["is_active"] = True
-        return super().create(validated_data)
+        product = super().create(validated_data)
+        self._save_gallery(product)
+        return product
 
     def update(self, instance, validated_data):
         category_name = (validated_data.pop("category_name", "") or "").strip()
         if category_name:
             category, _ = ProductCategory.objects.get_or_create(name=category_name)
             validated_data["category"] = category
-        return super().update(instance, validated_data)
+        product = super().update(instance, validated_data)
+        self._save_gallery(product)
+        return product
 
 
 class TrackProductViewSerializer(serializers.Serializer):

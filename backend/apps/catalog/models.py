@@ -73,6 +73,28 @@ class Product(models.Model):
         super().save(*args, **kwargs)
 
 
+class ProductImage(models.Model):
+    """Audit ref: [BUG-S1] Galerie multi-images d'un produit.
+
+    Le `Product.image` historique reste l'image principale (vignette /
+    rétro-compatibilité). Cette table porte les images supplémentaires, jusqu'à
+    `MAX_IMAGES_PER_PRODUCT` au total. L'ordre d'affichage suit `position`.
+    """
+
+    MAX_IMAGES_PER_PRODUCT = 10
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="products/images/")
+    position = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self) -> str:
+        return f"Image #{self.position} de {self.product_id}"
+
+
 class ProductStatsSnapshot(models.Model):
     product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name="stats")
     total_orders = models.PositiveIntegerField(default=0)

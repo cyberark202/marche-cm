@@ -979,6 +979,12 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                     created_by=wallet.owner,
                     metadata={"reason": reason},
                 )
+                # Sans cette ligne le retrait restait bloque a PENDING ("en
+                # attente"): le decaissement a echoue, les fonds ont ete
+                # recredites, mais le statut n'etait jamais passe a FAILED. Le
+                # client voyait "Echec initialisation retrait" pendant que
+                # l'historique affichait toujours "en attente".
+                tx.status = TransactionStatus.FAILED
             elif tx.kind.startswith("PAYOUT_"):
                 retry_job = enqueue_payout_retry(tx=tx, error=reason, delay_seconds=180)
                 if retry_job is not None:

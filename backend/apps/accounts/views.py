@@ -24,7 +24,7 @@ from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.utils import timezone
 from rest_framework import decorators, permissions, response, status, viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError as DRFValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -67,7 +67,21 @@ from .serializers import (
     RegisterSerializer,
     SellerRegisterSerializer,
     UserSerializer,
+    validate_password_strength,
 )
+
+
+def _password_strength_error(new_password):
+    """Return a 400 Response if *new_password* fails AUTH_PASSWORD_VALIDATORS,
+    else None. Audit ref: [BUG-01] — bridge the validators to the change/reset
+    flows, which previously enforced only the 8-char minimum."""
+    try:
+        validate_password_strength(new_password)
+    except DRFValidationError as exc:
+        detail = exc.detail
+        msg = detail[0] if isinstance(detail, (list, tuple)) and detail else str(detail)
+        return response.Response({"detail": str(msg)}, status=status.HTTP_400_BAD_REQUEST)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -275,9 +289,31 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.order_by("id")
 
     def get_queryset(self):
-        if _is_general_admin(self.request.user):
-            return self.queryset
-        return self.queryset.filter(id=self.request.user.id)
+        # Non-admins are hard-scoped to their own record (anti-IDOR).
+        if not _is_general_admin(self.request.user):
+            return self.queryset.filter(id=self.request.user.id)
+
+        qs = self.queryset
+
+        # A-01 fix — server-side search so the admin directory is not capped at
+        # the first paginated page (PAGE_SIZE=20). Without this, any user past
+        # the first page was invisible and unsearchable. Admin only.
+        q = (self.request.query_params.get("q") or "").strip()
+        if q:
+            qs = qs.filter(
+                Q(username__icontains=q)
+                | Q(email__icontains=q)
+                | Q(first_name__icontains=q)
+                | Q(reference_code__icontains=q)
+            )
+
+        # Optional role filter (?role=BUYER|SUPPLIER|...) — server-side so the
+        # bucket chips work across the whole table, not just the loaded page.
+        role = (self.request.query_params.get("role") or "").strip().upper()
+        if role in dict(UserRole.choices):
+            qs = qs.filter(role=role)
+
+        return qs
 
     @decorators.action(detail=False, methods=["get"])
     def online(self, request):
@@ -1011,6 +1047,9 @@ class PasswordChangeView(APIView):
                 {"detail": "Nouveau mot de passe invalide (minimum 8 caracteres)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        strength_error = _password_strength_error(new_password)
+        if strength_error is not None:
+            return strength_error
         if new_password == current_password:
             return response.Response(
                 {"detail": "Le nouveau mot de passe doit etre different de l'ancien."},
@@ -1134,6 +1173,9 @@ class PasswordResetConfirmView(APIView):
                 {"detail": "Nouveau mot de passe invalide (minimum 8 caracteres)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        strength_error = _password_strength_error(new_password)
+        if strength_error is not None:
+            return strength_error
 
         user = User.objects.filter(email__iexact=email, is_active=True).first()
         if not user:

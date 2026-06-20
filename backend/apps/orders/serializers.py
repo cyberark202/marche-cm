@@ -5,6 +5,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from apps.accounts.models import UserRole
+from apps.catalog.models import Product
 from apps.wallets.services import InsufficientFundsError
 from .models import EscrowStatus, Order, OrderReview, OrderStatus, OrderType
 from .services import OrderFinanceService
@@ -78,6 +79,13 @@ class OrderSerializer(serializers.ModelSerializer):
 
         product = validated_data["product"]
         quantity = validated_data["quantity"]
+        # Audit ref: [BUG-03] reject orders on inactive products or
+        # suspended/deactivated sellers (catalogue hides them, but the order
+        # endpoint must enforce it independently — defense in depth).
+        if not product.is_active:
+            raise serializers.ValidationError("Ce produit n'est plus disponible.")
+        if not getattr(product.seller, "is_active", True) or getattr(product.seller, "is_suspended", False):
+            raise serializers.ValidationError("Ce vendeur n'est plus disponible.")
         preferred_transit_agent = validated_data.get("preferred_transit_agent")
         transport_mode = validated_data.pop("transport_mode", None)
         join_grouping = validated_data.get("join_grouping", False)
@@ -136,6 +144,18 @@ class OrderSerializer(serializers.ModelSerializer):
         )
         request_user = self.context["request"].user
         with transaction.atomic():
+            # Audit ref: [BUG-02] enforce stock and decrement it under a row
+            # lock to prevent overselling. ``available_qty IS NULL`` means
+            # "no inventory cap" (the supplier flow leaves it unset), so it is
+            # skipped. Stock is restored on cancellation / refund (services.py).
+            locked_product = Product.objects.select_for_update().get(pk=product.pk)
+            if locked_product.available_qty is not None:
+                if quantity > locked_product.available_qty:
+                    raise serializers.ValidationError(
+                        "Stock insuffisant pour la quantite demandee."
+                    )
+                locked_product.available_qty = locked_product.available_qty - quantity
+                locked_product.save(update_fields=["available_qty"])
             order = super().create(validated_data)
             shipment, created = Shipment.objects.get_or_create(
                 order=order,
