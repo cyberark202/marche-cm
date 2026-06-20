@@ -1,0 +1,6 @@
+fill_label:Email=driver.e2e@marche-cm.local
+fill_label:Mot de passe=ChangeMe123!
+tap_text:Se connecter
+wait:7
+shot:12_driver_dashboard
+dump:dashboard

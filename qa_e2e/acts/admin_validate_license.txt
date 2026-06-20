@@ -1,0 +1,21 @@
+fill_label:E-mail professionnel=admin@marche-cm.local
+fill_label:Mot de passe=ChangeMe123!
+tap_text:Se connecter
+wait:6
+tap_text:Revue
+wait:3
+tap_text:Utilisateur #33
+wait:2
+tap_text:DRIVER_LICENSE
+wait:2
+tap_label:Document lisible
+tap_label:Tampons officiels visibles
+tap_label:Date de validité OK
+tap_label:Identité concorde avec le compte
+tap_label:Adresse cohérente
+wait:1
+shot:05_checks
+tap_text:Valider
+wait:4
+shot:06_after_validate
+dump:after_validate

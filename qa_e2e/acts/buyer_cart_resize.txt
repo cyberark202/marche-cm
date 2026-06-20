@@ -1,0 +1,19 @@
+tap_text:Se connecter
+wait:5
+fill_input:0=buyer@marche-cm.local
+fill_input:1=ChangeMe123!
+tap_text:Se connecter
+wait:6
+fill_label:Rechercher un produit=Riz commande QA
+press:Enter
+wait:3
+tap_xy:178,636
+wait:2
+tap_xy:388,33
+wait:3
+resize:440,920
+wait:1
+resize:420,900
+wait:2
+shot:06_cart_resized
+dump:cart_resized

@@ -1,0 +1,10 @@
+tap_text:Se connecter
+wait:5
+fill_input:0=buyer@marche-cm.local
+fill_input:1=ChangeMe123!
+tap_text:Se connecter
+wait:6
+tap_label:Commandes
+wait:4
+shot:07_orders
+dump:orders

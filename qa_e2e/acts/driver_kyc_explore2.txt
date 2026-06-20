@@ -1,0 +1,12 @@
+fill_label:Email=driver.e2e@marche-cm.local
+fill_label:Mot de passe=ChangeMe123!
+tap_text:Se connecter
+wait:5
+tap_text:Commencer la vérification
+wait:2
+tap_text:Passeport
+wait:1
+tap_text:Continuer
+wait:3
+shot:07_kyc_step3
+dump:step3

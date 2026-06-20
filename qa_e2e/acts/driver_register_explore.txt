@@ -1,0 +1,6 @@
+shot:01_login
+dump:login
+tap_text:S'inscrire
+wait:3
+shot:02_register
+dump:register

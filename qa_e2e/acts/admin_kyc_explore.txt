@@ -1,0 +1,8 @@
+fill_label:E-mail professionnel=admin@marche-cm.local
+fill_label:Mot de passe=ChangeMe123!
+tap_text:Se connecter
+wait:6
+tap_text:Revue
+wait:3
+shot:02_kyc_review
+dump:kyc_review

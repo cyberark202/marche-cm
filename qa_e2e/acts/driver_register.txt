@@ -1,0 +1,14 @@
+tap_text:S'inscrire
+wait:3
+shot:02b_register_form
+fill_label:Nom complet=Livreur E2E Test
+fill_label:Téléphone=+237680001122
+fill_label:Email=driver.e2e@marche-cm.local
+tap_text:Moto / Scooter
+fill_label:Mot de passe=ChangeMe123!
+wait:1
+shot:03_register_filled
+tap_text:Créer mon compte livreur
+wait:6
+shot:04_after_register
+dump:after_register

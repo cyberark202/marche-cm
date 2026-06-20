@@ -1,0 +1,18 @@
+fill_label:Email=driver.e2e@marche-cm.local
+fill_label:Mot de passe=ChangeMe123!
+tap_text:Se connecter
+wait:5
+tap_text:Commencer la vérification
+wait:2
+tap_text:Passeport
+wait:1
+tap_text:Continuer
+wait:3
+pick:Recto=E:\project\Marche CM\qa_e2e\media\product1.jpg
+wait:2
+shot:08_recto_picked
+dump:after_recto
+tap_text:Continuer
+wait:3
+shot:09_step4
+dump:step4
