@@ -84,6 +84,8 @@ x-backend-base: &backend-base
     JWT_VERIFYING_KEY: ${JWT_VERIFYING_KEY:-}
     JWT_ACCESS_TOKEN_MINUTES: ${JWT_ACCESS_TOKEN_MINUTES:-15}
     JWT_REFRESH_TOKEN_DAYS: ${JWT_REFRESH_TOKEN_DAYS:-7}
+    # Fenêtre de migration HS256 -> RS256 (voir settings.py) ; retirer une fois RS256 actif.
+    ALLOW_HS256_IN_PRODUCTION: ${ALLOW_HS256_IN_PRODUCTION:-0}
     SECURITY_HARD_BLOCK_SCANNERS: "True"
   depends_on:
     redis:
