@@ -22,6 +22,9 @@ class Wallet(models.Model):
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     blocked_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     currency = models.CharField(max_length=3, default="XAF")
+    # Solde dormant (doc 05) : dernier avertissement « solde > seuil sans
+    # activité ». Remis à zéro dès qu'un retrait ou un achat est engagé.
+    dormancy_notified_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -180,6 +183,7 @@ class LedgerEntryType(models.TextChoices):
     ESCROW_RELEASE = "ESCROW_RELEASE", "Liberation escrow"
     PAYOUT = "PAYOUT", "Payout"
     COMMISSION = "COMMISSION", "Commission"
+    PENALTY = "PENALTY", "Penalite"
 
 
 class WalletLedgerEntry(models.Model):

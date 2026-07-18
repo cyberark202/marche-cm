@@ -16,6 +16,7 @@ from apps.accounts.security import (
     verify_sensitive_action_challenge,
     write_audit_log,
 )
+from apps.appconfig.models import get_platform_setting
 from apps.notifications.realtime import broadcast_event
 from apps.notifications.service import create_realtime_notification
 from apps.accounts.models import User, UserRole
@@ -264,17 +265,16 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             return False, "Webhook timestamp hors fenetre."
         return True, ""
 
-    def _verify_checkout_webhook_auth(self, request) -> tuple[bool, str]:
-        shared_secret = str(getattr(settings, "NOTCHPAY_CHECKOUT_WEBHOOK_SECRET", "") or "").strip()
+    def _verify_webhook_auth(self, request, endpoint: str, secret_setting: str) -> tuple[bool, str]:
+        shared_secret = str(getattr(settings, secret_setting, "") or "").strip()
         if not shared_secret:
             security_event_logger.error(
-                "webhook_auth_misconfigured endpoint=checkout ip=%s — "
-                "NOTCHPAY_CHECKOUT_WEBHOOK_SECRET not set, request rejected",
-                _client_ip(request),
+                "webhook_auth_misconfigured endpoint=%s ip=%s — %s not set, request rejected",
+                endpoint, _client_ip(request), secret_setting,
             )
             return False, "Signature HMAC webhook non configuree. Contactez l'administrateur."
 
-        ts_ok, ts_err = self._check_webhook_timestamp(request, "checkout")
+        ts_ok, ts_err = self._check_webhook_timestamp(request, endpoint)
         if not ts_ok:
             return False, ts_err
 
@@ -286,14 +286,14 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         ).strip()
         if not incoming_sig:
             security_event_logger.warning(
-                "webhook_missing_signature endpoint=checkout ip=%s", _client_ip(request)
+                "webhook_missing_signature endpoint=%s ip=%s", endpoint, _client_ip(request)
             )
             return False, "Signature HMAC manquante."
 
         computed = self._compute_hmac(shared_secret, request.body)
         if not hmac.compare_digest(incoming_sig.lower(), computed.lower()):
             security_event_logger.warning(
-                "webhook_invalid_signature endpoint=checkout ip=%s", _client_ip(request)
+                "webhook_invalid_signature endpoint=%s ip=%s", endpoint, _client_ip(request)
             )
             return False, "Signature HMAC invalide."
 
@@ -307,55 +307,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             ).strip()
             if not hmac.compare_digest(incoming_token, expected_token):
                 security_event_logger.warning(
-                    "webhook_invalid_token endpoint=checkout ip=%s", _client_ip(request)
-                )
-                return False, "Webhook token invalide."
-
-        return True, ""
-
-    def _verify_disburse_webhook_auth(self, request) -> tuple[bool, str]:
-        shared_secret = str(getattr(settings, "NOTCHPAY_DISBURSE_WEBHOOK_SECRET", "") or "").strip()
-        if not shared_secret:
-            security_event_logger.error(
-                "webhook_auth_misconfigured endpoint=disburse ip=%s — "
-                "NOTCHPAY_DISBURSE_WEBHOOK_SECRET not set, request rejected",
-                _client_ip(request),
-            )
-            return False, "Signature HMAC webhook non configuree. Contactez l'administrateur."
-
-        ts_ok, ts_err = self._check_webhook_timestamp(request, "disburse")
-        if not ts_ok:
-            return False, ts_err
-
-        incoming_sig = (
-            request.headers.get("X-Notch-Signature")
-            or request.headers.get("X-NotchPay-Signature")
-            or request.headers.get("X-Paydunya-Signature")
-            or ""
-        ).strip()
-        if not incoming_sig:
-            security_event_logger.warning(
-                "webhook_missing_signature endpoint=disburse ip=%s", _client_ip(request)
-            )
-            return False, "Signature HMAC manquante."
-
-        computed = self._compute_hmac(shared_secret, request.body)
-        if not hmac.compare_digest(incoming_sig.lower(), computed.lower()):
-            security_event_logger.warning(
-                "webhook_invalid_signature endpoint=disburse ip=%s", _client_ip(request)
-            )
-            return False, "Signature HMAC invalide."
-
-        expected_token = str(getattr(settings, "NOTCHPAY_WEBHOOK_TOKEN", "") or "").strip()
-        if expected_token:
-            incoming_token = (
-                request.headers.get("X-NotchPay-Token")
-                or request.headers.get("X-Notch-Token")
-                or ""
-            ).strip()
-            if not hmac.compare_digest(incoming_token, expected_token):
-                security_event_logger.warning(
-                    "webhook_invalid_token endpoint=disburse ip=%s", _client_ip(request)
+                    "webhook_invalid_token endpoint=%s ip=%s", endpoint, _client_ip(request)
                 )
                 return False, "Webhook token invalide."
 
@@ -399,7 +351,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                         metadata={"flow": action, "amount": str(amount)},
                     )
                 except Exception:
-                    pass
+                    logger.exception("fraud_fail_closed_audit_log_failed user=%d action=%s", request.user.id, action)
                 return response.Response(
                     {"detail": "Service de securite indisponible. Reessayez dans quelques instants."},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -443,11 +395,24 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception:
             logger.exception("state_log_failed tx_id=%s", getattr(tx, "id", None))
 
-    def _enforce_kyc_limits(self, request, amount):
-        profile = settings.KYC_LIMITS.get(getattr(request.user, "kyc_level", 0), settings.KYC_LIMITS[0])
-        if amount > Decimal(str(profile["per_transaction"])):
+    def _enforce_kyc_limits(self, request, amount, *, kind: str):
+        """Limites par opération selon le niveau KYC (docs 03/05/06).
+
+        `kind` vaut "deposit" ou "withdraw" — le doc fixe des plafonds
+        distincts (niveau 0 : dépôt <= 50 000, retrait <= 100 000 FCFA).
+        Les plafonds sont configurables à chaud (clé "kyc.limits").
+        """
+        limits_map = get_platform_setting("kyc.limits")
+        level = str(getattr(request.user, "kyc_level", 0))
+        profile = limits_map.get(level)
+        if profile is None:
+            # Niveau au-dessus du registre → limites du niveau max configuré.
+            profile = limits_map[max(limits_map, key=int)]
+        per_tx_key = "deposit_per_tx" if kind == "deposit" else "withdraw_per_tx"
+        per_tx_limit = Decimal(str(profile[per_tx_key]))
+        if amount > per_tx_limit:
             return response.Response(
-                {"detail": f"Limite KYC par transaction depassee ({profile['per_transaction']})."},
+                {"detail": f"Limite KYC par operation depassee ({per_tx_limit:.0f} FCFA). Validez votre identite pour augmenter vos plafonds."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         day_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -469,6 +434,24 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return None
+
+    @staticmethod
+    def _withdrawal_fee(amount: Decimal) -> Decimal:
+        """Frais de retrait = max(montant * pourcentage, plancher), en FCFA entiers.
+
+        Arrondi au FCFA supérieur : le net reste entier (contrainte NotchPay)
+        et la plateforme ne sous-facture jamais d'un centime.
+        """
+        from decimal import ROUND_UP
+
+        percent = Decimal(str(get_platform_setting("withdrawal.fee_percent")))
+        floor = Decimal(str(get_platform_setting("withdrawal.fee_min")))
+        if percent <= 0 and floor <= 0:
+            return Decimal("0")
+        fee = amount * percent / Decimal("100")
+        if fee < floor:
+            fee = floor
+        return fee.quantize(Decimal("1"), rounding=ROUND_UP)
 
     def _validate_wallet_security(self, request, amount, purpose):
         # Wallet PIN removed (product decision). Withdrawals stay protected by an
@@ -522,7 +505,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 {"detail": "Montant invalide: NotchPay requiert un entier (FCFA)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        limit_error = self._enforce_kyc_limits(request, amount)
+        limit_error = self._enforce_kyc_limits(request, amount, kind="deposit")
         if limit_error:
             return limit_error
         # Audit ref: [FIN-006] PIN/fraud order inversion.
@@ -728,7 +711,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 {"detail": self._invalid_account_detail(provider, source=False)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        limit_error = self._enforce_kyc_limits(request, amount)
+        limit_error = self._enforce_kyc_limits(request, amount, kind="withdraw")
         if limit_error:
             return limit_error
         # Audit ref: [FIN-006] PIN/fraud order inversion — PIN first.
@@ -738,6 +721,17 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         fraud_error = self._check_fraud(request, amount, "withdraw")
         if fraud_error:
             return fraud_error
+
+        # Frais de retrait (docs 01/05) : pourcentage avec plancher, configurables
+        # à chaud. Le wallet est débité du montant demandé ; le Mobile Money
+        # reçoit le net. Les frais deviennent une écriture COMMISSION au succès.
+        fee = self._withdrawal_fee(amount)
+        net_amount = amount - fee
+        if net_amount < self._MIN_TX_AMOUNT:
+            return response.Response(
+                {"detail": f"Montant trop faible: apres frais de {fee:.0f} FCFA, le net doit rester >= {self._MIN_TX_AMOUNT:.0f} FCFA."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         idempotency_key = request.headers.get("Idempotency-Key") or str(request.data.get("idempotency_key") or "").strip()
         idem_record = None
@@ -795,6 +789,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                         idempotency_key=idempotency_key,
                         external_transaction_id=external_tx,
                         reference=f"withdraw:{provider}:{destination_account}:tx:{external_tx}",
+                        metadata={"fee": str(fee), "net_amount": str(net_amount)},
                     )
             except IntegrityError:
                 existing = (
@@ -814,7 +809,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
         disburse_id = f"WITHDRAW-{tx.id}"
         transfer = NotchPayDisbursementService.send_money(
-            amount=amount,
+            amount=net_amount,
             account_alias=destination_account,
             provider=provider,
             transaction_id=disburse_id,
@@ -847,6 +842,8 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             "transaction_id": transfer["transaction_id"],
             "mode": transfer["mode"],
             "status": tx.status,
+            "fee": str(fee),
+            "net_amount": str(net_amount),
         }
         IdempotencyService.complete(idem_record, response_data)
         return response.Response(response_data)
@@ -882,6 +879,21 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                     created_by=wallet.owner,
                     metadata={"provider_payload": payload},
                 )
+                # Frais de retrait (doc 05) : le wallet a été débité du brut, le
+                # Mobile Money a reçu le net — l'écart est la commission
+                # plateforme, tracée pour la réconciliation quotidienne.
+                fee = Decimal(str((tx.metadata or {}).get("fee") or "0"))
+                if fee > 0:
+                    WalletAccountingService.mutate_wallet(
+                        wallet=wallet,
+                        amount=fee,
+                        entry_type=LedgerEntryType.COMMISSION,
+                        direction=LedgerDirection.CREDIT,
+                        reference=f"wallet-withdraw-fee:{tx.external_transaction_id or tx.id}",
+                        idempotency_key=f"tx-fee:{tx.id}",
+                        created_by=wallet.owner,
+                        metadata={"withdrawal_tx": tx.external_transaction_id},
+                    )
             elif tx.kind.startswith("PAYOUT_"):
                 mark_payout_retry_success(tx=tx)
                 try:
@@ -943,7 +955,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 payload={"transaction_id": tx.external_transaction_id, "kind": tx.kind},
             )
         except Exception:
-            pass
+            logger.exception("notif_wallet_incident_owner_failed tx=%s", tx.id)
         admins = User.objects.filter(Q(role=UserRole.GENERAL_ADMIN) | Q(is_superuser=True), is_active=True).distinct()
         for admin in admins:
             try:
@@ -954,6 +966,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                     payload={"transaction_id": tx.external_transaction_id, "owner_id": tx.wallet.owner_id},
                 )
             except Exception:
+                logger.exception("notif_wallet_incident_admin_failed tx=%s admin=%d", tx.id, admin.id)
                 continue
 
     def _mark_transaction_failed(self, *, tx: WalletTransaction, reason: str):
@@ -1086,7 +1099,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     def notchpay_checkout_webhook(self, request):
         # Auth MUST happen before request.data is accessed: reading request.data
         # consumes the raw body stream, making request.body unavailable for HMAC.
-        is_valid, auth_error = self._verify_checkout_webhook_auth(request)
+        is_valid, auth_error = self._verify_webhook_auth(request, "checkout", "NOTCHPAY_CHECKOUT_WEBHOOK_SECRET")
         if not is_valid:
             return response.Response({"detail": auth_error}, status=status.HTTP_403_FORBIDDEN)
 
@@ -1202,7 +1215,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
     @decorators.action(detail=False, methods=["post"], permission_classes=[permissions.AllowAny], url_path="notchpay/disburse/webhook")
     def notchpay_disburse_webhook(self, request):
-        is_valid, auth_error = self._verify_disburse_webhook_auth(request)
+        is_valid, auth_error = self._verify_webhook_auth(request, "disburse", "NOTCHPAY_DISBURSE_WEBHOOK_SECRET")
         if not is_valid:
             return response.Response({"detail": auth_error}, status=status.HTTP_403_FORBIDDEN)
 
@@ -1281,6 +1294,14 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         is_success = event_type == "transfer.complete" or raw_status in {"complete", "completed", "success", "00"}
         is_failure = event_type == "transfer.failed" or raw_status in {"failed", "error", "canceled", "cancelled"}
         if external_tx.startswith("WITHDRAW-"):
+            # Le montant décaissé attendu est le NET (brut - frais de retrait).
+            expected_amount = abs(tx.amount)
+            _net_meta = (tx.metadata or {}).get("net_amount")
+            if _net_meta not in {None, ""}:
+                try:
+                    expected_amount = Decimal(str(_net_meta))
+                except (InvalidOperation, TypeError):
+                    pass
             if is_success:
                 # H2 — Validate disbursed amount matches the transaction record
                 # before crediting/debiting. A forged or misrouted webhook with a
@@ -1301,7 +1322,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 try:
-                    if Decimal(str(raw_amount)) != abs(tx.amount):
+                    if Decimal(str(raw_amount)) != expected_amount:
                         event.processed = True
                         event.processed_at = timezone.now()
                         event.processing_error = "montant_non_conforme"
@@ -1310,7 +1331,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                             "webhook_disburse_amount_mismatch tx=%s "
                             "expected=%s received=%s ip=%s",
                             external_tx,
-                            abs(tx.amount),
+                            expected_amount,
                             raw_amount,
                             _client_ip(request),
                         )

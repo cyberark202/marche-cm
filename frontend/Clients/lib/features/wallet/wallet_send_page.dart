@@ -10,6 +10,7 @@ import '../../core/backend_ui_config_service.dart';
 import '../auth/session_store.dart';
 import '../onboarding/escrow_onboarding_page.dart';
 import 'notchpay_pending_sheet.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class WalletTopupPage extends StatefulWidget {
   const WalletTopupPage({super.key});
@@ -69,16 +70,16 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
   IconData _providerIcon(String code) {
     switch (code) {
       case 'MOBILE_MONEY':
-        return Icons.phone_iphone;
+        return LucideIcons.smartphone;
       case 'ORANGE_MONEY':
-        return Icons.phone_android;
+        return LucideIcons.smartphone;
       case 'VISA':
       case 'MASTERCARD':
-        return Icons.credit_card;
+        return LucideIcons.creditCard;
       case 'PAYPAL':
-        return Icons.account_balance_wallet_outlined;
+        return LucideIcons.wallet;
       default:
-        return Icons.payments_outlined;
+        return LucideIcons.banknote;
     }
   }
 
@@ -415,7 +416,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.info_outline,
+                              const Icon(LucideIcons.info,
                                   size: 13, color: AppPalette.accentDark),
                               const SizedBox(width: 5),
                               Text(
@@ -470,7 +471,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.shield_outlined,
+                        Icon(LucideIcons.shield,
                             size: 18, color: AppPalette.primaryDark),
                         SizedBox(width: 8),
                         Expanded(
@@ -514,7 +515,7 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
                       height: 16,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.bolt, size: 18),
+                  : const Icon(LucideIcons.zap, size: 18),
               label: Text(
                 _busy
                     ? "Initialisation..."
@@ -550,7 +551,7 @@ class _TopupHeader extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: onClose,
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
               ),
               const Expanded(
                 child: Text(
@@ -581,7 +582,7 @@ class _TopupHeader extends StatelessWidget {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.payments_outlined,
+                      Icon(LucideIcons.banknote,
                           size: 12, color: Colors.white),
                       SizedBox(width: 5),
                       Text(
@@ -710,7 +711,7 @@ class _ProviderCard extends StatelessWidget {
               ),
             ),
             if (selected)
-              const Icon(Icons.check_circle,
+              const Icon(LucideIcons.checkCircle2,
                   size: 18, color: AppPalette.primary),
           ],
         ),

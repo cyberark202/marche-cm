@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from core.text_sanitize import redact_links
 from .models import SupportTicket, SupportTicketMessage, TicketPriority, TicketStatus
 
 
@@ -16,7 +17,7 @@ class SupportTicketMessageSerializer(serializers.ModelSerializer):
         body = (value or "").strip()
         if len(body) < 2:
             raise serializers.ValidationError("Le message est trop court.")
-        return body
+        return redact_links(body)
 
 
 class SupportTicketSerializer(serializers.ModelSerializer):
@@ -63,13 +64,13 @@ class SupportTicketSerializer(serializers.ModelSerializer):
         subject = (value or "").strip()
         if len(subject) < 5:
             raise serializers.ValidationError("Le sujet doit contenir au moins 5 caracteres.")
-        return subject
+        return redact_links(subject)
 
     def validate_description(self, value):
         description = (value or "").strip()
         if len(description) < 10:
             raise serializers.ValidationError("La description doit contenir au moins 10 caracteres.")
-        return description
+        return redact_links(description)
 
     def validate_priority(self, value):
         if value not in TicketPriority.values:

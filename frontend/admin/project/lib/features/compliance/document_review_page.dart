@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 36 — Document review: preview, verification checklist, decision.
 class DocumentReviewPage extends StatefulWidget {
@@ -55,9 +56,10 @@ class _DocumentReviewPageState extends State<DocumentReviewPage> {
           status == 'APPROVED' ? 'Document validé.' : 'Document rejeté.');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (!mounted) return;
-      showSnack(context, _repo.errorMessage(e));
-      setState(() => _submitting = false);
+      if (mounted) showSnack(context, _repo.errorMessage(e));
+    } finally {
+      // Toujours relâcher le spinner (succès = navigation ; échec = ré-essai).
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -138,7 +140,7 @@ class _DocumentReviewPageState extends State<DocumentReviewPage> {
                   foregroundColor: AppPalette.danger,
                   side: const BorderSide(color: AppPalette.danger),
                 ),
-                icon: const Icon(Icons.close),
+                icon: const Icon(LucideIcons.x),
                 label: const Text('Rejeter'),
               ),
             ),
@@ -152,7 +154,7 @@ class _DocumentReviewPageState extends State<DocumentReviewPage> {
                         height: 18,
                         child: CircularProgressIndicator(
                             strokeWidth: 2.2, color: Colors.white))
-                    : const Icon(Icons.check),
+                    : const Icon(LucideIcons.check),
                 label: const Text('Valider'),
               ),
             ),
@@ -193,7 +195,7 @@ class _DocumentReviewPageState extends State<DocumentReviewPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.image_outlined, size: 40, color: Colors.black26),
+          const Icon(LucideIcons.image, size: 40, color: Colors.black26),
           const SizedBox(height: 8),
           Text(label, style: const TextStyle(color: AppPalette.textMuted)),
         ],

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Preuve de livraison — photo + code OTP 4 chiffres (PDF 28).
 class DeliveryProofPage extends StatefulWidget {
@@ -59,8 +63,9 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
     });
     try {
       final form = FormData.fromMap({
-        "photo":
-            await MultipartFile.fromFile(_photo!.path, filename: "proof.jpg"),
+        // MIME explicite : le backend refuse octet-stream (UP-001).
+        "photo": await MultipartFile.fromFile(_photo!.path,
+            filename: "proof.jpg", contentType: DioMediaType('image', 'jpeg')),
         "otp": _otpValue,
       });
       await DriverDioClient.dio.post(
@@ -72,12 +77,10 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
       );
       context.pop(true);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = ApiError.friendly(e);
-          _busy = false;
-        });
-      }
+      if (mounted) setState(() => _error = ApiError.friendly(e));
+    } finally {
+      // Toujours relâcher le spinner (succès = navigation ; échec = ré-essai).
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -141,16 +144,32 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(T.rLg),
-                                  child: Image.network(
-                                    _photo!.path,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    errorBuilder: (_, __, ___) => const Center(
-                                      child: Icon(Icons.check_circle,
-                                          size: 48, color: T.primary),
-                                    ),
-                                  ),
+                                  // XFile.path est un chemin fichier local sur
+                                  // mobile (Image.network échouait → aperçu vide)
+                                  // et une URL blob sur le Web.
+                                  child: kIsWeb
+                                      ? Image.network(
+                                          _photo!.path,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Center(
+                                            child: Icon(LucideIcons.checkCircle2,
+                                                size: 48, color: T.primary),
+                                          ),
+                                        )
+                                      : Image.file(
+                                          File(_photo!.path),
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Center(
+                                            child: Icon(LucideIcons.checkCircle2,
+                                                size: 48, color: T.primary),
+                                          ),
+                                        ),
                                 ),
                                 Positioned(
                                   top: 8,
@@ -166,7 +185,7 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.check,
+                                        Icon(LucideIcons.check,
                                             color: Colors.white, size: 11),
                                         SizedBox(width: 3),
                                         Text("OK",
@@ -192,7 +211,7 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
                                     color: T.accentSoft,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.camera_alt,
+                                  child: const Icon(LucideIcons.camera,
                                       color: T.accentDark, size: 26),
                                 ),
                                 const SizedBox(height: 10),
@@ -246,7 +265,7 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
                   Center(
                     child: TextButton.icon(
                       onPressed: _resendCode,
-                      icon: const Icon(Icons.refresh, size: 16),
+                      icon: const Icon(LucideIcons.refreshCw, size: 16),
                       label: const Text("Renvoyer le code à l'acheteur"),
                       style: TextButton.styleFrom(
                         foregroundColor: T.primaryDark,
@@ -263,7 +282,7 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.location_on,
+                        Icon(LucideIcons.mapPin,
                             size: 16, color: T.primaryDark),
                         SizedBox(width: 8),
                         Expanded(
@@ -309,7 +328,7 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
               onPressed: onBack,
-              icon: const Icon(Icons.arrow_back, color: Colors.white)),
+              icon: const Icon(LucideIcons.arrowLeft, color: Colors.white)),
           const Expanded(
             child: Text("Preuve de livraison",
                 style: TextStyle(
@@ -443,7 +462,7 @@ class _Footer extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.check, size: 18),
+                : const Icon(LucideIcons.check, size: 18),
             label: Text(busy ? "Envoi..." : "Valider la livraison",
                 style: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w800)),
@@ -471,7 +490,7 @@ class _ErrorBanner extends StatelessWidget {
           border: Border.all(color: T.coral.withValues(alpha: 0.4)),
         ),
         child: Row(children: [
-          const Icon(Icons.error_outline, size: 16, color: T.coral),
+          const Icon(LucideIcons.alertCircle, size: 16, color: T.coral),
           const SizedBox(width: 8),
           Expanded(
               child: Text(message,

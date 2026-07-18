@@ -59,6 +59,26 @@ app.conf.update(
             "schedule": 86400.0,
             "options": {"queue": "financial"},
         },
+        "check-dormant-balances": {
+            "task": "apps.wallets.tasks.check_dormant_balances",
+            "schedule": 86400.0,
+            "options": {"queue": "financial"},
+        },
+        "expire-unanswered-orders": {
+            "task": "apps.orders.tasks.expire_unanswered_orders",
+            "schedule": 600.0,
+            "options": {"queue": "financial"},
+        },
+        "expire-dispatch-offers": {
+            "task": "apps.logistics.tasks.expire_dispatch_offers",
+            "schedule": 60.0,
+            "options": {"queue": "default"},
+        },
+        "check-kyc-document-expiry": {
+            "task": "apps.compliance.tasks.check_kyc_document_expiry",
+            "schedule": 86400.0,
+            "options": {"queue": "default"},
+        },
         "check-dispute-sla": {
             "task": "apps.disputes.tasks.check_sla_breaches",
             "schedule": 1800.0,

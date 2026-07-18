@@ -9,6 +9,7 @@ import '../../core/backend_ui_config_service.dart';
 import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
 import 'order_tracking_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -340,7 +341,7 @@ class _OrdersPageState extends State<OrdersPage> {
           ],
         ),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _load, icon: const Icon(LucideIcons.refreshCw)),
         ],
       ),
       body: Column(
@@ -429,7 +430,7 @@ class _OrdersPageState extends State<OrdersPage> {
     // Couleur du badge statut
     Color badgeColor;
     if (statusUpper == "CONFIRMED" || statusUpper == "SHIPPED") {
-      badgeColor = const Color(0xFFF5B400);
+      badgeColor = AppPalette.accent;
     } else if (statusUpper == "COMPLETED" || statusUpper == "DELIVERED") {
       badgeColor = AppPalette.success;
     } else if (statusUpper == "CANCELLED") {
@@ -487,8 +488,8 @@ class _OrdersPageState extends State<OrdersPage> {
                         color: const Color(0xFFFFF8E1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.shopping_bag_outlined,
-                          color: Color(0xFFF5B400), size: 22),
+                      child: const Icon(LucideIcons.shoppingBag,
+                          color: AppPalette.accent, size: 22),
                     ),
               const SizedBox(width: 12),
               Expanded(
@@ -679,7 +680,7 @@ class _OrderTimeline extends StatelessWidget {
               decoration: BoxDecoration(
                 color: i <= currentIndex
                     ? AppPalette.primary
-                    : const Color(0xFFE5E7EB),
+                    : AppPalette.border,
                 borderRadius: BorderRadius.circular(8),
               ),
             ),

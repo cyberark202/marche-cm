@@ -6,23 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
+import '../../../core/network/upload_mime.dart';
 import '../../../core/theme/driver_theme.dart';
 import '../application/auth_notifier.dart';
-
-/// Derives a safe (filename, MIME) pair for a KYC upload. The backend rejects
-/// a missing/octet-stream Content-Type (UP-001), and an unknown extension, so
-/// we declare a concrete image MIME and ensure the filename carries one.
-({String filename, String mime}) _normalizeUpload(String name) {
-  final n = name.toLowerCase();
-  if (n.endsWith('.png')) return (filename: name, mime: 'image/png');
-  if (n.endsWith('.webp')) return (filename: name, mime: 'image/webp');
-  if (n.endsWith('.jpg') || n.endsWith('.jpeg')) {
-    return (filename: name, mime: 'image/jpeg');
-  }
-  if (n.endsWith('.pdf')) return (filename: name, mime: 'application/pdf');
-  // No recognized extension (e.g. a raw camera capture) — assume JPEG.
-  return (filename: '$name.jpg', mime: 'image/jpeg');
-}
+import 'package:lucide_icons/lucide_icons.dart';
 
 class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
@@ -41,19 +28,21 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   String? _error;
 
   static const _docTypes = [
-    ('CNI', "Carte nationale d'identité", Icons.credit_card),
-    ('PASSPORT', 'Passeport', Icons.book_outlined),
+    ('CNI', "Carte nationale d'identité", LucideIcons.creditCard),
+    ('PASSPORT', 'Passeport', LucideIcons.book),
   ];
 
   Future<void> _pick(String field) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       allowMultiple: false,
-      // withData charge les octets en mémoire : indispensable sur le Web, où
-      // l'upload se fait par bytes (l'adaptateur HTTP navigateur ne sait pas
-      // streamer un corps de requête multipart).
+      // withData charge les octets en mémoire (nécessaire sur le Web).
+      // withReadStream est VOLONTAIREMENT désactivé : combiné à withData, le
+      // flux à abonnement unique de file_picker est déjà drainé par le
+      // chargement des bytes, et MultipartFile.fromStream reste alors bloqué en
+      // attente d'octets qui n'arrivent jamais → le POST ne partait jamais
+      // (bouton en loading infini). On envoie donc par chemin fichier ou bytes.
       withData: true,
-      withReadStream: true,
     );
     if (result == null || result.files.isEmpty) return;
     setState(() {
@@ -88,31 +77,22 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       // with a missing/octet-stream MIME (upload hardening UP-001). Without
       // this, every KYC submission 400'd and the driver could never onboard.
       Future<void> upload(String docType, PlatformFile file) async {
-        final upload = _normalizeUpload(file.name);
+        final norm = normalizeUpload(file.name);
         final MultipartFile mf;
-        if (kIsWeb && file.bytes != null) {
-          // Flutter Web: the browser HTTP adapter cannot stream a request
-          // body, so MultipartFile.fromStream hangs and the POST never
-          // leaves the page. Send the in-memory bytes instead.
-          mf = MultipartFile.fromBytes(
-            file.bytes!,
-            filename: upload.filename,
-            contentType: DioMediaType.parse(upload.mime),
-          );
-        } else if (file.readStream != null) {
-          // Native: stream the file (no full in-memory copy).
-          mf = MultipartFile.fromStream(
-            () => file.readStream!,
-            file.size,
-            filename: upload.filename,
-            contentType: DioMediaType.parse(upload.mime),
-          );
-        } else if (file.path != null) {
-          // Native platforms: use the filesystem path.
+        // Natif : on laisse Dio lire le fichier par son chemin — il calcule
+        // lui-même un Content-Length exact (pas de flux qui bloque l'envoi).
+        if (!kIsWeb && (file.path ?? '').isNotEmpty) {
           mf = await MultipartFile.fromFile(
             file.path!,
-            filename: upload.filename,
-            contentType: DioMediaType.parse(upload.mime),
+            filename: norm.filename,
+            contentType: norm.mime,
+          );
+        } else if (file.bytes != null && file.bytes!.isNotEmpty) {
+          // Web (et repli natif) : envoi des octets en mémoire.
+          mf = MultipartFile.fromBytes(
+            file.bytes!,
+            filename: norm.filename,
+            contentType: norm.mime,
           );
         } else {
           throw StateError('Impossible de lire le fichier sélectionné.');
@@ -128,14 +108,16 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       await upload(_docType, _frontFile!);
       if (_backFile != null) await upload('CNI_VERSO', _backFile!);
       await upload('DRIVER_LICENSE', _licenseFile!);
+      // Succès : completeKyc() bascule isOnboarded=true → le routeur quitte
+      // /onboarding et démonte cette page.
       await ref.read(authProvider.notifier).completeKyc();
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = ApiError.friendly(e);
-          _busy = false;
-        });
-      }
+      if (mounted) setState(() => _error = ApiError.friendly(e));
+    } finally {
+      // Toujours relâcher le spinner. Sur le chemin de succès la page est
+      // démontée par la navigation ; sinon le bouton redevient actionnable et
+      // ne reste jamais figé (cause du "loading infini").
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -205,7 +187,7 @@ class _Header extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(children: [
-            Icon(Icons.local_shipping, color: Colors.white, size: 22),
+            Icon(LucideIcons.truck, color: Colors.white, size: 22),
             SizedBox(width: 8),
             Text('Market CM Driver',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
@@ -251,13 +233,13 @@ class _StepWelcome extends StatelessWidget {
           style: TextStyle(fontSize: 14, color: DriverPalette.textSecondary, height: 1.5),
         ),
         const SizedBox(height: 24),
-        const _InfoCard(icon: Icons.credit_card, title: "Pièce d'identité",
+        const _InfoCard(icon: LucideIcons.creditCard, title: "Pièce d'identité",
             desc: "CNI ou Passeport valide"),
         const SizedBox(height: 10),
-        const _InfoCard(icon: Icons.drive_eta, title: "Permis de conduire",
+        const _InfoCard(icon: LucideIcons.car, title: "Permis de conduire",
             desc: "Permis valide pour votre véhicule"),
         const SizedBox(height: 10),
-        const _InfoCard(icon: Icons.timer_outlined, title: "Délai de vérification",
+        const _InfoCard(icon: LucideIcons.timer, title: "Délai de vérification",
             desc: "24 à 48 heures ouvrables"),
         const SizedBox(height: 32),
         SizedBox(
@@ -350,7 +332,7 @@ class _StepDocType extends StatelessWidget {
                     fontWeight: FontWeight.w600, fontSize: 15,
                     color: sel ? DriverPalette.primary : DriverPalette.textPrimary)),
                 const Spacer(),
-                if (sel) const Icon(Icons.check_circle, color: DriverPalette.primary, size: 20),
+                if (sel) const Icon(LucideIcons.checkCircle2, color: DriverPalette.primary, size: 20),
               ]),
             ),
           );
@@ -467,7 +449,7 @@ class _PhotoSlot extends StatelessWidget {
         ),
         child: Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(picked ? Icons.check_circle_outline : Icons.add_photo_alternate_outlined,
+            Icon(picked ? LucideIcons.checkCircle2 : LucideIcons.imagePlus,
                 size: 32, color: picked ? DriverPalette.primary : DriverPalette.textMuted),
             const SizedBox(height: 8),
             Text(picked ? file!.name : label,
@@ -497,7 +479,7 @@ class _ErrorBanner extends StatelessWidget {
       border: Border.all(color: const Color(0xFFFCA5A5)),
     ),
     child: Row(children: [
-      const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+      const Icon(LucideIcons.alertCircle, size: 16, color: Color(0xFFDC2626)),
       const SizedBox(width: 8),
       Expanded(child: Text(message,
           style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13))),

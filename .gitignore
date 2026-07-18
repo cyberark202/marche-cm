@@ -91,3 +91,12 @@ AUDIT.zip
 # Marketing site lives outside this repo's history (~173 MB of bundled APKs in
 # public/downloads). Built/deployed separately.
 MarketCM_vitrineSite/
+
+# Vendored reference repos & business docs — local reference material, not project code
+References/
+flutter_video_feed-main/
+google-map-flutter-main/
+Market_CM_Buisness/
+logos/docs/
+docs/*.docx
+docs/audit.zip

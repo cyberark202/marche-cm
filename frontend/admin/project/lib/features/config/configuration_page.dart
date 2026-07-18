@@ -1,12 +1,19 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+
+import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../../core/ui_kit.dart';
+import '../auth/auth_api_service.dart';
 import '../data/admin_repository.dart';
 
-/// Screen 41 — Platform configuration (commissions & security). Read-only:
-/// values come from the backend ui-config when present, otherwise the
-/// documented platform defaults. Mutation is intentionally not exposed here.
+/// Écran 41 — Configuration plateforme à chaud (doc 03/16).
+///
+/// Valeurs servies par /api/admin/platform-settings/ (registre + surcharges
+/// historisées). La modification exige le scope admin.settings.manage ET un
+/// step-up 2FA e-mail, comme la réconciliation wallet.
 class ConfigurationPage extends StatefulWidget {
   const ConfigurationPage({super.key});
 
@@ -15,178 +22,257 @@ class ConfigurationPage extends StatefulWidget {
 }
 
 class _ConfigurationPageState extends State<ConfigurationPage> {
+  final _api = ApiService();
+  final _auth = AuthApiService();
   final _repo = AdminRepository.instance;
-  late Future<Map<String, dynamic>> _future;
+  List<Map<String, dynamic>> _settings = const [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _future = _safeConfig();
+    _load();
   }
 
-  Future<Map<String, dynamic>> _safeConfig() async {
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      return await _repo.uiConfig();
-    } catch (_) {
-      return <String, dynamic>{};
+      final data = await _api.getObject('/api/admin/platform-settings/');
+      final rows = (data['settings'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false);
+      if (!mounted) return;
+      setState(() {
+        _settings = rows;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = _repo.errorMessage(e);
+        _loading = false;
+      });
     }
   }
 
-  String _val(Map<String, dynamic> cfg, List<String> path, String fallback) {
-    dynamic node = cfg;
-    for (final key in path) {
-      if (node is Map && node.containsKey(key)) {
-        node = node[key];
-      } else {
-        return fallback;
-      }
+  Future<void> _edit(Map<String, dynamic> setting) async {
+    final key = '${setting['key']}';
+    final controller =
+        TextEditingController(text: _display(setting['value']));
+    final newValue = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(key),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Défaut : ${_display(setting['default'])}\n'
+              'Les valeurs complexes se saisissent en JSON.',
+              style: const TextStyle(
+                  fontSize: 12.5, color: AppPalette.textMuted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 3,
+              minLines: 1,
+              decoration: const InputDecoration(labelText: 'Nouvelle valeur'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Continuer')),
+        ],
+      ),
+    );
+    if (newValue == null || newValue.isEmpty) return;
+
+    // Step-up 2FA : identique à la réconciliation wallet.
+    String challengeToken;
+    try {
+      challengeToken = await _auth.requestSensitiveAction('admin.settings.manage');
+    } catch (e) {
+      if (!mounted) return;
+      showSnack(context, _repo.errorMessage(e));
+      return;
     }
-    if (node == null) return fallback;
-    return '$node';
+    if (!mounted) return;
+    final code = await _askCode();
+    if (code == null || code.isEmpty) return;
+
+    try {
+      await _api.put('/api/admin/platform-settings/', {
+        'key': key,
+        'value': _parse(newValue),
+        'challenge_token': challengeToken,
+        'verification_code': code,
+      });
+      if (!mounted) return;
+      showSnack(context, 'Paramètre $key mis à jour.');
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      showSnack(context, _repo.errorMessage(e));
+    }
+  }
+
+  Future<String?> _askCode() {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Vérification 2FA'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Un code à 6 chiffres vient d\'être envoyé à votre e-mail. '
+              'Saisissez-le pour confirmer la modification.',
+              style: TextStyle(fontSize: 13, color: AppPalette.textMuted),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              decoration: const InputDecoration(
+                labelText: 'Code de sécurité',
+                counterText: '',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// JSON si possible (nombres, booléens, objets), sinon chaîne brute.
+  static dynamic _parse(String raw) {
+    try {
+      return jsonDecode(raw);
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  static String _display(dynamic value) {
+    if (value is Map || value is List) return jsonEncode(value);
+    return '$value';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Configuration')),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _future,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const AppLoadingState();
-          }
-          final cfg = snap.data ?? const {};
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            children: [
-              const Text('Plateforme · sécurité',
-                  style: TextStyle(color: AppPalette.textMuted)),
-              const SizedBox(height: 14),
-              const SectionLabel('Commissions'),
-              SectionCard(
-                child: Column(
-                  children: [
-                    _row('Commission plateforme',
-                        _val(cfg, ['commissions', 'platform'], '3 %'),
-                        sub: 'Sur chaque commande'),
-                    const Divider(height: 18),
-                    _row('Part livreur',
-                        _val(cfg, ['commissions', 'transit'], '5 %'),
-                        sub: 'Du séquestre'),
-                    const Divider(height: 18),
-                    _row('Part vendeur',
-                        _val(cfg, ['commissions', 'seller'], '92 %'),
-                        sub: 'À la libération'),
-                    const Divider(height: 18),
-                    _row('Frais NotchPay',
-                        _val(cfg, ['commissions', 'notchpay'],
-                            '1 % paiement · 0,5 % retrait')),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              const SectionLabel('Sécurité & escrow'),
-              SectionCard(
-                child: Column(
-                  children: [
-                    _row('Délai max séquestre',
-                        _val(cfg, ['escrow', 'max_days'], '14 jours'),
-                        sub: 'Puis arbitrage auto'),
-                    const Divider(height: 18),
-                    _toggleRow('2FA e-mail', true,
-                        sub: 'Actions sensibles (réconciliation, retraits)'),
-                    const Divider(height: 18),
-                    _row('Chiffrement PII at-rest', 'AES-256',
-                        sub: 'Rotation de clé 90 j'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              const SectionLabel('Notifications & alertes'),
-              SectionCard(
-                child: Column(
-                  children: [
-                    _toggleRow('Webhooks NotchPay', true,
-                        sub: 'Endpoint actif'),
-                    const Divider(height: 18),
-                    _toggleRow('Alertes FinOps', true,
-                        sub: 'Écarts de réconciliation'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppPalette.infoSoft,
-                  borderRadius: BorderRadius.circular(AppRadii.md),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 18, color: AppPalette.info),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Lecture seule. La modification des commissions et des '
-                        'paramètres de sécurité se fait côté backend (variables '
-                        'd\'environnement / migration auditée).',
-                        style: TextStyle(fontSize: 12),
+      body: _loading
+          ? const AppLoadingState(label: 'Chargement de la configuration…')
+          : _error != null
+              ? AppErrorState(message: _error!, onRetry: _load)
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    children: [
+                      const Text('Paramètres plateforme à chaud',
+                          style: TextStyle(color: AppPalette.textMuted)),
+                      const SizedBox(height: 12),
+                      SectionCard(
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < _settings.length; i++) ...[
+                              if (i > 0) const Divider(height: 18),
+                              InkWell(
+                                onTap: () => _edit(_settings[i]),
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text('${_settings[i]['key']}',
+                                              style: const TextStyle(
+                                                  fontWeight:
+                                                      FontWeight.w600)),
+                                          if (_settings[i]['is_default'] !=
+                                              true)
+                                            const Text('Surchargé',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppPalette
+                                                        .secondary)),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Flexible(
+                                      child: Text(
+                                        _display(_settings[i]['value']),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            color: AppPalette.primary),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Icon(LucideIcons.pencil,
+                                        size: 14,
+                                        color: AppPalette.textMuted),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppPalette.infoSoft,
+                          borderRadius: BorderRadius.circular(AppRadii.md),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(LucideIcons.shield,
+                                size: 18, color: AppPalette.info),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Chaque modification est validée par 2FA '
+                                'e-mail, historisée et auditée.',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _row(String label, String value, {String? sub}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              if (sub != null)
-                Text(sub,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppPalette.textMuted)),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        Text(value,
-            style: const TextStyle(
-                fontWeight: FontWeight.w800, color: AppPalette.primary)),
-      ],
-    );
-  }
-
-  Widget _toggleRow(String label, bool on, {String? sub}) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              if (sub != null)
-                Text(sub,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppPalette.textMuted)),
-            ],
-          ),
-        ),
-        StatusPill(on ? 'ACTIF' : 'INACTIF',
-            color: on ? AppPalette.success : AppPalette.textMuted),
-      ],
     );
   }
 }

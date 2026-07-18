@@ -1,0 +1,165 @@
+# Valeurs par défaut du chart marche-cm (PROD Kubernetes/EKS).
+# Surcharger en prod via values-prod.yaml (image ECR, host Ingress, certificat…).
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # En prod : <account>.dkr.ecr.<region>.amazonaws.com/marche-cm
+  repository: marche-cm
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# IRSA : rôle IAM monté sur le ServiceAccount (accès S3 média, SSM…).
+serviceAccount:
+  create: true
+  name: marche-cm
+  # eks.amazonaws.com/role-arn renseigné par values-prod (sortie Terraform).
+  annotations: {}
+
+# ── Variables NON sensibles (ConfigMap) ──────────────────────────────────────
+config:
+  DJANGO_SETTINGS_MODULE: config.settings
+  DEBUG: "False"
+  SECURE_SSL_REDIRECT: "True"
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  ALLOWED_HOSTS: "cm.digital-get.com"
+  BACKEND_PUBLIC_URL: "https://cm.digital-get.com"
+  CORS_ALLOWED_ORIGINS: ""
+  CSRF_TRUSTED_ORIGINS: "https://cm.digital-get.com"
+  NOTCHPAY_ENABLED: "True"
+  NOTCHPAY_MODE: "live"
+  MFA_ISSUER_NAME: "Marche CM"
+  JWT_ACCESS_TOKEN_MINUTES: "15"
+  JWT_REFRESH_TOKEN_DAYS: "7"
+  AWS_DEFAULT_REGION: "eu-north-1"
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+# Deux modes mutuellement exclusifs :
+#  1) secret.create=true  -> un Secret est créé à partir de secret.data
+#     (pratique en dev/CI ; NE PAS committer de vraies valeurs).
+#  2) externalSecrets.enabled=true -> External Secrets Operator tire les valeurs
+#     depuis AWS SSM Parameter Store (recommandé en PROD). Mettre alors
+#     secret.create=false.
+secret:
+  create: true
+  # Renseigné via --set-file / CI / values-prod NON committé. Clés attendues :
+  data:
+    SECRET_KEY: ""
+    DATABASE_URL: ""
+    REDIS_URL: ""
+    CACHE_URL: ""
+    REDIS_PASSWORD: ""
+    DATA_ENCRYPTION_KEY: ""
+    DATA_ENCRYPTION_FALLBACK_KEYS: ""
+    DEVICE_FINGERPRINT_SECRET: ""
+    NOTCHPAY_PUBLIC_KEY: ""
+    NOTCHPAY_PRIVATE_KEY: ""
+    NOTCHPAY_WEBHOOK_TOKEN: ""
+    NOTCHPAY_MTN_NUMBER: ""
+    NOTCHPAY_ORANGE_NUMBER: ""
+
+externalSecrets:
+  enabled: false
+  # SecretStore AWS SSM (nécessite External Secrets Operator installé).
+  refreshInterval: "1h"
+  ssmPrefix: "/marche-cm/prod"
+  region: "eu-north-1"
+  # Clé SSM (sans le préfixe) -> clé du Secret. Adapter aux noms réels.
+  keys:
+    SECRET_KEY: SECRET_KEY
+    DATABASE_URL: DATABASE_URL
+    REDIS_URL: REDIS_URL
+    CACHE_URL: CACHE_URL
+    REDIS_PASSWORD: REDIS_PASSWORD
+    DATA_ENCRYPTION_KEY: DATA_ENCRYPTION_KEY
+    DEVICE_FINGERPRINT_SECRET: DEVICE_FINGERPRINT_SECRET
+    NOTCHPAY_PUBLIC_KEY: NOTCHPAY_PUBLIC_KEY
+    NOTCHPAY_PRIVATE_KEY: NOTCHPAY_PRIVATE_KEY
+    NOTCHPAY_WEBHOOK_TOKEN: NOTCHPAY_WEBHOOK_TOKEN
+
+# ── Service web (Django ASGI / daphne) ────────────────────────────────────────
+web:
+  replicas: 2
+  port: 8000
+  resources:
+    requests: { cpu: "250m", memory: "384Mi" }
+    limits: { cpu: "1000m", memory: "768Mi" }
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    enabled: true
+    minAvailable: 1
+
+# ── Celery worker file par défaut (default, outbox) ──────────────────────────
+workerDefault:
+  replicas: 2
+  args: ["celery", "-A", "celery_app", "worker", "-Q", "default,outbox", "-c", "2", "--loglevel=info"]
+  resources:
+    requests: { cpu: "200m", memory: "384Mi" }
+    limits: { cpu: "750m", memory: "768Mi" }
+
+# ── Celery worker FINANCIER (série, c=1) ─────────────────────────────────────
+# Réplique unique + concurrence 1 : intégrité financière (pas de parallélisme).
+workerFinancial:
+  replicas: 1
+  args: ["celery", "-A", "celery_app", "worker", "-Q", "financial", "-c", "1", "--loglevel=info"]
+  resources:
+    requests: { cpu: "150m", memory: "320Mi" }
+    limits: { cpu: "500m", memory: "640Mi" }
+
+# ── Celery beat (singleton strict) ────────────────────────────────────────────
+beat:
+  args: ["celery", "-A", "celery_app", "beat", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler", "--loglevel=info"]
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits: { cpu: "300m", memory: "512Mi" }
+
+# ── Boucle finops (run_financial_ops) ─────────────────────────────────────────
+finops:
+  enabled: true
+  intervalSeconds: 180
+  maxRetries: 200
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits: { cpu: "400m", memory: "512Mi" }
+
+# ── Migrations (Job hook pre-install/pre-upgrade) ────────────────────────────
+migrations:
+  enabled: true
+
+# ── Redis in-cluster ─────────────────────────────────────────────────────────
+# PROD-alternatif : pointer REDIS_URL/CACHE_URL vers ElastiCache et mettre
+# redis.enabled=false.
+redis:
+  enabled: true
+  image: redis:7-alpine
+  storage: 5Gi
+  storageClassName: ""  # défaut du cluster (gp3 sur EKS)
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+
+# ── Ingress (AWS Load Balancer Controller / ALB) ─────────────────────────────
+ingress:
+  enabled: true
+  className: alb
+  host: cm.digital-get.com
+  # ARN du certificat ACM (TLS) — sortie Terraform / valeur réelle.
+  certificateArn: ""
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health/
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+
+# Politiques réseau (zero-trust intra-cluster). Optionnel.
+networkPolicy:
+  enabled: false

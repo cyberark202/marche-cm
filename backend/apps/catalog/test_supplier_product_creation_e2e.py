@@ -34,18 +34,18 @@ class SupplierProductCreationE2ETests(TestCase):
     def test_full_supplier_creation_flow(self):
         sup = APIClient()
         sup.force_authenticate(user=self.supplier)
+        # Forme unifiée « Vendeur » : montant + quantité disponible.
         payload = {
             "title": "Savon de Marseille", "description": "carton 48 pains", "brand": "Azur",
             "category_name": "Hygiene", "weight_kg": "12",
-            "min_order_qty": 2, "max_order_qty": 40,
-            "price_for_min_qty": 22000, "price_for_max_qty": 20000, "is_active": True,
+            "available_qty": 40, "unit_price": 22000, "is_active": True,
         }
         created = sup.post("/api/products/", payload, format="json")
         self.assertEqual(created.status_code, 201, created.content)
         pid = created.data["id"]
         self.assertTrue(created.data["is_active"])
         self.assertEqual(Decimal(str(created.data["price_for_min_qty"])), Decimal("22000.00"))
-        self.assertEqual(Decimal(str(created.data["price_for_max_qty"])), Decimal("20000.00"))
+        self.assertEqual(Decimal(str(created.data["price_for_max_qty"])), Decimal("22000.00"))
 
         # Visible in the public (anonymous) catalogue.
         anon = APIClient()

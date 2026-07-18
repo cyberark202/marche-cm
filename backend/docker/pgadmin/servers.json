@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Marché CM (local)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "marche_cm",
+      "Username": "marche_user",
+      "SSLMode": "prefer",
+      "Comment": "Postgres local du projet (docker-compose.infra.yml). Mot de passe: change-me"
+    }
+  }
+}

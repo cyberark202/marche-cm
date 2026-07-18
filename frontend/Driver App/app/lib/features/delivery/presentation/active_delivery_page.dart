@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -78,7 +80,7 @@ class ActiveDeliveryPage extends ConsumerWidget {
                             letterSpacing: -0.4)),
                   ),
                   _HeaderBtn(
-                    icon: Icons.refresh,
+                    icon: LucideIcons.refreshCw,
                     onTap: () {
                       ref.invalidate(_activeProvider);
                       ref.invalidate(_completedProvider);
@@ -142,7 +144,7 @@ class _ActiveTab extends ConsumerWidget {
           onRetry: () => ref.invalidate(_activeProvider)),
       data: (items) => items.isEmpty
           ? const _EmptyView(
-              icon: Icons.local_shipping_outlined,
+              icon: LucideIcons.truck,
               message: 'Aucune livraison en cours.\nAcceptez une mission pour commencer.',
             )
           : RefreshIndicator(
@@ -173,7 +175,7 @@ class _CompletedTab extends ConsumerWidget {
           onRetry: () => ref.invalidate(_completedProvider)),
       data: (items) => items.isEmpty
           ? const _EmptyView(
-              icon: Icons.check_circle_outline,
+              icon: LucideIcons.checkCircle2,
               message: 'Aucune livraison complétée.',
             )
           : RefreshIndicator(
@@ -204,7 +206,7 @@ class _BidsTab extends ConsumerWidget {
           onRetry: () => ref.invalidate(_myBidsProvider)),
       data: (items) => items.isEmpty
           ? const _EmptyView(
-              icon: Icons.balance_outlined,
+              icon: LucideIcons.scale,
               message: 'Vous n\'avez pas encore soumis de devis.',
             )
           : RefreshIndicator(
@@ -226,6 +228,29 @@ class _BidsTab extends ConsumerWidget {
 class _DeliveryCard extends StatelessWidget {
   final Map<String, dynamic> shipment;
   const _DeliveryCard({required this.shipment});
+
+  /// Get-or-create the driver↔buyer coordination room (backend action) then
+  /// open the conversation.
+  Future<void> _contactBuyer(BuildContext context, String id) async {
+    try {
+      final res = await DriverDioClient.dio
+          .post('/api/shipments/$id/contact/', data: {});
+      final data = res.data;
+      final roomId =
+          data is Map ? int.tryParse('${data['room_id']}') : null;
+      final name =
+          data is Map ? (data['name'] ?? 'Acheteur').toString() : 'Acheteur';
+      if (roomId == null) return;
+      if (context.mounted) {
+        context.push('/chat/$roomId?title=${Uri.encodeComponent(name)}');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(ApiError.friendly(e))));
+      }
+    }
+  }
 
   static const _statusMap = {
     'PENDING_PICKUP': ('Prêt à enlever', T.accentSoft, Color(0xFF8E5A00)),
@@ -268,7 +293,7 @@ class _DeliveryCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(T.rFull),
                     ),
                     child: Row(children: [
-                      Icon(Icons.local_shipping, size: 11, color: pillFg),
+                      Icon(LucideIcons.truck, size: 11, color: pillFg),
                       const SizedBox(width: 4),
                       Text(label,
                           style: TextStyle(
@@ -304,7 +329,7 @@ class _DeliveryCard extends StatelessWidget {
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.arrow_forward, size: 14, color: T.ink3),
+                    child: Icon(LucideIcons.arrowRight, size: 14, color: T.ink3),
                   ),
                   Container(
                       width: 9,
@@ -331,9 +356,15 @@ class _DeliveryCard extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(children: [
               _ActionChip(
-                icon: Icons.map_outlined,
+                icon: LucideIcons.map,
                 label: 'Carte',
                 onTap: () => context.push('/active/tracking/$id'),
+              ),
+              const SizedBox(width: 8),
+              _ActionChip(
+                icon: LucideIcons.messageCircle,
+                label: 'Contacter',
+                onTap: () => _contactBuyer(context, id),
               ),
               const SizedBox(width: 8),
               if (status == 'PENDING_PICKUP')
@@ -394,7 +425,7 @@ class _CompletedCard extends StatelessWidget {
           decoration: BoxDecoration(
               color: T.primarySoft,
               borderRadius: BorderRadius.circular(10)),
-          child: const Icon(Icons.check, color: T.primary, size: 18),
+          child: const Icon(LucideIcons.check, color: T.primary, size: 18),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -449,7 +480,7 @@ class _BidCard extends StatelessWidget {
         border: Border.all(color: T.line),
       ),
       child: Row(children: [
-        const Icon(Icons.balance, size: 20, color: T.ink3),
+        const Icon(LucideIcons.scale, size: 20, color: T.ink3),
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -558,7 +589,7 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off_outlined, size: 48, color: T.ink4),
+          const Icon(LucideIcons.cloudOff, size: 48, color: T.ink4),
           const SizedBox(height: 12),
           const Text('Erreur de chargement',
               style: TextStyle(color: T.ink3, fontSize: 14)),

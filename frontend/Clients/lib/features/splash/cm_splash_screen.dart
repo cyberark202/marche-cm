@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/app_logo.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class CmSplashScreen extends StatefulWidget {
   const CmSplashScreen({super.key, this.onCompleted, this.holdMs = 1800});
@@ -107,7 +108,7 @@ class _CmSplashScreenState extends State<CmSplashScreen>
             top: 60,
             left: 24,
             child: Icon(
-              Icons.star_outline,
+              LucideIcons.star,
               color: Colors.white.withValues(alpha: 0.18),
               size: 64,
             ),
@@ -116,7 +117,7 @@ class _CmSplashScreenState extends State<CmSplashScreen>
             top: 120,
             right: 18,
             child: Icon(
-              Icons.star_outline,
+              LucideIcons.star,
               color: Colors.white.withValues(alpha: 0.22),
               size: 48,
             ),
@@ -125,7 +126,7 @@ class _CmSplashScreenState extends State<CmSplashScreen>
             bottom: 180,
             left: 12,
             child: Icon(
-              Icons.star_outline,
+              LucideIcons.star,
               color: Colors.white.withValues(alpha: 0.15),
               size: 80,
             ),
@@ -134,7 +135,7 @@ class _CmSplashScreenState extends State<CmSplashScreen>
             bottom: 100,
             right: 30,
             child: Icon(
-              Icons.star_outline,
+              LucideIcons.star,
               color: Colors.white.withValues(alpha: 0.20),
               size: 56,
             ),

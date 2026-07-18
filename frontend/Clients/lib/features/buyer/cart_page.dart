@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
+import '../../core/cm_components.dart';
 import '../auth/session_store.dart';
 import '../feed/feed_models.dart';
 import 'buyer_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key, required this.products});
@@ -17,56 +19,11 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> {
   final ApiService _api = ApiService();
-  List<Map<String, dynamic>> _transportProfiles = const [];
-  bool _loadingProfiles = true;
   // Audit ref: [BUG-04] anti double-soumission du checkout.
   bool _submitting = false;
 
-  double _shippingRateForItem(CartEntry item) {
-    final profile = _transportProfiles.cast<Map<String, dynamic>?>().firstWhere(
-          (row) => row?["user"] == item.preferredTransitAgentId,
-          orElse: () => null,
-        );
-    if (profile == null) return 0;
-    final key =
-        item.transportMode == "AIR" ? "air_price_per_kg" : "sea_price_per_kg";
-    return double.tryParse("${profile[key] ?? 0}") ?? 0;
-  }
-
   int _unitPrice(ProductCardData product, int quantity) {
     return quantity == product.maxQty ? product.priceMax : product.priceMin;
-  }
-
-  int _etaDaysForItem(CartEntry item) {
-    final profile = _transportProfiles.cast<Map<String, dynamic>?>().firstWhere(
-          (row) => row?["user"] == item.preferredTransitAgentId,
-          orElse: () => null,
-        );
-    return int.tryParse("${profile?["average_eta_days"] ?? 0}") ?? 0;
-  }
-
-  double _trustForProfile(Map<String, dynamic> profile) {
-    return double.tryParse(
-            "${profile["trust_score"] ?? profile["rating"] ?? 4.5}") ??
-        4.5;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfiles();
-  }
-
-  Future<void> _loadProfiles() async {
-    final token = context.read<SessionStore>().token;
-    try {
-      _transportProfiles =
-          await _api.getList("/api/transport-profiles/", token: token);
-    } catch (_) {
-      _transportProfiles = const [];
-    } finally {
-      if (mounted) setState(() => _loadingProfiles = false);
-    }
   }
 
   Future<void> _checkout(BuyerStore store) async {
@@ -74,22 +31,6 @@ class _CartPageState extends State<CartPage> {
     final token = context.read<SessionStore>().token;
     final productsById = {for (final p in widget.products) p.id: p};
     for (final entry in store.cartItems) {
-      if (entry.preferredTransitAgentId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  "Sélectionnez un livreur pour le produit #${entry.productId}.")),
-        );
-        return;
-      }
-      if (entry.transportMode != "AIR" && entry.transportMode != "SEA") {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  "Sélectionnez un mode de transport pour le produit #${entry.productId}.")),
-        );
-        return;
-      }
       final product = productsById[entry.productId];
       if (product == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -101,26 +42,17 @@ class _CartPageState extends State<CartPage> {
 
     var itemsCount = 0;
     var productTotal = 0.0;
-    var shippingTotal = 0.0;
-    var maxEtaDays = 0;
     for (final entry in store.cartItems) {
       final product = productsById[entry.productId];
       if (product == null) continue;
-      final unitPrice = _unitPrice(product, entry.quantity);
-      final productSubtotal = unitPrice * entry.quantity;
-      final shippingRate = _shippingRateForItem(entry);
-      final shippingEstimate =
-          product.weightKg * entry.quantity * shippingRate;
-      productTotal += productSubtotal;
-      shippingTotal += shippingEstimate;
+      productTotal += _unitPrice(product, entry.quantity) * entry.quantity;
       itemsCount += 1;
-      final eta = _etaDaysForItem(entry);
-      if (eta > maxEtaDays) maxEtaDays = eta;
     }
-    // Audit ref: [BUG-05] l'acheteur séquestre produits + transport. La
-    // commission plateforme est prélevée côté vendeur à la libération, elle
-    // n'est PAS ajoutée au montant bloqué de l'acheteur.
-    final grandTotal = productTotal + shippingTotal;
+    // Audit ref: [BUG-05] l'acheteur séquestre produits + livraison. La
+    // commission plateforme est prélevée côté vendeur/livreur à la libération,
+    // elle n'est PAS ajoutée au montant bloqué de l'acheteur. Les frais de
+    // livraison (150 FCFA/km, selon la distance vendeur -> vous) sont calculés
+    // côté serveur à la commande et ajoutés au séquestre.
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -129,12 +61,11 @@ class _CartPageState extends State<CartPage> {
         content: Text(
           "Articles : $itemsCount\n"
           "Produits : ${productTotal.toStringAsFixed(0)} FCFA\n"
-          "Transport : ${shippingTotal.toStringAsFixed(0)} FCFA\n"
-          "Total à séquestrer : ${grandTotal.toStringAsFixed(0)} FCFA\n"
-          "ETA : ${maxEtaDays > 0 ? '$maxEtaDays jour(s)' : 'à confirmer'}\n\n"
-          "Vous mandatez Marché CM pour séquestrer ces fonds via le prestataire "
-          "de paiement agréé et les libérer à la confirmation de livraison. "
-          "Marché CM est intermédiaire et n'est pas partie au contrat de vente.",
+          "Livraison : calculée à la commande (150 FCFA/km, selon la distance)\n\n"
+          "Vous mandatez Marché CM pour séquestrer le prix des produits et les "
+          "frais de livraison via le prestataire de paiement agréé, et les "
+          "libérer à la confirmation de livraison. Marché CM est intermédiaire "
+          "et n'est pas partie au contrat de vente.",
         ),
         actions: [
           TextButton(
@@ -149,43 +80,38 @@ class _CartPageState extends State<CartPage> {
     if (confirm != true || !mounted) return;
     setState(() => _submitting = true);
 
-    var successCount = 0;
-    final failures = <String>[];
+    // Panier serveur : on pousse chaque article (upsert idempotent, rejouable
+    // sur reseau faible) puis on declenche le checkout groupe ATOMIQUE cote
+    // serveur — une commande par article, tout ou rien. Fini le risque de
+    // checkout partiel de l'ancienne boucle client.
     try {
       for (final entry in store.cartItems) {
-        try {
-          await _api.post(
-            "/api/orders/",
-            {
-              "product": entry.productId,
-              "quantity": entry.quantity,
-              "join_grouping": entry.joinGrouping,
-              "preferred_transit_agent": entry.preferredTransitAgentId,
-              "transport_mode": entry.transportMode,
-            },
-            token: token,
-          );
-          successCount += 1;
-        } catch (e) {
-          failures.add(_api.toUserMessage(
-            e,
-            fallback: "Échec commande produit #${entry.productId}.",
-          ));
-        }
+        await _api.post(
+          "/api/cart/",
+          {"product": entry.productId, "quantity": entry.quantity},
+          token: token,
+        );
       }
+      final result = await _api.post("/api/cart/checkout/", {}, token: token);
+      if (!mounted) return;
+      final count = (result["count"] ?? 0) as int;
+      store.clearCart();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Séquestre confirmé : $count commande(s) créée(s).")),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_api.toUserMessage(
+            e,
+            fallback: "Échec du séquestre. Aucune commande créée, réessayez.",
+          )),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
-    if (!mounted) return;
-    if (successCount > 0) store.clearCart();
-    final failedCount = failures.length;
-    final details = failedCount > 0 ? "\n${failures.first}" : "";
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            "Checkout terminé : $successCount succès, $failedCount échec(s).$details"),
-      ),
-    );
   }
 
   @override
@@ -202,20 +128,20 @@ class _CartPageState extends State<CartPage> {
     }
 
     var productTotal = 0.0;
-    var shippingTotal = 0.0;
     for (final entry in cartItems) {
       final product = mapProducts[entry.productId];
       if (product == null) continue;
       productTotal += _unitPrice(product, entry.quantity) * entry.quantity;
-      shippingTotal +=
-          product.weightKg * entry.quantity * _shippingRateForItem(entry);
     }
-    // Audit ref: [BUG-05] commission prélevée côté vendeur, non ajoutée ici.
-    final grandTotal = productTotal + shippingTotal;
+    // Les frais de livraison (150 FCFA/km) sont calculés côté serveur a la
+    // commande selon la distance vendeur -> acheteur, puis ajoutés au séquestre.
+    final grandTotal = productTotal;
 
     return Scaffold(
       backgroundColor: AppPalette.bg,
-      body: SafeArea(
+      body: CmResponsive.center(
+        maxWidth: 820,
+        child: SafeArea(
         bottom: false,
         child: cartItems.isEmpty
             ? _CartEmpty(onShop: () => Navigator.maybePop(context))
@@ -242,23 +168,11 @@ class _CartPageState extends State<CartPage> {
                             _CartLineCard(
                               item: item,
                               product: mapProducts[item.productId],
-                              transportProfiles: _transportProfiles,
-                              loadingProfiles: _loadingProfiles,
-                              shippingRate: _shippingRateForItem(item),
-                              etaDays: _etaDaysForItem(item),
-                              trustForProfile: _trustForProfile,
                               onQty: (v) => store.updateCart(item.productId,
                                   quantity: v),
                               onGrouping: (v) => store.updateCart(
                                   item.productId,
                                   joinGrouping: v),
-                              onAgent: (v) => store.updateCart(
-                                  item.productId,
-                                  preferredTransitAgentId: v,
-                                  clearAgent: v == null),
-                              onMode: (v) => store.updateCart(
-                                  item.productId,
-                                  transportMode: v),
                               onRemove: () =>
                                   store.removeFromCart(item.productId),
                             ),
@@ -266,7 +180,6 @@ class _CartPageState extends State<CartPage> {
                         ],
                         _EscrowRecap(
                           subtotal: productTotal,
-                          shipping: shippingTotal,
                           total: grandTotal,
                         ),
                         const SizedBox(height: 12),
@@ -279,7 +192,7 @@ class _CartPageState extends State<CartPage> {
                           child: const Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.lock_outline,
+                              Icon(LucideIcons.lock,
                                   size: 18, color: AppPalette.primaryDark),
                               SizedBox(width: 8),
                               Expanded(
@@ -301,6 +214,7 @@ class _CartPageState extends State<CartPage> {
                   ),
                 ],
               ),
+        ),
       ),
       bottomNavigationBar: cartItems.isEmpty
           ? null
@@ -336,7 +250,7 @@ class _CartHeader extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: () => Navigator.maybePop(context),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
               ),
               const Expanded(
                 child: Text(
@@ -357,12 +271,12 @@ class _CartHeader extends StatelessWidget {
               children: [
                 _HeroChip(
                   label: "$itemCount article${itemCount > 1 ? 's' : ''}",
-                  icon: Icons.inventory_2_outlined,
+                  icon: LucideIcons.package,
                 ),
                 const SizedBox(width: 8),
                 _HeroChip(
                   label: "$totalQty unité${totalQty > 1 ? 's' : ''}",
-                  icon: Icons.numbers,
+                  icon: LucideIcons.hash,
                 ),
               ],
             ),
@@ -480,29 +394,15 @@ class _CartLineCard extends StatelessWidget {
   const _CartLineCard({
     required this.item,
     required this.product,
-    required this.transportProfiles,
-    required this.loadingProfiles,
-    required this.shippingRate,
-    required this.etaDays,
-    required this.trustForProfile,
     required this.onQty,
     required this.onGrouping,
-    required this.onAgent,
-    required this.onMode,
     required this.onRemove,
   });
 
   final CartEntry item;
   final ProductCardData? product;
-  final List<Map<String, dynamic>> transportProfiles;
-  final bool loadingProfiles;
-  final double shippingRate;
-  final int etaDays;
-  final double Function(Map<String, dynamic>) trustForProfile;
   final ValueChanged<int> onQty;
   final ValueChanged<bool> onGrouping;
-  final ValueChanged<int?> onAgent;
-  final ValueChanged<String?> onMode;
   final VoidCallback onRemove;
 
   @override
@@ -511,10 +411,7 @@ class _CartLineCard extends StatelessWidget {
     final unitPrice = p == null
         ? 0
         : (item.quantity == p.maxQty ? p.priceMax : p.priceMin);
-    final productSubtotal = unitPrice * item.quantity;
-    final shippingEstimate =
-        (p?.weightKg ?? 0) * item.quantity * shippingRate;
-    final lineTotal = productSubtotal + shippingEstimate;
+    final lineTotal = unitPrice * item.quantity;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -538,7 +435,7 @@ class _CartLineCard extends StatelessWidget {
                   color: AppPalette.bgSoft,
                   borderRadius: BorderRadius.circular(AppRadii.sm),
                 ),
-                child: const Icon(Icons.inventory_2_outlined,
+                child: const Icon(LucideIcons.package,
                     color: AppPalette.textMuted),
               ),
               const SizedBox(width: 12),
@@ -580,7 +477,7 @@ class _CartLineCard extends StatelessWidget {
                     color: AppPalette.dangerSoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.close,
+                  child: const Icon(LucideIcons.x,
                       size: 16, color: AppPalette.danger),
                 ),
               ),
@@ -619,61 +516,29 @@ class _CartLineCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            "TRANSITAIRE",
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              color: AppPalette.textMuted,
-              letterSpacing: 1.0,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppPalette.bgSoft,
+              borderRadius: BorderRadius.circular(AppRadii.md),
             ),
-          ),
-          const SizedBox(height: 6),
-          if (loadingProfiles)
-            const LinearProgressIndicator()
-          else if (transportProfiles.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 6),
-              child: Text(
-                "Aucun livreur disponible pour le moment.",
-                style: TextStyle(
-                    fontSize: 12, color: AppPalette.textMuted),
-              ),
-            )
-          else
-            Column(
+            child: const Row(
               children: [
-                for (final profile in transportProfiles.take(3))
-                  _TransitOption(
-                    profile: profile,
-                    selected: item.preferredTransitAgentId ==
-                        profile["user"],
-                    trust: trustForProfile(profile),
-                    onSelect: () => onAgent(profile["user"] as int?),
+                Icon(LucideIcons.truck,
+                    size: 15, color: AppPalette.textMuted),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    "Livraison calculée à la commande (150 FCFA/km, selon la distance). Le livreur est assigné après l'achat.",
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppPalette.textMuted,
+                        fontWeight: FontWeight.w500,
+                        height: 1.35),
                   ),
+                ),
               ],
             ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _ModeChip(
-                  label: "Avion",
-                  icon: Icons.flight,
-                  selected: item.transportMode == "AIR",
-                  onTap: () => onMode("AIR"),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ModeChip(
-                  label: "Bateau",
-                  icon: Icons.directions_boat_outlined,
-                  selected: item.transportMode == "SEA",
-                  onTap: () => onMode("SEA"),
-                ),
-              ),
-            ],
           ),
           if (p?.allowsGrouping ?? false) ...[
             const SizedBox(height: 4),
@@ -698,7 +563,7 @@ class _CartLineCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.lock_outline,
+                const Icon(LucideIcons.lock,
                     size: 14, color: AppPalette.primaryDark),
                 const SizedBox(width: 6),
                 const Text(
@@ -727,179 +592,13 @@ class _CartLineCard extends StatelessWidget {
   }
 }
 
-class _TransitOption extends StatelessWidget {
-  const _TransitOption({
-    required this.profile,
-    required this.selected,
-    required this.trust,
-    required this.onSelect,
-  });
-
-  final Map<String, dynamic> profile;
-  final bool selected;
-  final double trust;
-  final VoidCallback onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = (profile["company_name"] ?? "Livreur").toString();
-    final eta =
-        int.tryParse("${profile["average_eta_days"] ?? 0}") ?? 0;
-    final airPrice =
-        double.tryParse("${profile["air_price_per_kg"] ?? 0}") ?? 0;
-    final seaPrice =
-        double.tryParse("${profile["sea_price_per_kg"] ?? 0}") ?? 0;
-    final priceLabel =
-        airPrice > 0 ? "${airPrice.toStringAsFixed(0)} F/kg ✈" : "${seaPrice.toStringAsFixed(0)} F/kg 🚢";
-
-    return InkWell(
-      onTap: onSelect,
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppPalette.primarySoft : AppPalette.bg,
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          border: Border.all(
-            color: selected ? AppPalette.primary : AppPalette.borderSoft,
-            width: selected ? 1.6 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected
-                      ? AppPalette.primary
-                      : AppPalette.borderSoft,
-                  width: 2,
-                ),
-                color: selected ? AppPalette.primary : Colors.transparent,
-              ),
-              child: selected
-                  ? const Icon(Icons.check,
-                      color: Colors.white, size: 12)
-                  : null,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: AppPalette.text,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Icon(Icons.star_rounded,
-                          color: AppPalette.accent, size: 12),
-                      const SizedBox(width: 2),
-                      Text(
-                        trust.toStringAsFixed(1),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        eta > 0 ? "$eta jours" : "ETA à confirmer",
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppPalette.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              priceLabel,
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w800,
-                color: AppPalette.primaryDark,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppPalette.primary : AppPalette.bg,
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          border: Border.all(
-            color: selected ? AppPalette.primary : AppPalette.borderSoft,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon,
-                size: 15,
-                color: selected ? Colors.white : AppPalette.textMuted),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : AppPalette.text,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _EscrowRecap extends StatelessWidget {
   const _EscrowRecap({
     required this.subtotal,
-    required this.shipping,
     required this.total,
   });
 
   final double subtotal;
-  final double shipping;
   final double total;
 
   @override
@@ -916,10 +615,9 @@ class _EscrowRecap extends StatelessWidget {
         children: [
           _RecapLine(label: "Sous-total produits", value: subtotal),
           const SizedBox(height: 6),
-          _RecapLine(label: "Livreur", value: shipping),
-          const SizedBox(height: 6),
           const Text(
-            "Commission plateforme prélevée côté vendeur — non incluse.",
+            "Livraison : 150 FCFA/km (selon la distance) ajoutée à la commande. "
+            "Commission plateforme prélevée côté vendeur/livreur — non incluse.",
             style: TextStyle(
               fontSize: 11,
               fontStyle: FontStyle.italic,
@@ -1053,7 +751,7 @@ class _CartFooter extends StatelessWidget {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : const Icon(Icons.lock_outline, size: 18),
+                    : const Icon(LucideIcons.lock, size: 18),
                 label: Text(submitting ? "Traitement…" : "Séquestrer & payer"),
                 style: FilledButton.styleFrom(
                   padding:
@@ -1088,7 +786,7 @@ class _CartEmpty extends StatelessWidget {
                 color: AppPalette.primarySoft,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.shopping_cart_outlined,
+              child: const Icon(LucideIcons.shoppingCart,
                   color: AppPalette.primaryDark, size: 40),
             ),
             const SizedBox(height: 16),
@@ -1112,7 +810,7 @@ class _CartEmpty extends StatelessWidget {
             const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: onShop,
-              icon: const Icon(Icons.storefront_outlined),
+              icon: const Icon(LucideIcons.store),
               label: const Text("Voir le catalogue"),
             ),
           ],

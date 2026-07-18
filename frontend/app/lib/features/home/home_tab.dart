@@ -12,6 +12,7 @@ import '../logistics/transport_profile_page.dart';
 import '../orders/orders_page.dart';
 import '../orders/sales_summary_page.dart';
 import '../supplier/supplier_products_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -68,6 +69,12 @@ class _HomeTabState extends State<HomeTab> {
 
     return Scaffold(
       backgroundColor: AppPalette.bg,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const VideoPublishPage())),
+        icon: const Icon(LucideIcons.plus),
+        label: const Text('Créer une publication'),
+      ),
       body: RefreshIndicator(
         color: AppPalette.primary,
         onRefresh: _load,
@@ -195,9 +202,9 @@ class _HeroHeader extends StatelessWidget {
   static String _roleLabel(UserRole role) {
     switch (role) {
       case UserRole.supplier:
-        return 'Fournisseur';
+        return 'Vendeur';
       case UserRole.wholesaler:
-        return 'Grossiste';
+        return 'Vendeur';
       case UserRole.transitAgent:
         return 'Livreur';
       case UserRole.generalAdmin:
@@ -256,7 +263,7 @@ class _BalanceCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.account_balance_wallet_rounded,
+          const Icon(LucideIcons.wallet,
               color: Colors.white, size: 22),
           const SizedBox(width: 12),
           Expanded(
@@ -366,29 +373,29 @@ class _KpiRow extends StatelessWidget {
     final kpis = <_KpiData>[];
     if (role == UserRole.supplier || role == UserRole.wholesaler) {
       kpis.addAll([
-        _KpiData('Confirmées', '$confirmed', Icons.check_circle_rounded,
+        _KpiData('Confirmées', '$confirmed', LucideIcons.checkCircle2,
             AppPalette.success),
-        _KpiData('En attente', '$pending', Icons.hourglass_top_rounded,
+        _KpiData('En attente', '$pending', LucideIcons.hourglass,
             AppPalette.warning),
-        _KpiData('Produits actifs', '$active', Icons.inventory_2_rounded,
+        _KpiData('Produits actifs', '$active', LucideIcons.package,
             AppPalette.secondary),
       ]);
     } else if (role == UserRole.transitAgent) {
       kpis.addAll([
-        _KpiData('Total', '${orders.length}', Icons.local_shipping_rounded,
+        _KpiData('Total', '${orders.length}', LucideIcons.truck,
             AppPalette.primary),
-        _KpiData('En attente', '$pending', Icons.hourglass_top_rounded,
+        _KpiData('En attente', '$pending', LucideIcons.hourglass,
             AppPalette.warning),
-        _KpiData('Confirmées', '$confirmed', Icons.check_circle_rounded,
+        _KpiData('Confirmées', '$confirmed', LucideIcons.checkCircle2,
             AppPalette.success),
       ]);
     } else {
       kpis.addAll([
-        _KpiData('Total', '${orders.length}', Icons.shopping_bag_rounded,
+        _KpiData('Total', '${orders.length}', LucideIcons.shoppingBag,
             AppPalette.primary),
-        _KpiData('Confirmées', '$confirmed', Icons.check_circle_rounded,
+        _KpiData('Confirmées', '$confirmed', LucideIcons.checkCircle2,
             AppPalette.success),
-        _KpiData('En attente', '$pending', Icons.hourglass_top_rounded,
+        _KpiData('En attente', '$pending', LucideIcons.hourglass,
             AppPalette.warning),
       ]);
     }
@@ -508,7 +515,7 @@ class _QuickActions extends StatelessWidget {
         return [
           _ActionData(
             'Produits',
-            Icons.inventory_2_rounded,
+            LucideIcons.package,
             AppPalette.secondary,
             () => Navigator.push(
               context,
@@ -518,21 +525,21 @@ class _QuickActions extends StatelessWidget {
           ),
           _ActionData(
             'Commandes',
-            Icons.shopping_bag_rounded,
+            LucideIcons.shoppingBag,
             AppPalette.primary,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const OrdersPage())),
           ),
           _ActionData(
             'Ventes',
-            Icons.bar_chart_rounded,
+            LucideIcons.barChart3,
             AppPalette.success,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const SalesSummaryPage())),
           ),
           _ActionData(
             'Vidéo',
-            Icons.video_camera_back_rounded,
+            LucideIcons.video,
             AppPalette.accentWarm,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const VideoPublishPage())),
@@ -542,28 +549,28 @@ class _QuickActions extends StatelessWidget {
         return [
           _ActionData(
             'Commandes',
-            Icons.shopping_bag_rounded,
+            LucideIcons.shoppingBag,
             AppPalette.primary,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const OrdersPage())),
           ),
           _ActionData(
             'Appels d\'offre',
-            Icons.request_quote_rounded,
+            LucideIcons.fileText,
             AppPalette.secondary,
             () => Navigator.push(
                 context, MaterialPageRoute(builder: (_) => const RfqsPage())),
           ),
           _ActionData(
             'Offres RFQ',
-            Icons.local_offer_rounded,
+            LucideIcons.tag,
             AppPalette.accent,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const RfqOffersPage())),
           ),
           _ActionData(
             'Ventes',
-            Icons.bar_chart_rounded,
+            LucideIcons.barChart3,
             AppPalette.success,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const SalesSummaryPage())),
@@ -573,21 +580,21 @@ class _QuickActions extends StatelessWidget {
         return [
           _ActionData(
             'Litiges',
-            Icons.gavel_rounded,
+            LucideIcons.gavel,
             AppPalette.danger,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const ShipmentDisputesPage())),
           ),
           _ActionData(
             'Transport',
-            Icons.directions_car_rounded,
+            LucideIcons.car,
             AppPalette.secondary,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const TransportProfilePage())),
           ),
           _ActionData(
             'Commandes',
-            Icons.shopping_bag_rounded,
+            LucideIcons.shoppingBag,
             AppPalette.primary,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const OrdersPage())),
@@ -597,21 +604,21 @@ class _QuickActions extends StatelessWidget {
         return [
           _ActionData(
             'Commandes',
-            Icons.shopping_bag_rounded,
+            LucideIcons.shoppingBag,
             AppPalette.primary,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const OrdersPage())),
           ),
           _ActionData(
             'Ventes',
-            Icons.bar_chart_rounded,
+            LucideIcons.barChart3,
             AppPalette.success,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const SalesSummaryPage())),
           ),
           _ActionData(
             'Offres RFQ',
-            Icons.request_quote_rounded,
+            LucideIcons.fileText,
             AppPalette.secondary,
             () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const RfqOffersPage())),
@@ -766,7 +773,7 @@ class _OrderCard extends StatelessWidget {
               color: AppPalette.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
-            child: const Icon(Icons.shopping_bag_outlined,
+            child: const Icon(LucideIcons.shoppingBag,
                 color: AppPalette.primary, size: 20),
           ),
           const SizedBox(width: 12),

@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/app_theme.dart';
 import '../../core/security/secure_dio_client.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class BuyerCatalogPage extends StatefulWidget {
   const BuyerCatalogPage({super.key});
@@ -116,7 +117,7 @@ class _BuyerCatalogPageState extends State<BuyerCatalogPage> {
                     fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
             const Spacer(),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.sort_rounded, color: Color(0xFF475569)),
+              icon: const Icon(LucideIcons.arrowUpDown, color: Color(0xFF475569)),
               onSelected: (v) {
                 setState(() => _sortBy = v);
                 _fetchProducts(
@@ -149,10 +150,10 @@ class _BuyerCatalogPageState extends State<BuyerCatalogPage> {
                 decoration: InputDecoration(
                   hintText: 'Rechercher un produit...',
                   hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
+                  prefixIcon: const Icon(LucideIcons.search, color: Color(0xFF94A3B8), size: 20),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
+                          icon: const Icon(LucideIcons.x, size: 18),
                           onPressed: () {
                             _searchCtrl.clear();
                             _fetchProducts();
@@ -235,7 +236,7 @@ class _BuyerCatalogPageState extends State<BuyerCatalogPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off_rounded, size: 64, color: Color(0xFFCBD5E1)),
+            const Icon(LucideIcons.searchX, size: 64, color: Color(0xFFCBD5E1)),
             const SizedBox(height: 16),
             const Text('Aucun produit trouvé',
                 style: TextStyle(
@@ -250,7 +251,7 @@ class _BuyerCatalogPageState extends State<BuyerCatalogPage> {
                 setState(() => _selectedCategory = 'Tous');
                 _fetchProducts();
               },
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(LucideIcons.refreshCw),
               label: const Text('Réinitialiser'),
             ),
           ],
@@ -307,7 +308,7 @@ class _CatalogProductCard extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.favorite_border, size: 16, color: Color(0xFF64748B)),
+                    child: const Icon(LucideIcons.heart, size: 16, color: Color(0xFF64748B)),
                   ),
                 ),
               ],
@@ -345,7 +346,7 @@ class _CatalogProductCard extends StatelessWidget {
                         color: AppPalette.primary,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.add, size: 14, color: Colors.white),
+                      child: const Icon(LucideIcons.plus, size: 14, color: Colors.white),
                     ),
                   ],
                 ),
@@ -360,6 +361,6 @@ class _CatalogProductCard extends StatelessWidget {
   Widget _placeholder() => Container(
         color: const Color(0xFFF1F5F9),
         child: const Center(
-            child: Icon(Icons.image_outlined, size: 38, color: Color(0xFFCBD5E1))),
+            child: Icon(LucideIcons.image, size: 38, color: Color(0xFFCBD5E1))),
       );
 }

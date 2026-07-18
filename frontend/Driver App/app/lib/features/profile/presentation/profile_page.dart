@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/driver_theme.dart';
 import '../../auth/application/auth_notifier.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -102,17 +103,17 @@ class ProfilePage extends ConsumerWidget {
               delegate: SliverChildListDelegate([
                 _Section(title: 'Mon activité', items: [
                   _MenuItem(
-                    icon: Icons.balance,
+                    icon: LucideIcons.scale,
                     label: 'Mes demandes',
                     onTap: () => context.go('/missions'),
                   ),
                   _MenuItem(
-                    icon: Icons.local_shipping_outlined,
+                    icon: LucideIcons.truck,
                     label: 'Mes courses',
                     onTap: () => context.go('/active'),
                   ),
                   _MenuItem(
-                    icon: Icons.account_balance_wallet_outlined,
+                    icon: LucideIcons.wallet,
                     label: 'Mon portefeuille',
                     onTap: () => context.go('/wallet'),
                   ),
@@ -120,25 +121,30 @@ class ProfilePage extends ConsumerWidget {
                 const SizedBox(height: 14),
                 _Section(title: 'Profil livreur', items: [
                   _MenuItem(
-                    icon: Icons.two_wheeler_outlined,
+                    icon: LucideIcons.bike,
                     label: 'Mon véhicule',
                     onTap: () => context.push('/profile/vehicle'),
                   ),
                   _MenuItem(
-                    icon: Icons.badge_outlined,
+                    icon: LucideIcons.badgeCheck,
                     label: 'Mes documents KYC',
                     onTap: () => context.push('/profile/documents'),
+                  ),
+                  _MenuItem(
+                    icon: LucideIcons.bellRing,
+                    label: 'Préférences de notifications',
+                    onTap: () => context.push('/profile/notifications'),
                   ),
                 ]),
                 const SizedBox(height: 14),
                 _Section(title: 'Support', items: [
                   _MenuItem(
-                    icon: Icons.help_outline,
+                    icon: LucideIcons.helpCircle,
                     label: 'Aide & FAQ',
                     onTap: () {},
                   ),
                   _MenuItem(
-                    icon: Icons.policy_outlined,
+                    icon: LucideIcons.fileText,
                     label: "Conditions d'utilisation",
                     onTap: () {},
                   ),
@@ -176,7 +182,7 @@ class ProfilePage extends ConsumerWidget {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.logout, color: T.coral, size: 18),
+                        Icon(LucideIcons.logOut, color: T.coral, size: 18),
                         SizedBox(width: 8),
                         Text('Se déconnecter',
                             style: TextStyle(
@@ -282,7 +288,7 @@ class _MenuItem extends StatelessWidget {
                 fontWeight: FontWeight.w500,
                 color: T.ink)),
         trailing:
-            const Icon(Icons.chevron_right, color: T.ink4, size: 20),
+            const Icon(LucideIcons.chevronRight, color: T.ink4, size: 20),
         onTap: onTap,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 2),

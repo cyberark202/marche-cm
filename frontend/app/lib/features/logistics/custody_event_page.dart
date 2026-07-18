@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class CustodyEventPage extends StatefulWidget {
   final int shipmentId;
@@ -20,12 +21,12 @@ class _CustodyEventPageState extends State<CustodyEventPage> {
   bool _loading = false;
 
   static const _eventTypes = [
-    ('PICKUP', 'Prise en charge', Icons.inventory_2_outlined, Color(0xFF1565C0)),
-    ('WAREHOUSE_IN', 'Entree entrepot', Icons.warehouse_outlined, Color(0xFF283593)),
-    ('WAREHOUSE_OUT', 'Sortie entrepot', Icons.output_outlined, Color(0xFF6A1B9A)),
-    ('HANDOVER', 'Transfert de garde', Icons.swap_horiz_outlined, Color(0xFFE65100)),
-    ('OUT_FOR_DELIVERY', 'Depart livraison', Icons.local_shipping_outlined, Color(0xFF00695C)),
-    ('DELIVERED', 'Livre', Icons.check_circle_outline, Color(0xFF2E7D32)),
+    ('PICKUP', 'Prise en charge', LucideIcons.package, Color(0xFF1565C0)),
+    ('WAREHOUSE_IN', 'Entree entrepot', LucideIcons.warehouse, Color(0xFF283593)),
+    ('WAREHOUSE_OUT', 'Sortie entrepot', LucideIcons.logOut, Color(0xFF6A1B9A)),
+    ('HANDOVER', 'Transfert de garde', LucideIcons.arrowLeftRight, Color(0xFFE65100)),
+    ('OUT_FOR_DELIVERY', 'Depart livraison', LucideIcons.truck, Color(0xFF00695C)),
+    ('DELIVERED', 'Livre', LucideIcons.checkCircle2, Color(0xFF2E7D32)),
   ];
 
   @override
@@ -115,7 +116,7 @@ class _CustodyEventPageState extends State<CustodyEventPage> {
               labelText: 'Localisation *',
               hintText: 'Ex: Entrepot Douala, Port de Kribi…',
               border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.location_on_outlined),
+              prefixIcon: Icon(LucideIcons.mapPin),
             ),
           ),
           const SizedBox(height: 12),
@@ -125,7 +126,7 @@ class _CustodyEventPageState extends State<CustodyEventPage> {
               labelText: 'Notes (optionnel)',
               hintText: 'Observations, etat de la marchandise…',
               border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.notes_outlined),
+              prefixIcon: Icon(LucideIcons.fileText),
             ),
             minLines: 3,
             maxLines: 5,
@@ -140,7 +141,7 @@ class _CustodyEventPageState extends State<CustodyEventPage> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.security_outlined, size: 18, color: Colors.blue),
+                const Icon(LucideIcons.shieldCheck, size: 18, color: Colors.blue),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -164,7 +165,7 @@ class _CustodyEventPageState extends State<CustodyEventPage> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.check_circle_outline),
+                  : const Icon(LucideIcons.checkCircle2),
               label: Text(_loading ? 'Enregistrement...' : 'Enregistrer l\'evenement'),
             ),
           ),

@@ -7,6 +7,7 @@ import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// RFQ entrantes vendeur (PDF 19).
 class RfqOffersPage extends StatefulWidget {
@@ -113,7 +114,7 @@ class _RfqOffersPageState extends State<RfqOffersPage> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                   labelText: "Prix unitaire (FCFA)",
-                  prefixIcon: Icon(Icons.payments_outlined)),
+                  prefixIcon: Icon(LucideIcons.banknote)),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -121,7 +122,7 @@ class _RfqOffersPageState extends State<RfqOffersPage> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                   labelText: "Délai de livraison (jours)",
-                  prefixIcon: Icon(Icons.schedule)),
+                  prefixIcon: Icon(LucideIcons.clock)),
             ),
             const SizedBox(height: 16),
             Row(
@@ -136,7 +137,7 @@ class _RfqOffersPageState extends State<RfqOffersPage> {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: () => Navigator.pop(context, true),
-                    icon: const Icon(Icons.send, size: 16),
+                    icon: const Icon(LucideIcons.send, size: 16),
                     label: const Text("Envoyer"),
                   ),
                 ),
@@ -215,7 +216,7 @@ class _RfqOffersPageState extends State<RfqOffersPage> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.history,
+                                    const Icon(LucideIcons.history,
                                         size: 14,
                                         color: AppPalette.textMuted),
                                     const SizedBox(width: 6),
@@ -271,7 +272,7 @@ class _Header extends StatelessWidget {
               IconButton(
                   onPressed: onBack,
                   icon:
-                      const Icon(Icons.arrow_back, color: Colors.white)),
+                      const Icon(LucideIcons.arrowLeft, color: Colors.white)),
               const Expanded(
                 child: Text("Demandes de devis",
                     style: TextStyle(
@@ -296,7 +297,7 @@ class _Header extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.request_quote_outlined,
+                  const Icon(LucideIcons.fileText,
                       color: Colors.white, size: 13),
                   const SizedBox(width: 5),
                   Text("$count RFQ à traiter",
@@ -444,7 +445,7 @@ class _RfqCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.inventory_2_outlined,
+                    const Icon(LucideIcons.package,
                         size: 13, color: AppPalette.textMuted),
                     const SizedBox(width: 4),
                     Text("$qty unités",
@@ -454,7 +455,7 @@ class _RfqCard extends StatelessWidget {
                             color: AppPalette.text)),
                     const SizedBox(width: 10),
                     if (includesDelivery) ...[
-                      const Icon(Icons.local_shipping_outlined,
+                      const Icon(LucideIcons.truck,
                           size: 13, color: AppPalette.textMuted),
                       const SizedBox(width: 4),
                       const Text("Livraison incluse",
@@ -478,7 +479,7 @@ class _RfqCard extends StatelessWidget {
                       const SnackBar(content: Text("Chat à venir.")),
                     );
                   },
-                  icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                  icon: const Icon(LucideIcons.messageCircle, size: 16),
                   label: const Text("Discuter"),
                 ),
               ),
@@ -487,7 +488,7 @@ class _RfqCard extends StatelessWidget {
                 flex: 2,
                 child: FilledButton.icon(
                   onPressed: onSend,
-                  icon: const Icon(Icons.send, size: 16),
+                  icon: const Icon(LucideIcons.send, size: 16),
                   label: const Text("Envoyer offre"),
                 ),
               ),
@@ -517,7 +518,7 @@ class _Empty extends StatelessWidget {
                 color: AppPalette.primarySoft,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.request_quote_outlined,
+              child: const Icon(LucideIcons.fileText,
                   color: AppPalette.primaryDark, size: 36),
             ),
             const SizedBox(height: 14),

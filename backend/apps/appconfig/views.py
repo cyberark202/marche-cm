@@ -1,8 +1,20 @@
-from rest_framework import permissions
+from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import AppPlatform, AppRelease
+from apps.accounts.security import (
+    has_action_permission,
+    verify_sensitive_action_challenge,
+    write_audit_log,
+)
+from .models import (
+    PLATFORM_SETTING_DEFAULTS,
+    AppPlatform,
+    AppRelease,
+    PlatformSetting,
+    get_platform_setting,
+    set_platform_setting,
+)
 
 
 def parse_version(value: str) -> tuple[int, ...]:
@@ -93,3 +105,115 @@ class RuntimeConfigView(APIView):
                 "feature_flags": release.feature_flags or {},
             }
         )
+
+
+# ---------------------------------------------------------------------------
+# Paramètres plateforme (docs 01/05/16/17) — lecture + écriture admin
+# ---------------------------------------------------------------------------
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _validate_rate(value) -> bool:
+    return _is_number(value) and 0 <= value <= 0.5
+
+
+def _validate_category_rates(value) -> bool:
+    return isinstance(value, dict) and all(
+        isinstance(k, str) and _validate_rate(v) for k, v in value.items()
+    )
+
+
+def _validate_kyc_limits(value) -> bool:
+    if not isinstance(value, dict) or not value:
+        return False
+    for level, limits in value.items():
+        if not str(level).isdigit() or not isinstance(limits, dict):
+            return False
+        for field in ("deposit_per_tx", "withdraw_per_tx", "per_day"):
+            if not _is_number(limits.get(field)) or limits[field] <= 0:
+                return False
+    return True
+
+
+# Registre fermé clé → validateur. Une valeur refusée n'est jamais écrite :
+# un paramètre financier corrompu casserait checkout et retraits.
+_SETTING_VALIDATORS = {
+    "commission.default_rate": _validate_rate,
+    "commission.category_rates": _validate_category_rates,
+    "commission.logistics_rate": _validate_rate,
+    "commission.rental_rate": _validate_rate,
+    "withdrawal.fee_percent": lambda v: _is_number(v) and 0 <= v <= 10,
+    "withdrawal.fee_min": lambda v: _is_number(v) and 0 <= v <= 10000,
+    "kyc.limits": _validate_kyc_limits,
+    "wallet.dormancy_threshold": lambda v: _is_number(v) and v > 0,
+    "wallet.dormancy_delay_days": lambda v: isinstance(v, int) and 1 <= v <= 365,
+    "wallet.dormancy_penalty_percent": lambda v: _is_number(v) and 0 <= v <= 10,
+    "wallet.dormancy_enabled": lambda v: isinstance(v, bool),
+    "orders.seller_validation_hours": lambda v: isinstance(v, int) and 1 <= v <= 168,
+    "logistics.dispatch_offer_minutes": lambda v: isinstance(v, int) and 1 <= v <= 120,
+}
+
+
+class PlatformSettingsView(APIView):
+    """GET/PUT /api/admin/platform-settings/ — configuration à chaud.
+
+    GET : valeurs effectives (défaut ou surcharge DB) de tout le registre.
+    PUT : {"key": ..., "value": ..., "challenge_token": ..., "verification_code": ...}
+    L'écriture exige le rôle admin ET un step-up 2FA (doc 17 : la modification
+    des frais/commissions est une action sensible). Chaque changement est
+    historisé (PlatformSettingHistory) et audité.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not has_action_permission(request.user, "admin.settings.manage"):
+            return Response({"detail": "Action reservee aux administrateurs."}, status=status.HTTP_403_FORBIDDEN)
+        overrides = {row.key: row for row in PlatformSetting.objects.all()}
+        payload = []
+        for key, default in PLATFORM_SETTING_DEFAULTS.items():
+            row = overrides.get(key)
+            payload.append(
+                {
+                    "key": key,
+                    "value": row.value if row else default,
+                    "is_default": row is None,
+                    "default": default,
+                    "updated_at": row.updated_at.isoformat() if row else None,
+                }
+            )
+        return Response({"settings": payload})
+
+    def put(self, request):
+        if not has_action_permission(request.user, "admin.settings.manage"):
+            return Response({"detail": "Action reservee aux administrateurs."}, status=status.HTTP_403_FORBIDDEN)
+        verified, step_up_message = verify_sensitive_action_challenge(
+            user=request.user,
+            action_key="admin.settings.manage",
+            challenge_token=str(request.data.get("challenge_token") or ""),
+            verification_code=str(request.data.get("verification_code") or ""),
+        )
+        if not verified:
+            return Response({"detail": step_up_message}, status=status.HTTP_403_FORBIDDEN)
+
+        key = str(request.data.get("key") or "").strip()
+        validator = _SETTING_VALIDATORS.get(key)
+        if key not in PLATFORM_SETTING_DEFAULTS or validator is None:
+            return Response({"detail": f"Parametre inconnu: {key}"}, status=status.HTTP_400_BAD_REQUEST)
+        if "value" not in request.data:
+            return Response({"detail": "Champ value requis."}, status=status.HTTP_400_BAD_REQUEST)
+        value = request.data["value"]
+        if not validator(value):
+            return Response({"detail": f"Valeur invalide pour {key}."}, status=status.HTTP_400_BAD_REQUEST)
+
+        set_platform_setting(key, value, actor=request.user)
+        write_audit_log(
+            actor=request.user,
+            action="Modification parametre plateforme",
+            action_key="admin.settings.manage",
+            metadata={"setting": key, "value": value},
+        )
+        return Response({"key": key, "value": get_platform_setting(key)})

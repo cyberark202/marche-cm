@@ -13,6 +13,7 @@ class MessageType(models.TextChoices):
     IMAGE = "IMAGE", "Image"
     VIDEO = "VIDEO", "Video"
     DOCUMENT = "DOCUMENT", "Document"
+    AUDIO = "AUDIO", "Note vocale"
 
 
 class Message(models.Model):
@@ -21,16 +22,45 @@ class Message(models.Model):
     type = models.CharField(max_length=10, choices=MessageType.choices, default=MessageType.TEXT)
     content = models.TextField(blank=True)
     file = models.FileField(upload_to="chat/", blank=True, null=True)
+    # Reply-to (quote) — points at an earlier message in the SAME room. SET_NULL
+    # so deleting/withholding the quoted message never cascades away replies.
+    reply_to = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="replies",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["created_at"]
+        # Ordre anté-chronologique : la page 1 de l'API contient les messages
+        # les PLUS RÉCENTS (ouverture de conversation « en bas » façon WhatsApp,
+        # l'historique se charge en remontant). Avant : ASC → la page 1
+        # renvoyait les 20 plus anciens et un fil long s'ouvrait sur son début.
+        # -id départage les créations dans la même milliseconde (ordre stable).
+        ordering = ["-created_at", "-id"]
 
 
 class DeliveryState(models.TextChoices):
     SENT = "SENT", "Envoye"
     DELIVERED = "DELIVERED", "Livre"
     READ = "READ", "Lu"
+
+
+class MessageReaction(models.Model):
+    """Réaction emoji façon WhatsApp : une seule par utilisateur et par message
+    (re-choisir le même emoji la retire, un autre la remplace)."""
+
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="reactions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="message_reactions")
+    emoji = models.CharField(max_length=8)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["message", "user"], name="uniq_message_reaction"),
+        ]
 
 
 class MessageReceipt(models.Model):

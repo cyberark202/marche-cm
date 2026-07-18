@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
+import 'live_delivery_map_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Suivi commande — timeline livreur (PDF 10).
 ///
@@ -154,6 +156,35 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                     name: transitName,
                     eta: etaDate,
                   ),
+                  if (_shipment?["id"] != null) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => LiveDeliveryMapPage(
+                              shipmentId: _shipment!["id"].toString(),
+                              initialLat: double.tryParse(
+                                  "${_shipment?["current_latitude"] ?? ""}"),
+                              initialLng: double.tryParse(
+                                  "${_shipment?["current_longitude"] ?? ""}"),
+                              pickupLat: double.tryParse(
+                                  "${_shipment?["pickup_latitude"] ?? ""}"),
+                              pickupLng: double.tryParse(
+                                  "${_shipment?["pickup_longitude"] ?? ""}"),
+                              dropoffLat: double.tryParse(
+                                  "${_shipment?["dropoff_latitude"] ?? ""}"),
+                              dropoffLng: double.tryParse(
+                                  "${_shipment?["dropoff_longitude"] ?? ""}"),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(LucideIcons.map),
+                        label: const Text("Suivre le livreur sur la carte"),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   const _SectionLabel(label: "ÉTAPES DE LA COMMANDE"),
                   const SizedBox(height: 10),
@@ -224,7 +255,7 @@ class _Hero extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: onBack,
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
               ),
               const Expanded(
                 child: Text(
@@ -301,7 +332,7 @@ class _Hero extends StatelessWidget {
               padding: const EdgeInsets.only(left: 14, bottom: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.event_available_outlined,
+                  const Icon(LucideIcons.calendarCheck,
                       color: Colors.white70, size: 14),
                   const SizedBox(width: 6),
                   Text(
@@ -359,7 +390,7 @@ class _RouteCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.45),
             ),
           ),
-          const Icon(Icons.local_shipping_outlined,
+          const Icon(LucideIcons.truck,
               color: Colors.white, size: 16),
           Expanded(
             child: Container(
@@ -440,7 +471,7 @@ class _ProductCard extends StatelessWidget {
               color: AppPalette.primarySoft,
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
-            child: const Icon(Icons.inventory_2_outlined,
+            child: const Icon(LucideIcons.package,
                 color: AppPalette.primaryDark),
           ),
           const SizedBox(width: 12),
@@ -461,7 +492,7 @@ class _ProductCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.verified,
+                    const Icon(LucideIcons.badgeCheck,
                         size: 13, color: AppPalette.primary),
                     const SizedBox(width: 4),
                     Flexible(
@@ -612,7 +643,7 @@ class _TransitCard extends StatelessWidget {
                 color: AppPalette.primarySoft,
                 borderRadius: BorderRadius.circular(AppRadii.md),
               ),
-              child: const Icon(Icons.chat_bubble_outline,
+              child: const Icon(LucideIcons.messageCircle,
                   color: AppPalette.primaryDark, size: 17),
             ),
           ),
@@ -673,36 +704,36 @@ class _TimelineList extends StatelessWidget {
         subtitle:
             "Créée le ${order["created_at"]?.toString().split('T').first ?? "—"} · "
             "${(order["payable_total"] ?? order["total_price"] ?? "—")} FCFA séquestrés",
-        icon: Icons.shopping_bag_outlined,
+        icon: LucideIcons.shoppingBag,
       ),
       _TimelineStep(
         title: "Devis livreur accepté",
         subtitle: shipment?["accepted_quote_amount"] != null
             ? "${shipment!["accepted_quote_amount"]} FCFA"
             : "En attente d'acceptation",
-        icon: Icons.assignment_turned_in_outlined,
+        icon: LucideIcons.clipboardCheck,
       ),
       _TimelineStep(
         title: "Colis pris en charge",
         subtitle: shipment?["pickup_at"]?.toString() ??
             "En attente d'enlèvement",
-        icon: Icons.inventory_outlined,
+        icon: LucideIcons.boxes,
       ),
       _TimelineStep(
         title: "En route vers la destination",
         subtitle: shipment?["current_position"]?.toString() ??
             (shipment?["delivery_city"]?.toString() ?? "Trajet en cours"),
-        icon: Icons.local_shipping_outlined,
+        icon: LucideIcons.truck,
       ),
       const _TimelineStep(
         title: "Preuve de livraison",
         subtitle: "Photo + code 4 chiffres à valider",
-        icon: Icons.photo_camera_outlined,
+        icon: LucideIcons.camera,
       ),
       const _TimelineStep(
         title: "Libération séquestre",
         subtitle: "Fonds débloqués pour le vendeur et le livreur",
-        icon: Icons.lock_open_outlined,
+        icon: LucideIcons.unlock,
       ),
     ];
 
@@ -788,7 +819,7 @@ class _TimelineRow extends StatelessWidget {
                   border: Border.all(color: ringColor, width: 2),
                 ),
                 child: done
-                    ? const Icon(Icons.check,
+                    ? const Icon(LucideIcons.check,
                         color: Colors.white, size: 12)
                     : active
                         ? Container(

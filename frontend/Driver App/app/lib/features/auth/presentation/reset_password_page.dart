@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/theme/driver_theme.dart';
 import '../infrastructure/driver_auth_api.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Forgot-password flow (2 steps): email → emailed code + new password.
 class ResetPasswordPage extends StatefulWidget {
@@ -87,7 +88,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       appBar: AppBar(
         title: const Text('Mot de passe oublié'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () => context.pop(),
         ),
       ),
@@ -113,7 +114,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                   border: Border.all(color: const Color(0xFFFCA5A5)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+                  const Icon(LucideIcons.alertCircle, size: 16, color: Color(0xFFDC2626)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(_error!,
@@ -130,7 +131,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: 'Email',
-                prefixIcon: Icon(Icons.alternate_email),
+                prefixIcon: Icon(LucideIcons.atSign),
               ),
             ),
             if (_codeSent) ...[
@@ -140,7 +141,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Code de réinitialisation',
-                  prefixIcon: Icon(Icons.pin_outlined),
+                  prefixIcon: Icon(LucideIcons.mapPin),
                 ),
               ),
               const SizedBox(height: 14),
@@ -149,11 +150,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 obscureText: _obscure,
                 decoration: InputDecoration(
                   labelText: 'Nouveau mot de passe',
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  prefixIcon: const Icon(LucideIcons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(_obscure
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined),
+                        ? LucideIcons.eye
+                        : LucideIcons.eyeOff),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
                 ),

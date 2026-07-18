@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_theme.dart';
 import 'auth_api_service.dart';
 import 'session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class SellerRegisterPage extends StatefulWidget {
   const SellerRegisterPage({super.key});
@@ -27,20 +28,14 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
   final CountryService _countryService = CountryService();
 
   String _countryCode = 'CM';
-  String _role = 'SUPPLIER';
+  // Compte « Vendeur » unifié : un seul type de compte professionnel (SUPPLIER).
+  // Le choix Fournisseur/Grossiste a été supprimé. Les livreurs utilisent
+  // l'application Market CM Driver.
+  final String _role = 'SUPPLIER';
   bool _busy = false;
   bool _obscurePass = true;
   bool _acceptTerms = false;
   String? _error;
-
-  // ISOLATION: the professional app registers SUPPLIER / WHOLESALER only.
-  // Livreurs (chauffeurs) utilisent l'application Market CM Driver.
-  static const _roles = [
-    ('SUPPLIER', 'Fournisseur', Icons.factory_outlined,
-        'Produisez ou importez des marchandises'),
-    ('WHOLESALER', 'Grossiste', Icons.store_outlined,
-        'Vendez en grande quantité à des revendeurs'),
-  ];
 
   @override
   void dispose() {
@@ -140,7 +135,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         inputDecoration: InputDecoration(
           labelText: 'Rechercher un pays',
-          prefixIcon: Icon(Icons.search),
+          prefixIcon: Icon(LucideIcons.search),
         ),
       ),
       onSelect: (c) => setState(() => _countryCode = c.countryCode),
@@ -163,7 +158,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(LucideIcons.arrowLeft),
                     onPressed: () => Navigator.maybePop(context),
                   ),
                   Expanded(
@@ -179,7 +174,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                                     colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)]),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.store, color: Colors.white, size: 17),
+                              child: const Icon(LucideIcons.store, color: Colors.white, size: 17),
                             ),
                             const SizedBox(width: 8),
                             const Text('Market CM',
@@ -203,21 +198,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Role selector
-                    const Text('Type de profil professionnel',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                            color: Color(0xFF334155))),
-                    const SizedBox(height: 10),
-                    ...(_roles.map((r) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _RoleCard(
-                            role: r.$1, title: r.$2, icon: r.$3, desc: r.$4,
-                            selected: _role == r.$1,
-                            onTap: () => setState(() => _role = r.$1),
-                          ),
-                        ))),
-                    const SizedBox(height: 16),
-
                     if (_error != null) ...[
                       _ErrorBanner(message: _error!),
                       const SizedBox(height: 12),
@@ -226,21 +206,21 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                     // Personal info
                     const _SectionLabel(label: 'Informations personnelles'),
                     const SizedBox(height: 8),
-                    _field(label: 'Nom complet du responsable', icon: Icons.person_outline,
+                    _field(label: 'Nom complet du responsable', icon: LucideIcons.user,
                         ctrl: _nameCtrl, hint: 'Ex: Jean Dupont'),
                     const SizedBox(height: 10),
-                    _field(label: 'Nom de l\'entreprise', icon: Icons.business_outlined,
+                    _field(label: 'Nom de l\'entreprise', icon: LucideIcons.building2,
                         ctrl: _companyCtrl, hint: 'Ex: Dupont SARL'),
                     const SizedBox(height: 16),
 
                     // Contact info
                     const _SectionLabel(label: 'Coordonnées'),
                     const SizedBox(height: 8),
-                    _field(label: 'Téléphone', icon: Icons.phone_outlined,
+                    _field(label: 'Téléphone', icon: LucideIcons.phone,
                         ctrl: _phoneCtrl, hint: '+2376XXXXXXXX',
                         type: TextInputType.phone),
                     const SizedBox(height: 10),
-                    _field(label: 'Email professionnel', icon: Icons.alternate_email,
+                    _field(label: 'Email professionnel', icon: LucideIcons.atSign,
                         ctrl: _emailCtrl, hint: 'contact@entreprise.com',
                         type: TextInputType.emailAddress),
                     const SizedBox(height: 10),
@@ -257,7 +237,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.public, color: AppPalette.primary, size: 20),
+                                  const Icon(LucideIcons.globe, color: AppPalette.primary, size: 20),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -273,7 +253,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  const Icon(Icons.arrow_drop_down, color: Color(0xFF94A3B8)),
+                                  const Icon(LucideIcons.chevronDown, color: Color(0xFF94A3B8)),
                                 ],
                               ),
                             ),
@@ -281,7 +261,7 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: _field(label: 'Ville', icon: Icons.location_city_outlined,
+                          child: _field(label: 'Ville', icon: LucideIcons.building2,
                               ctrl: _cityCtrl, hint: 'Ex: Douala'),
                         ),
                       ],
@@ -402,9 +382,9 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
         textInputAction: action,
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: const Icon(Icons.lock_outline, color: AppPalette.primary, size: 20),
+          prefixIcon: const Icon(LucideIcons.lock, color: AppPalette.primary, size: 20),
           suffixIcon: IconButton(
-            icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            icon: Icon(obscure ? LucideIcons.eye : LucideIcons.eyeOff,
                 size: 20, color: const Color(0xFF94A3B8)),
             onPressed: onToggle,
           ),
@@ -421,71 +401,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
 }
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
-
-class _RoleCard extends StatelessWidget {
-  final String role, title, desc;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  const _RoleCard({
-    required this.role, required this.title, required this.icon,
-    required this.desc, required this.selected, required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: selected
-                ? const Color(0xFF4F46E5).withValues(alpha: 0.05)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? const Color(0xFF4F46E5).withValues(alpha: 0.1)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon,
-                    color: selected ? const Color(0xFF4F46E5) : const Color(0xFF94A3B8),
-                    size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: selected
-                                ? const Color(0xFF4F46E5)
-                                : const Color(0xFF0F172A))),
-                    Text(desc,
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                  ],
-                ),
-              ),
-              if (selected)
-                const Icon(Icons.check_circle, color: Color(0xFF4F46E5), size: 18),
-            ],
-          ),
-        ),
-      );
-}
 
 class _SectionLabel extends StatelessWidget {
   final String label;
@@ -510,7 +425,7 @@ class _ErrorBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+            const Icon(LucideIcons.alertCircle, size: 16, color: Color(0xFFDC2626)),
             const SizedBox(width: 8),
             Expanded(child: Text(message,
                 style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13))),

@@ -129,6 +129,9 @@ class SlidingWindowThrottle(BaseThrottle):
                 backend.set(counter_key, new_count, timeout=self._window_secs)
                 return new_count
             except Exception:
+                # Fail-open : mieux vaut laisser passer la requete que la bloquer
+                # sur une panne cache, mais la panne doit rester visible.
+                logger.exception("throttle_cache_unavailable key=%s", counter_key)
                 return 0
 
     def wait(self) -> float | None:
@@ -303,6 +306,7 @@ def is_ip_blocked(ip: str) -> bool:
     try:
         return bool(cache.get(key))
     except Exception:
+        logger.exception("ip_block_check_cache_unavailable")
         return False
 
 

@@ -6,6 +6,7 @@ import '../../core/app_theme.dart';
 import '../../core/app_ui.dart';
 import '../auth/session_store.dart';
 import '../auth/sensitive_action_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class SecurityCenterPage extends StatefulWidget {
   const SecurityCenterPage({super.key});
@@ -289,7 +290,7 @@ class _SecurityCenterPageState extends State<SecurityCenterPage> {
         actions: [
           IconButton(
             onPressed: _loading ? null : _loadSessions,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(LucideIcons.refreshCw),
           ),
         ],
       ),
@@ -301,7 +302,7 @@ class _SecurityCenterPageState extends State<SecurityCenterPage> {
               title: "Protection du compte",
               subtitle:
                   "Controlez vos sessions actives, changez votre mot de passe et verrouillez les acces suspects.",
-              trailing: Icon(Icons.shield_outlined),
+              trailing: Icon(LucideIcons.shield),
             ),
             const SizedBox(height: 8),
             Row(
@@ -310,7 +311,7 @@ class _SecurityCenterPageState extends State<SecurityCenterPage> {
                   child: AppMetricTile(
                     label: "Sessions actives",
                     value: "$activeSessions",
-                    icon: Icons.phone_android_outlined,
+                    icon: LucideIcons.smartphone,
                     tint: AppPalette.success,
                   ),
                 ),
@@ -319,7 +320,7 @@ class _SecurityCenterPageState extends State<SecurityCenterPage> {
                   child: AppMetricTile(
                     label: "Sessions fermees",
                     value: "$closedSessions",
-                    icon: Icons.mobile_off_outlined,
+                    icon: LucideIcons.phoneOff,
                     tint: AppPalette.warning,
                   ),
                 ),
@@ -339,7 +340,7 @@ class _SecurityCenterPageState extends State<SecurityCenterPage> {
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: _busy ? null : _changePassword,
-                      icon: const Icon(Icons.password),
+                      icon: const Icon(LucideIcons.key),
                       label: Text(
                           _busy ? "Traitement..." : "Changer mot de passe"),
                     ),
@@ -349,7 +350,7 @@ class _SecurityCenterPageState extends State<SecurityCenterPage> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: _busy ? null : _revokeAllOtherSessions,
-                      icon: const Icon(Icons.mobile_off),
+                      icon: const Icon(LucideIcons.phoneOff),
                       label: const Text("Revoquer autres sessions"),
                     ),
                   ),
@@ -384,9 +385,9 @@ class _SecurityCenterPageState extends State<SecurityCenterPage> {
                     leading: CircleAvatar(
                       backgroundColor: isCurrent
                           ? const Color(0xFFD1FAE5)
-                          : const Color(0xFFE5E7EB),
+                          : AppPalette.border,
                       child: Icon(
-                        isCurrent ? Icons.phone_android : Icons.devices_other,
+                        isCurrent ? LucideIcons.smartphone : LucideIcons.monitorSmartphone,
                         color: isCurrent
                             ? const Color(0xFF065F46)
                             : const Color(0xFF374151),

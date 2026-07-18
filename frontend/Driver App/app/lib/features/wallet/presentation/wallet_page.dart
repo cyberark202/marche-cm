@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // Audit ref: [Front-Driver] backend exposes /api/wallets/ (list, filtered to
 // owner=current_user) and /api/wallets/transactions/. The /api/wallets/driver/*
@@ -87,7 +88,7 @@ class DriverWalletPage extends ConsumerWidget {
                   Row(children: [
                     Expanded(
                       child: _WalletAction(
-                        icon: Icons.trending_up,
+                        icon: LucideIcons.trendingUp,
                         label: 'Gains',
                         onTap: () => context.push('/wallet/earnings'),
                       ),
@@ -95,7 +96,7 @@ class DriverWalletPage extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _WalletAction(
-                        icon: Icons.account_balance_outlined,
+                        icon: LucideIcons.landmark,
                         label: 'Retirer',
                         onTap: () => context.push('/wallet/withdraw'),
                       ),
@@ -140,7 +141,7 @@ class DriverWalletPage extends ConsumerWidget {
                     padding: EdgeInsets.all(32),
                     child: Center(
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.receipt_long_outlined, size: 48, color: DriverPalette.textMuted),
+                        Icon(LucideIcons.receipt, size: 48, color: DriverPalette.textMuted),
                         SizedBox(height: 12),
                         Text('Aucune transaction pour le moment.',
                             style: TextStyle(color: DriverPalette.textSecondary, fontSize: 14)),
@@ -223,7 +224,7 @@ class _TxTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
-            isCredit ? Icons.arrow_downward : Icons.arrow_upward,
+            isCredit ? LucideIcons.arrowDown : LucideIcons.arrowUp,
             color: isCredit ? Colors.green : Colors.red,
             size: 18,
           ),

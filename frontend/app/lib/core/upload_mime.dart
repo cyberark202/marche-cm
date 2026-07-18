@@ -40,6 +40,22 @@ import 'package:dio/dio.dart';
   if (n.endsWith('.m4v')) {
     return (filename: name, type: DioMediaType('video', 'x-m4v'));
   }
+  // Voice notes (chat) — must match the server audio whitelist.
+  if (n.endsWith('.m4a')) {
+    return (filename: name, type: DioMediaType('audio', 'mp4'));
+  }
+  if (n.endsWith('.aac')) {
+    return (filename: name, type: DioMediaType('audio', 'aac'));
+  }
+  if (n.endsWith('.mp3')) {
+    return (filename: name, type: DioMediaType('audio', 'mpeg'));
+  }
+  if (n.endsWith('.ogg') || n.endsWith('.opus')) {
+    return (filename: name, type: DioMediaType('audio', 'ogg'));
+  }
+  if (n.endsWith('.wav')) {
+    return (filename: name, type: DioMediaType('audio', 'wav'));
+  }
   // No recognized extension (e.g. a raw camera capture) — assume JPEG.
   return (filename: '$name.jpg', type: DioMediaType('image', 'jpeg'));
 }

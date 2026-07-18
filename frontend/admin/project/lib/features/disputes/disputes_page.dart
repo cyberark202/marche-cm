@@ -7,6 +7,7 @@ import '../data/admin_repository.dart';
 import 'arbitration_page.dart';
 import 'dispute_helpers.dart';
 import 'dispute_multiview_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 37 — Disputes list with status filters.
 class DisputesPage extends StatefulWidget {
@@ -105,7 +106,7 @@ class _DisputesPageState extends State<DisputesPage> {
                       ? const AppEmptyState(
                           title: 'Aucun litige',
                           subtitle: 'Rien à arbitrer pour ce filtre.',
-                          icon: Icons.gavel_outlined,
+                          icon: LucideIcons.gavel,
                         )
                       : RefreshIndicator(
                           onRefresh: _refresh,
@@ -158,7 +159,7 @@ class _DisputesPageState extends State<DisputesPage> {
                 borderRadius: BorderRadius.circular(8),
                 child: const Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(Icons.groups_outlined,
+                  child: Icon(LucideIcons.users,
                       size: 18, color: AppPalette.secondary),
                 ),
               ),
@@ -188,7 +189,7 @@ class _DisputesPageState extends State<DisputesPage> {
           const SizedBox(height: 8),
           const Row(
             children: [
-              Icon(Icons.lock_outline, size: 14, color: AppPalette.secondary),
+              Icon(LucideIcons.lock, size: 14, color: AppPalette.secondary),
               SizedBox(width: 6),
               Text('Séquestre concerné',
                   style: TextStyle(

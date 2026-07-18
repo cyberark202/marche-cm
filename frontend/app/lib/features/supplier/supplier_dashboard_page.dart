@@ -12,6 +12,7 @@ import '../orders/sales_summary_page.dart';
 import '../profile/compliance_documents_page.dart';
 import '../wallet/wallet_page.dart';
 import 'supplier_products_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class SupplierDashboardPage extends StatefulWidget {
   const SupplierDashboardPage({super.key});
@@ -105,7 +106,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.smart_display_outlined),
+              leading: const Icon(LucideIcons.monitorPlay),
               title: const Text('Publication video'),
               onTap: () {
                 Navigator.pop(context);
@@ -115,7 +116,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.verified_user_outlined),
+              leading: const Icon(LucideIcons.shieldCheck),
               title: const Text('Certifications'),
               onTap: () {
                 Navigator.pop(context);
@@ -127,7 +128,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.account_balance_wallet_outlined),
+              leading: const Icon(LucideIcons.wallet),
               title: const Text('Wallet'),
               onTap: () {
                 Navigator.pop(context);
@@ -137,7 +138,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.gavel_outlined),
+              leading: const Icon(LucideIcons.gavel),
               title: const Text('Litiges'),
               subtitle: const Text('Contre acheteur ou livreur'),
               onTap: () {
@@ -232,7 +233,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                               GestureDetector(
                                 onTap: _refresh,
                                 child: const Icon(
-                                  Icons.refresh,
+                                  LucideIcons.refreshCw,
                                   color: Colors.white70,
                                   size: 22,
                                 ),
@@ -262,28 +263,28 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                   childAspectRatio: 1.5,
                   children: [
                     _KpiCard(
-                      icon: Icons.inventory_2_outlined,
+                      icon: LucideIcons.package,
                       iconColor: AppPalette.primary,
                       value: '$activeProducts',
                       label: 'Produits actifs',
                       subLabel: 'ce mois',
                     ),
                     _KpiCard(
-                      icon: Icons.shopping_bag_outlined,
+                      icon: LucideIcons.shoppingBag,
                       iconColor: AppPalette.secondary,
                       value: '$confirmedOrders',
                       label: 'Commandes',
                       subLabel: 'ce mois',
                     ),
                     _KpiCard(
-                      icon: Icons.request_quote_outlined,
+                      icon: LucideIcons.fileText,
                       iconColor: AppPalette.accent,
                       value: '${payload.offers.length}',
                       label: 'Offres RFQ',
                       subLabel: 'à traiter',
                     ),
                     _KpiCard(
-                      icon: Icons.account_balance_wallet_outlined,
+                      icon: LucideIcons.wallet,
                       iconColor: AppPalette.success,
                       value: '$walletBalance FCFA',
                       label: 'Solde wallet',
@@ -314,7 +315,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _QuickButton(
-                            icon: Icons.inventory_2_outlined,
+                            icon: LucideIcons.package,
                             iconColor: AppPalette.primary,
                             label: 'Produits',
                             onTap: () => Navigator.of(context).push(
@@ -323,7 +324,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                             ),
                           ),
                           _QuickButton(
-                            icon: Icons.shopping_bag_outlined,
+                            icon: LucideIcons.shoppingBag,
                             iconColor: AppPalette.secondary,
                             label: 'Commandes',
                             onTap: () => Navigator.of(context).push(
@@ -332,7 +333,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                             ),
                           ),
                           _QuickButton(
-                            icon: Icons.bar_chart_outlined,
+                            icon: LucideIcons.barChart3,
                             iconColor: AppPalette.accent,
                             label: 'Ventes',
                             onTap: () => Navigator.of(context).push(
@@ -341,7 +342,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                             ),
                           ),
                           _QuickButton(
-                            icon: Icons.video_camera_back_outlined,
+                            icon: LucideIcons.video,
                             iconColor: AppPalette.info,
                             label: 'Vidéo',
                             onTap: () => Navigator.of(context).push(
@@ -394,7 +395,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                                   BorderRadius.circular(AppRadii.xs),
                             ),
                             child: const Icon(
-                              Icons.verified_user_outlined,
+                              LucideIcons.shieldCheck,
                               color: AppPalette.primary,
                               size: 20,
                             ),
@@ -423,7 +424,7 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                                   ),
                                 ),
                           trailing: const Icon(
-                            Icons.chevron_right,
+                            LucideIcons.chevronRight,
                             color: AppPalette.textMuted,
                           ),
                           onTap: () => Navigator.of(context).push(
@@ -448,28 +449,28 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
           onDestinationSelected: _onBottomNavTapped,
           destinations: const [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
+              icon: Icon(LucideIcons.home),
+              selectedIcon: Icon(LucideIcons.home),
               label: 'Accueil',
             ),
             NavigationDestination(
-              icon: Icon(Icons.inventory_2_outlined),
-              selectedIcon: Icon(Icons.inventory_2),
+              icon: Icon(LucideIcons.package),
+              selectedIcon: Icon(LucideIcons.package),
               label: 'Produits',
             ),
             NavigationDestination(
-              icon: Icon(Icons.shopping_bag_outlined),
-              selectedIcon: Icon(Icons.shopping_bag),
+              icon: Icon(LucideIcons.shoppingBag),
+              selectedIcon: Icon(LucideIcons.shoppingBag),
               label: 'Commandes',
             ),
             NavigationDestination(
-              icon: Icon(Icons.request_quote_outlined),
-              selectedIcon: Icon(Icons.request_quote),
+              icon: Icon(LucideIcons.fileText),
+              selectedIcon: Icon(LucideIcons.fileText),
               label: 'RFQ',
             ),
             NavigationDestination(
-              icon: Icon(Icons.apps_outlined),
-              selectedIcon: Icon(Icons.apps),
+              icon: Icon(LucideIcons.layoutGrid),
+              selectedIcon: Icon(LucideIcons.layoutGrid),
               label: 'Modules',
             ),
           ],
@@ -547,7 +548,7 @@ class _BalanceCard extends StatelessWidget {
       child: Row(
         children: [
           const Icon(
-            Icons.account_balance_wallet_outlined,
+            LucideIcons.wallet,
             color: Colors.white70,
             size: 22,
           ),

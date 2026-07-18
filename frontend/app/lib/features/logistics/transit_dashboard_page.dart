@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
+import 'live_delivery_map_page.dart';
 import '../../core/backend_ui_config_service.dart';
 import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
@@ -12,6 +13,7 @@ import 'custody_event_page.dart';
 import 'dispute_create_page.dart';
 import 'dispute_detail_page.dart';
 import 'shipment_disputes_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class TransitDashboardPage extends StatefulWidget {
   const TransitDashboardPage({super.key});
@@ -335,9 +337,9 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const WalletPage()),
             ),
-            icon: const Icon(Icons.account_balance_wallet_outlined),
+            icon: const Icon(LucideIcons.wallet),
           ),
-          IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _refresh, icon: const Icon(LucideIcons.refreshCw)),
           _RoleMenu(session: session),
         ],
       ),
@@ -385,7 +387,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
               const SizedBox(height: 10),
               _WindowCard(
                 title: 'Certifications',
-                icon: Icons.verified_user_outlined,
+                icon: LucideIcons.shieldCheck,
                 body: _SimpleList(
                   items: [
                     _SimpleItem(
@@ -403,12 +405,12 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
               const SizedBox(height: 10),
               _WindowCard(
                 title: 'Profil transport',
-                icon: Icons.badge_outlined,
+                icon: LucideIcons.badgeCheck,
                 actions: [
                   FilledButton.tonalIcon(
                     onPressed: () =>
                         _createOrUpdateProfileDialog(activeProfile),
-                    icon: const Icon(Icons.edit_outlined),
+                    icon: const Icon(LucideIcons.pencil),
                     label: Text(activeProfile == null
                         ? 'Creer profil'
                         : 'Modifier profil'),
@@ -462,7 +464,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
               const SizedBox(height: 10),
               _WindowCard(
                 title: 'Missions logistiques',
-                icon: Icons.local_shipping_outlined,
+                icon: LucideIcons.truck,
                 actions: [
                   Wrap(
                     spacing: 8,
@@ -483,6 +485,29 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
                         children: filteredShipments.take(8).map((shipment) {
                           return Card(
                             child: ListTile(
+                              leading: IconButton(
+                                icon: const Icon(LucideIcons.map),
+                                tooltip: 'Suivre le livreur',
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => LiveDeliveryMapPage(
+                                      shipmentId: "${shipment['id']}",
+                                      initialLat: double.tryParse(
+                                          "${shipment['current_latitude'] ?? ''}"),
+                                      initialLng: double.tryParse(
+                                          "${shipment['current_longitude'] ?? ''}"),
+                                      pickupLat: double.tryParse(
+                                          "${shipment['pickup_latitude'] ?? ''}"),
+                                      pickupLng: double.tryParse(
+                                          "${shipment['pickup_longitude'] ?? ''}"),
+                                      dropoffLat: double.tryParse(
+                                          "${shipment['dropoff_latitude'] ?? ''}"),
+                                      dropoffLng: double.tryParse(
+                                          "${shipment['dropoff_longitude'] ?? ''}"),
+                                    ),
+                                  ),
+                                ),
+                              ),
                               title: Text("Expedition #${shipment['id']}"),
                               subtitle: Text(
                                 "${shipment['pickup_address'] ?? '-'} -> ${shipment['dropoff_address'] ?? '-'}\n"
@@ -490,7 +515,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
                               ),
                               isThreeLine: true,
                               trailing: IconButton(
-                                icon: const Icon(Icons.more_horiz),
+                                icon: const Icon(LucideIcons.moreHorizontal),
                                 onPressed: () => _openShipmentActions(shipment),
                               ),
                             ),
@@ -501,7 +526,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
               const SizedBox(height: 10),
               _WindowCard(
                 title: 'Devis emis',
-                icon: Icons.payments_outlined,
+                icon: LucideIcons.banknote,
                 body: _SimpleList(
                   items: payload.quotes.take(8).map((quote) {
                     return _SimpleItem(
@@ -515,12 +540,12 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
               const SizedBox(height: 10),
               _WindowCard(
                 title: 'Litiges',
-                icon: Icons.report_problem_outlined,
+                icon: LucideIcons.alertTriangle,
                 actions: [
                   TextButton.icon(
                     onPressed: () => Navigator.push(context,
                         MaterialPageRoute(builder: (_) => const ShipmentDisputesPage())),
-                    icon: const Icon(Icons.arrow_forward, size: 16),
+                    icon: const Icon(LucideIcons.arrowRight, size: 16),
                     label: const Text('Voir tout'),
                   ),
                 ],
@@ -554,25 +579,25 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
           onDestinationSelected: _onBottomNavTapped,
           destinations: const [
             NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
+                icon: Icon(LucideIcons.home),
+                selectedIcon: Icon(LucideIcons.home),
                 label: 'Accueil'),
             NavigationDestination(
-                icon: Icon(Icons.badge_outlined),
-                selectedIcon: Icon(Icons.badge),
+                icon: Icon(LucideIcons.badgeCheck),
+                selectedIcon: Icon(LucideIcons.badgeCheck),
                 label: 'Profil'),
             NavigationDestination(
-                icon: Icon(Icons.refresh_outlined),
-                selectedIcon: Icon(Icons.refresh),
+                icon: Icon(LucideIcons.refreshCw),
+                selectedIcon: Icon(LucideIcons.refreshCw),
                 label: 'Refresh'),
             NavigationDestination(
-              icon: Icon(Icons.local_shipping_outlined),
-              selectedIcon: Icon(Icons.local_shipping),
+              icon: Icon(LucideIcons.truck),
+              selectedIcon: Icon(LucideIcons.truck),
               label: 'Mission',
             ),
             NavigationDestination(
-              icon: Icon(Icons.gavel_outlined),
-              selectedIcon: Icon(Icons.gavel),
+              icon: Icon(LucideIcons.gavel),
+              selectedIcon: Icon(LucideIcons.gavel),
               label: 'Litiges',
             ),
           ],
@@ -597,7 +622,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
         shrinkWrap: true,
         children: [
           ListTile(
-            leading: const Icon(Icons.inventory_2_outlined, color: Colors.blue),
+            leading: const Icon(LucideIcons.package, color: Colors.blue),
             title: const Text('Logger evenement de garde'),
             onTap: () async {
               Navigator.pop(context);
@@ -611,7 +636,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.payments_outlined, color: Colors.green),
+            leading: const Icon(LucideIcons.banknote, color: Colors.green),
             title: const Text('Poster un devis'),
             onTap: () async {
               Navigator.pop(context);
@@ -619,7 +644,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.update_outlined, color: Colors.orange),
+            leading: const Icon(LucideIcons.refreshCw, color: Colors.orange),
             title: const Text('Mettre a jour statut'),
             onTap: () async {
               Navigator.pop(context);
@@ -627,7 +652,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.fact_check_outlined, color: Colors.teal),
+            leading: const Icon(LucideIcons.clipboardCheck, color: Colors.teal),
             title: const Text('Soumettre preuve de livraison'),
             onTap: () async {
               Navigator.pop(context);
@@ -635,7 +660,7 @@ class _TransitDashboardPageState extends State<TransitDashboardPage> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.gavel_outlined, color: Colors.red),
+            leading: const Icon(LucideIcons.gavel, color: Colors.red),
             title: const Text('Ouvrir un litige'),
             onTap: () async {
               Navigator.pop(context);
@@ -901,7 +926,7 @@ class _RoleMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Chip(
-      avatar: const Icon(Icons.verified_user_outlined, size: 16),
+      avatar: const Icon(LucideIcons.shieldCheck, size: 16),
       label: Text(session.role.name),
     );
   }
@@ -994,7 +1019,7 @@ class _SimpleList extends StatelessWidget {
               subtitle: Text(item.subtitle,
                   maxLines: 2, overflow: TextOverflow.ellipsis),
               trailing: item.onTap != null
-                  ? const Icon(Icons.chevron_right, size: 16)
+                  ? const Icon(LucideIcons.chevronRight, size: 16)
                   : null,
               onTap: item.onTap,
             ),

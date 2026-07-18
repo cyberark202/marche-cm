@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class PickupConfirmationPage extends StatefulWidget {
   final String shipmentId;
@@ -38,7 +39,9 @@ class _PickupConfirmationPageState extends State<PickupConfirmationPage> {
       // The status transition PICKED_UP is the canonical "pickup confirmed" event.
       final form = FormData.fromMap({
         'status': 'PICKED_UP',
-        'photo': await MultipartFile.fromFile(_photo!.path, filename: 'pickup.jpg'),
+        // MIME explicite : le backend refuse octet-stream (UP-001).
+        'photo': await MultipartFile.fromFile(_photo!.path,
+            filename: 'pickup.jpg', contentType: DioMediaType('image', 'jpeg')),
       });
       await DriverDioClient.dio.post(
           '/api/shipments/${widget.shipmentId}/update_status/', data: form);
@@ -64,7 +67,7 @@ class _PickupConfirmationPageState extends State<PickupConfirmationPage> {
       appBar: AppBar(
         title: const Text('Confirmer l\'enlèvement'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () => context.pop(),
         ),
       ),
@@ -81,7 +84,7 @@ class _PickupConfirmationPageState extends State<PickupConfirmationPage> {
                 border: Border.all(color: const Color(0xFFBBF7D0)),
               ),
               child: const Row(children: [
-                Icon(Icons.info_outline, color: Color(0xFF16A34A), size: 20),
+                Icon(LucideIcons.info, color: Color(0xFF16A34A), size: 20),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -102,7 +105,7 @@ class _PickupConfirmationPageState extends State<PickupConfirmationPage> {
                   border: Border.all(color: const Color(0xFFFCA5A5)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+                  const Icon(LucideIcons.alertCircle, size: 16, color: Color(0xFFDC2626)),
                   const SizedBox(width: 8),
                   Expanded(child: Text(_error!,
                       style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13))),
@@ -137,12 +140,12 @@ class _PickupConfirmationPageState extends State<PickupConfirmationPage> {
                           child: CircleAvatar(
                             radius: 14,
                             backgroundColor: DriverPalette.primary,
-                            child: Icon(Icons.check, color: Colors.white, size: 16),
+                            child: Icon(LucideIcons.check, color: Colors.white, size: 16),
                           ),
                         ),
                       ])
                     : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Icon(Icons.camera_alt_outlined, size: 40, color: DriverPalette.textMuted),
+                        Icon(LucideIcons.camera, size: 40, color: DriverPalette.textMuted),
                         SizedBox(height: 10),
                         Text('Photographier le colis',
                             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,

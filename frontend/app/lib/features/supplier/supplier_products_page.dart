@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +8,9 @@ import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../../core/backend_ui_config_service.dart';
+import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class SupplierProductsPage extends StatefulWidget {
   const SupplierProductsPage({super.key});
@@ -21,11 +25,10 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
   List<Map<String, dynamic>> _filtered = const [];
   bool _loading = true;
   String? _error;
-  int _defaultMinQty = 0;
   int _defaultMaxQty = 0;
-  int _defaultMinPrice = 0;
   int _defaultMaxPrice = 0;
   final TextEditingController _searchCtrl = TextEditingController();
+  StreamSubscription<Map<String, dynamic>>? _eventsSub;
 
   String? _safePlatformFilePath(PlatformFile file) {
     if (kIsWeb) {
@@ -48,10 +51,20 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
     _loadUiConfig();
     _load();
     _searchCtrl.addListener(_applySearch);
+    // Une activation/désactivation ou publication déclenchée depuis un autre
+    // écran (ex: page d'édition, vidéo) doit se refléter ici sans que le
+    // vendeur ait à quitter puis revenir sur l'onglet.
+    _eventsSub = RealtimeEventsService.instance.events.listen((event) {
+      if (!mounted) return;
+      if (RealtimeEventsService.instance.matchesTopic(event, 'products')) {
+        _load();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _eventsSub?.cancel();
     _searchCtrl.removeListener(_applySearch);
     _searchCtrl.dispose();
     super.dispose();
@@ -102,12 +115,8 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
       final config = await BackendUiConfigService.instance.load();
       if (!mounted) return;
       setState(() {
-        _defaultMinQty = BackendUiConfigService.instance
-            .readInt(config, ["defaults", "product_min_qty"]);
         _defaultMaxQty = BackendUiConfigService.instance
             .readInt(config, ["defaults", "product_max_qty"]);
-        _defaultMinPrice = BackendUiConfigService.instance
-            .readInt(config, ["defaults", "product_min_price"]);
         _defaultMaxPrice = BackendUiConfigService.instance
             .readInt(config, ["defaults", "product_max_price"]);
       });
@@ -119,11 +128,20 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
     final brand = TextEditingController();
     final category = TextEditingController();
     final description = TextEditingController();
-    final minQty = TextEditingController(text: _defaultMinQty.toString());
-    final maxQty = TextEditingController(text: _defaultMaxQty.toString());
-    final minPrice = TextEditingController(text: _defaultMinPrice.toString());
-    final maxPrice = TextEditingController(text: _defaultMaxPrice.toString());
+    // Forme « Vendeur » unifiée : quantité disponible + montant (prix unique).
+    final availableQty = TextEditingController(
+        text: (_defaultMaxQty > 0 ? _defaultMaxQty : 1).toString());
+    final unitPrice = TextEditingController(
+        text: (_defaultMaxPrice > 0 ? _defaultMaxPrice : 0).toString());
     final weightKg = TextEditingController(text: "1.000");
+    // Type d'annonce (docs 03/12) : service/numérique/emploi = sans logistique.
+    String listingType = "PHYSICAL";
+    const listingTypes = {
+      "PHYSICAL": "Produit physique",
+      "SERVICE": "Service",
+      "DIGITAL": "Produit numérique",
+      "JOB": "Offre d'emploi",
+    };
     // BUG-S1 — galerie multi-images (jusqu'a 10). La 1re image sert de vignette.
     final List<PlatformFile> galleryFiles = [];
     const int maxImages = 10;
@@ -136,6 +154,17 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
           content: SingleChildScrollView(
             child: Column(
               children: [
+                DropdownButtonFormField<String>(
+                  initialValue: listingType,
+                  decoration:
+                      const InputDecoration(labelText: "Type d'annonce"),
+                  items: listingTypes.entries
+                      .map((e) => DropdownMenuItem(
+                          value: e.key, child: Text(e.value)))
+                      .toList(),
+                  onChanged: (v) =>
+                      setDialogState(() => listingType = v ?? "PHYSICAL"),
+                ),
                 TextField(
                   controller: title,
                   decoration: const InputDecoration(labelText: "Titre"),
@@ -153,24 +182,16 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                   decoration: const InputDecoration(labelText: "Description"),
                 ),
                 TextField(
-                  controller: minQty,
+                  controller: availableQty,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Quantite min"),
+                  decoration: const InputDecoration(
+                      labelText: "Quantite disponible"),
                 ),
                 TextField(
-                  controller: maxQty,
+                  controller: unitPrice,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Quantite max"),
-                ),
-                TextField(
-                  controller: minPrice,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Prix min"),
-                ),
-                TextField(
-                  controller: maxPrice,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Prix max"),
+                  decoration: const InputDecoration(
+                      labelText: "Montant (prix unitaire, FCFA)"),
                 ),
                 TextField(
                   controller: weightKg,
@@ -207,7 +228,7 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                                     .addAll(usable.take(room < 0 ? 0 : room));
                               });
                             },
-                      icon: const Icon(Icons.image_outlined),
+                      icon: const Icon(LucideIcons.image),
                       label: const Text("Importer images"),
                     ),
                     const SizedBox(width: 8),
@@ -257,10 +278,9 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                   final parsedWeight = double.tryParse(
                     weightKg.text.trim().replaceAll(",", "."),
                   );
-                  final parsedMinQty = int.tryParse(minQty.text) ?? 1;
-                  final parsedMaxQty = int.tryParse(maxQty.text) ?? 10;
-                  final parsedMinPrice = double.tryParse(minPrice.text) ?? 0;
-                  final parsedMaxPrice = double.tryParse(maxPrice.text) ?? 0;
+                  final parsedAvailableQty = int.tryParse(availableQty.text) ?? 0;
+                  final parsedUnitPrice =
+                      double.tryParse(unitPrice.text.replaceAll(",", ".")) ?? 0;
                   if (title.text.trim().isEmpty ||
                       brand.text.trim().isEmpty ||
                       categoryName.isEmpty ||
@@ -270,15 +290,13 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                       "Titre, marque, categorie et poids (Kg > 0) sont obligatoires.",
                     );
                   }
-                  if (parsedMinQty > parsedMaxQty) {
+                  if (parsedAvailableQty <= 0) {
                     throw Exception(
-                      "Quantite invalide: la quantite min doit etre inferieure ou egale a la quantite max.",
+                      "La quantite disponible doit etre superieure a 0.",
                     );
                   }
-                  if (parsedMinPrice > parsedMaxPrice) {
-                    throw Exception(
-                      "Prix invalide: le prix min doit etre inferieur ou egal au prix max.",
-                    );
+                  if (parsedUnitPrice <= 0) {
+                    throw Exception("Le montant (prix) doit etre superieur a 0.");
                   }
                   await _api.sendMultipartFiles(
                     "/api/products/",
@@ -287,11 +305,10 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                       "brand": brand.text.trim(),
                       "category_name": categoryName,
                       "description": description.text.trim(),
-                      "min_order_qty": parsedMinQty.toString(),
-                      "max_order_qty": parsedMaxQty.toString(),
-                      "price_for_min_qty": parsedMinPrice.toString(),
-                      "price_for_max_qty": parsedMaxPrice.toString(),
+                      "available_qty": parsedAvailableQty.toString(),
+                      "unit_price": parsedUnitPrice.toString(),
                       "weight_kg": parsedWeight.toStringAsFixed(3),
+                      "listing_type": listingType,
                       "allows_group_campaign": "false",
                     },
                     token: token,
@@ -332,12 +349,12 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _load, icon: const Icon(LucideIcons.refreshCw)),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCreateProductDialog,
-        icon: const Icon(Icons.add_business),
+        icon: const Icon(LucideIcons.plusSquare),
         label: const Text("Ajouter un produit"),
       ),
       body: _loading
@@ -351,7 +368,7 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                     controller: _searchCtrl,
                     decoration: InputDecoration(
                       hintText: 'Chercher un produit...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
+                      prefixIcon: const Icon(LucideIcons.search, size: 20),
                       filled: true,
                       fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(
@@ -393,7 +410,7 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline,
+                          const Icon(LucideIcons.alertCircle,
                               color: AppPalette.danger, size: 18),
                           const SizedBox(width: 10),
                           Expanded(
@@ -418,7 +435,7 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.inventory_2_outlined,
+                                LucideIcons.package,
                                 size: 64,
                                 color: AppPalette.textMuted
                                     .withValues(alpha: 0.4),
@@ -487,7 +504,7 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                                           BorderRadius.circular(AppRadii.sm),
                                     ),
                                     child: const Icon(
-                                      Icons.inventory_2_outlined,
+                                      LucideIcons.package,
                                       color: AppPalette.primary,
                                       size: 22,
                                     ),

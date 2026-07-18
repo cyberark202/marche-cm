@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Verification bundle returned by a sensitive-action email OTP challenge.
 ///
@@ -102,7 +103,7 @@ Future<SensitiveActionVerification?> collectSensitiveActionCode(
                           if (ctx.mounted) setState(() => busy = false);
                         }
                       },
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(LucideIcons.refreshCw),
                 label: Text(busy ? 'Envoi...' : 'Renvoyer le code'),
               ),
             ),

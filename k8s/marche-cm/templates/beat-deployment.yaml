@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "marche-cm.fullname" . }}-beat
+  labels:
+    {{- include "marche-cm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: beat
+spec:
+  # Singleton STRICT : un seul scheduler beat, sinon tâches dupliquées.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "marche-cm.selector" (merge (dict "component" "beat") .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "marche-cm.labels" . | nindent 8 }}
+        app.kubernetes.io/component: beat
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "marche-cm.serviceAccountName" . }}
+      securityContext:
+        {{- include "marche-cm.podSecurityContext" . | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: beat
+          image: {{ include "marche-cm.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- include "marche-cm.containerSecurityContext" . | nindent 12 }}
+          args:
+            {{- toYaml .Values.beat.args | nindent 12 }}
+          envFrom:
+            {{- include "marche-cm.envFrom" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.beat.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

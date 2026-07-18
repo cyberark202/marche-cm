@@ -1,8 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
-/// Central Market — branded atoms ported faithfully from the authoritative
+/// Market CM — branded atoms ported faithfully from the authoritative
 /// design source (`central-market-ui-design/project/theme.jsx`).
 ///
 /// These complement the existing rich kit in `app_ui.dart` with the small
@@ -179,7 +181,7 @@ enum CmTone { primary, accent, cream, coral, sky }
 class CmImagePlaceholder extends StatelessWidget {
   const CmImagePlaceholder({
     super.key,
-    this.icon = Icons.inventory_2_outlined,
+    this.icon = LucideIcons.package,
     this.height = 120,
     this.radius = AppRadii.sm,
     this.tone = CmTone.primary,
@@ -206,11 +208,12 @@ class CmImagePlaceholder extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (imageUrl != null && imageUrl!.isNotEmpty)
-              Image.network(
-                imageUrl!,
+              CachedNetworkImage(
+                imageUrl: imageUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stack) =>
-                    _fallback(gradient, fg),
+                fadeInDuration: AppDurations.fast,
+                placeholder: (context, url) => _loading(gradient),
+                errorWidget: (context, url, error) => _fallback(gradient, fg),
               )
             else
               _fallback(gradient, fg),
@@ -243,6 +246,21 @@ class CmImagePlaceholder extends StatelessWidget {
           child: Icon(icon,
               size: (height * 0.4).clamp(18, 48).toDouble(),
               color: fg.withValues(alpha: 0.85)),
+        ),
+      );
+
+  /// Soft branded loading state while the network image streams in.
+  Widget _loading(LinearGradient gradient) => DecoratedBox(
+        decoration: BoxDecoration(gradient: gradient),
+        child: Center(
+          child: SizedBox(
+            width: (height * 0.22).clamp(16, 28).toDouble(),
+            height: (height * 0.22).clamp(16, 28).toDouble(),
+            child: const CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation(AppPalette.primary),
+            ),
+          ),
         ),
       );
 
@@ -311,7 +329,7 @@ class CmStars extends StatelessWidget {
       children: List.generate(5, (i) {
         final filled = (i + 1) <= rounded;
         return Icon(
-          filled ? Icons.star_rounded : Icons.star_outline_rounded,
+          LucideIcons.star,
           size: size,
           color: filled ? AppPalette.accent : AppPalette.bgDeep,
         );
@@ -350,7 +368,7 @@ class CmScreenHeader extends StatelessWidget {
         children: [
           if (onBack != null) ...[
             _HeaderIconBtn(
-              icon: Icons.arrow_back,
+              icon: LucideIcons.arrowLeft,
               onTap: onBack!,
               dark: dark,
             ),
@@ -442,7 +460,7 @@ class CmProductCard extends StatelessWidget {
     required this.price,
     this.currency = 'FCFA',
     this.tone = CmTone.primary,
-    this.icon = Icons.inventory_2_outlined,
+    this.icon = LucideIcons.package,
     this.imageUrl,
     this.badge,
     this.rating,
@@ -518,7 +536,7 @@ class CmProductCard extends StatelessWidget {
                 top: 8,
                 right: 8,
                 child: _RoundIconBtn(
-                  icon: Icons.favorite_border,
+                  icon: LucideIcons.heart,
                   onTap: onFavorite,
                 ),
               ),
@@ -532,7 +550,7 @@ class CmProductCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.check,
+                    const Icon(LucideIcons.check,
                         size: 11, color: AppPalette.primary),
                     const SizedBox(width: 3),
                     Expanded(
@@ -609,7 +627,7 @@ class CmProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    _SquareIconBtn(icon: Icons.add, onTap: onAdd),
+                    _SquareIconBtn(icon: LucideIcons.plus, onTap: onAdd),
                   ],
                 ),
               ],
@@ -671,7 +689,7 @@ class _SquareIconBtn extends StatelessWidget {
         child: const SizedBox(
           width: 30,
           height: 30,
-          child: Icon(Icons.add, size: 15, color: Colors.white),
+          child: Icon(LucideIcons.plus, size: 15, color: Colors.white),
         ),
       ),
     );
@@ -784,6 +802,70 @@ class CmBottomNav extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Helpers responsive partages.
+///
+/// L'app tourne aussi en web/tablette : sur les grands ecrans, un contenu
+/// etale sur toute la largeur est illisible. [CmResponsive.center] borne la
+/// largeur du contenu et le centre, sans effet sur mobile (largeur < [phoneMax]).
+/// Pattern de rollout : envelopper le `body` (ou le contenu scrollable) de
+/// chaque ecran et de chaque dialog avec `CmResponsive.center(child: ...)`.
+class CmResponsive {
+  CmResponsive._();
+
+  /// Au-dela de cette largeur on considere l'ecran "large" (tablette/desktop/web).
+  static const double phoneMax = 600;
+
+  /// Largeur de contenu maximale confortable a la lecture.
+  static const double contentMaxWidth = 720;
+
+  static bool isLargeScreen(BuildContext context) =>
+      MediaQuery.of(context).size.width >= phoneMax;
+
+  /// Centre [child] et borne sa largeur sur grand ecran. No-op sur mobile.
+  static Widget center({
+    required Widget child,
+    double maxWidth = contentMaxWidth,
+    AlignmentGeometry alignment = Alignment.topCenter,
+  }) {
+    return Align(
+      alignment: alignment,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    );
+  }
+
+  /// Largeur conseillee pour un AlertDialog/bottom sheet sur grand ecran.
+  static double dialogWidth(BuildContext context, {double max = 520}) {
+    final w = MediaQuery.of(context).size.width;
+    return w < max ? w : max;
+  }
+
+  /// Enveloppe globale a brancher sur `MaterialApp.builder` : centre et borne
+  /// TOUTE l'app (ecrans, routes poussees, dialogs) sur grand ecran web/desktop,
+  /// avec des gouttieres neutres. No-op sur mobile (largeur < [phoneMax]).
+  static Widget appWrap(
+    BuildContext context,
+    Widget? child, {
+    double maxWidth = 900,
+    Color background = const Color(0xFFE9ECF1),
+  }) {
+    final content = child ?? const SizedBox.shrink();
+    if (MediaQuery.of(context).size.width < phoneMax) return content;
+    return ColoredBox(
+      color: background,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: content,
         ),
       ),
     );

@@ -32,11 +32,11 @@ class SupplierProductContractTests(TestCase):
         self.client.force_authenticate(user=self.supplier)
 
     def _canonical(self, **over):
+        # Forme unifiée « Vendeur » : montant (unit_price) + quantité disponible.
         body = {
             "title": "Huile de palme", "description": "bidon 20L", "brand": "Tropical",
             "category_name": "Agroalimentaire", "weight_kg": "20",
-            "min_order_qty": 10, "max_order_qty": 100,
-            "price_for_min_qty": 5000, "price_for_max_qty": 4500, "is_active": True,
+            "available_qty": 100, "unit_price": 5000, "is_active": True,
         }
         body.update(over)
         return body
@@ -45,35 +45,31 @@ class SupplierProductContractTests(TestCase):
         r = self.client.post("/api/products/", self._canonical(), format="json")
         self.assertEqual(r.status_code, 201, r.content)
         p = Product.objects.get(id=r.data["id"])
-        self.assertEqual(p.min_order_qty, 10)
+        # Gammes internes dérivées du stock + prix unique (pas de dégressif).
+        self.assertEqual(p.min_order_qty, 1)
         self.assertEqual(p.max_order_qty, 100)
         self.assertEqual(p.price_for_min_qty, Decimal("5000.00"))
-        self.assertEqual(p.price_for_max_qty, Decimal("4500.00"))
+        self.assertEqual(p.price_for_max_qty, Decimal("5000.00"))
         self.assertEqual(p.category.name, "Agroalimentaire")
 
-    def test_legacy_aliases_are_accepted(self):
-        """Old app build: category (name string) + min_qty/max_qty."""
-        legacy = {
+    def test_category_alias_is_accepted(self):
+        """Ancien build : la clé `category` (nom) est acceptée comme alias."""
+        body = {
             "title": "Riz parfumé", "description": "sac 25kg", "brand": "Delice",
             "category": "Cereales", "weight_kg": "25",
-            "min_qty": 5, "max_qty": 50,
-            "price_for_min_qty": 18000, "price_for_max_qty": 17000,
+            "available_qty": 50, "unit_price": 18000,
         }
-        r = self.client.post("/api/products/", legacy, format="json")
+        r = self.client.post("/api/products/", body, format="json")
         self.assertEqual(r.status_code, 201, r.content)
         p = Product.objects.get(id=r.data["id"])
-        self.assertEqual(p.min_order_qty, 5)
         self.assertEqual(p.max_order_qty, 50)
         self.assertEqual(p.category.name, "Cereales")
 
-    def test_inverted_prices_rejected(self):
-        r = self.client.post(
-            "/api/products/",
-            self._canonical(price_for_min_qty=4000, price_for_max_qty=5000),
-            format="json",
-        )
+    def test_missing_unit_price_rejected(self):
+        body = self._canonical()
+        body.pop("unit_price")
+        r = self.client.post("/api/products/", body, format="json")
         self.assertEqual(r.status_code, 400, r.content)
-        self.assertIn("Prix incoherents", str(r.content, "utf-8"))
 
     def test_missing_category_rejected(self):
         body = self._canonical()
@@ -83,6 +79,6 @@ class SupplierProductContractTests(TestCase):
 
     def test_missing_qty_rejected(self):
         body = self._canonical()
-        body.pop("min_order_qty")
+        body.pop("available_qty")
         r = self.client.post("/api/products/", body, format="json")
         self.assertEqual(r.status_code, 400, r.content)

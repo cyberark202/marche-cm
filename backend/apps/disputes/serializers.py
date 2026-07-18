@@ -1,4 +1,6 @@
 from rest_framework import serializers
+
+from core.text_sanitize import redact_links
 from .models import DisputeCase, DisputeEvent, DisputeEvidence, DisputeDecision
 
 
@@ -55,6 +57,14 @@ class OpenDisputeSerializer(serializers.Serializer):
     description = serializers.CharField()
     accused_party_id = serializers.IntegerField(required=False, allow_null=True)
     escrow_hold_id = serializers.UUIDField(required=False, allow_null=True)
+
+    # Anti-désintermédiation : neutraliser liens/e-mails dans les champs libres
+    # d'un litige ouvert par un utilisateur.
+    def validate_title(self, value):
+        return redact_links(value)
+
+    def validate_description(self, value):
+        return redact_links(value)
 
 
 class MakeDecisionSerializer(serializers.Serializer):

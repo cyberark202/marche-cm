@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Envoyer un devis — driver bid sur une mission (PDF 25).
 class QuoteSendPage extends ConsumerStatefulWidget {
@@ -190,7 +191,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                           child: _VehicleCard(
                               label: "Moto",
                               hint: "< 50 kg",
-                              icon: Icons.two_wheeler,
+                              icon: LucideIcons.bike,
                               code: "MOTO",
                               selected: _vehicle == "MOTO",
                               onTap: () =>
@@ -200,7 +201,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                           child: _VehicleCard(
                               label: "Hiace",
                               hint: "< 3 T",
-                              icon: Icons.airport_shuttle,
+                              icon: LucideIcons.bus,
                               code: "VAN",
                               selected: _vehicle == "VAN",
                               onTap: () =>
@@ -210,7 +211,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                           child: _VehicleCard(
                               label: "Camion",
                               hint: "lourd",
-                              icon: Icons.local_shipping,
+                              icon: LucideIcons.truck,
                               code: "TRUCK",
                               selected: _vehicle == "TRUCK",
                               onTap: () =>
@@ -283,7 +284,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.show_chart,
+                                const Icon(LucideIcons.lineChart,
                                     size: 13, color: T.primaryDark),
                                 const SizedBox(width: 4),
                                 Text(
@@ -313,7 +314,7 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.schedule,
+                        const Icon(LucideIcons.clock,
                             size: 18, color: T.primary),
                         const SizedBox(width: 10),
                         Expanded(
@@ -347,21 +348,21 @@ class _QuoteSendPageState extends ConsumerState<QuoteSendPage> {
                   _OptionTile(
                     title: "Assurance incluse",
                     subtitle: "Couvre la valeur marchandise",
-                    icon: Icons.shield_outlined,
+                    icon: LucideIcons.shield,
                     value: _insurance,
                     onChanged: (v) => setState(() => _insurance = v),
                   ),
                   _OptionTile(
                     title: "Manutention chargement",
                     subtitle: "Aide à la mise en charge",
-                    icon: Icons.handshake_outlined,
+                    icon: LucideIcons.heartHandshake,
                     value: _handling,
                     onChanged: (v) => setState(() => _handling = v),
                   ),
                   _OptionTile(
                     title: "Livraison express +50 %",
                     subtitle: "Garantie en 2 jours",
-                    icon: Icons.bolt_outlined,
+                    icon: LucideIcons.zap,
                     value: _express,
                     onChanged: (v) => setState(() => _express = v),
                   ),
@@ -409,7 +410,7 @@ class _Header extends StatelessWidget {
             children: [
               IconButton(
                   onPressed: onBack,
-                  icon: const Icon(Icons.arrow_back, color: Colors.white)),
+                  icon: const Icon(LucideIcons.arrowLeft, color: Colors.white)),
               const Expanded(
                 child: Text("Envoyer un devis",
                     style: TextStyle(
@@ -616,7 +617,7 @@ class _Footer extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.send, size: 18),
+                : const Icon(LucideIcons.send, size: 18),
             label: Text(
               busy
                   ? "Envoi..."

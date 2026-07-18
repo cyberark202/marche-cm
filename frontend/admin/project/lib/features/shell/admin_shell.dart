@@ -8,6 +8,7 @@ import '../disputes/disputes_page.dart';
 import '../profile/admin_profile_page.dart';
 import '../users/users_page.dart';
 import '../wallet/reconciliation_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Bottom-nav host matching catalogue screen 32 footer:
 /// Accueil · Comptes · Litiges · Wallet · Profil.
@@ -42,17 +43,22 @@ class _AdminShellState extends State<AdminShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
+      body: Column(
+        children: [
+          const CmOfflineBanner(),
+          Expanded(child: IndexedStack(index: _index, children: _pages)),
+        ],
+      ),
       bottomNavigationBar: CmBottomNav(
         currentIndex: _index,
         onSelect: _goTo,
         items: const [
-          CmNavItem(icon: Icons.dashboard_outlined, label: 'Accueil'),
-          CmNavItem(icon: Icons.group_outlined, label: 'Comptes'),
-          CmNavItem(icon: Icons.gavel_outlined, label: 'Litiges'),
+          CmNavItem(icon: LucideIcons.layoutDashboard, label: 'Accueil'),
+          CmNavItem(icon: LucideIcons.users, label: 'Comptes'),
+          CmNavItem(icon: LucideIcons.gavel, label: 'Litiges'),
           CmNavItem(
-              icon: Icons.account_balance_wallet_outlined, label: 'Wallet'),
-          CmNavItem(icon: Icons.person_outline, label: 'Profil'),
+              icon: LucideIcons.wallet, label: 'Wallet'),
+          CmNavItem(icon: LucideIcons.user, label: 'Profil'),
         ],
       ),
     );

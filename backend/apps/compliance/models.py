@@ -25,7 +25,8 @@ class KYCStatus(models.TextChoices):
 class KYCLevel(models.IntegerChoices):
     NONE = 0, "Aucun"
     BASIC = 1, "KYC Basique (ID)"
-    ADVANCED = 2, "KYC Avancé (Business)"
+    ADVANCED = 2, "KYC Avancé (Location / renforcé)"
+    PROFESSIONAL = 3, "Compte Professionnel (RCCM/NIU)"
 
 
 class KYCApplication(models.Model):
@@ -89,6 +90,11 @@ class KYCDocument(models.Model):
     mime_type = models.CharField(max_length=60, blank=True)
     ocr_extracted = models.JSONField(default=dict, blank=True)
     is_verified = models.BooleanField(default=False)
+    # Date d'expiration du document (doc 06) : CNI/passeport/permis ont une
+    # validité limitée. Un document expiré suspend les fonctionnalités sensibles
+    # jusqu'à mise à jour du dossier ; l'utilisateur est averti 30 jours avant.
+    expiry_date = models.DateField(null=True, blank=True, db_index=True)
+    expiry_warning_sent_at = models.DateTimeField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

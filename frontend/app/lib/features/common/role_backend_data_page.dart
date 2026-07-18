@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class RoleBackendDataPage extends StatefulWidget {
   const RoleBackendDataPage({super.key});
@@ -159,7 +160,7 @@ class _RoleBackendDataPageState extends State<RoleBackendDataPage> {
       appBar: AppBar(
         title: Text("Donnees backend (${role.name})"),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _load, icon: const Icon(LucideIcons.refreshCw)),
         ],
       ),
       body: _loading
@@ -179,7 +180,7 @@ class _RoleBackendDataPageState extends State<RoleBackendDataPage> {
                         ),
                         isThreeLine: true,
                         trailing: Icon(
-                          r.success ? Icons.check_circle : Icons.error_outline,
+                          r.success ? LucideIcons.checkCircle2 : LucideIcons.alertCircle,
                           color: r.success ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
                         ),
                       ),

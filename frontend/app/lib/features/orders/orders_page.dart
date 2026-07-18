@@ -10,6 +10,7 @@ import '../../core/backend_ui_config_service.dart';
 import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
 import 'sales_summary_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -312,10 +313,10 @@ class _OrdersPageState extends State<OrdersPage> {
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SalesSummaryPage()),
             ),
-            icon: const Icon(Icons.bar_chart_outlined),
+            icon: const Icon(LucideIcons.barChart3),
             tooltip: "Montants des ventes",
           ),
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _load, icon: const Icon(LucideIcons.refreshCw)),
         ],
       ),
       body: AppPageBackground(
@@ -328,7 +329,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 title: "Commandes de $username",
                 subtitle:
                     "Consultez le statut de chaque commande et validez la reception.",
-                trailing: const Icon(Icons.receipt_long_outlined),
+                trailing: const Icon(LucideIcons.receipt),
               ),
               const SizedBox(height: 8),
               Row(
@@ -337,7 +338,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: AppMetricTile(
                       label: "Total",
                       value: "${_orders.length}",
-                      icon: Icons.inventory_2_outlined,
+                      icon: LucideIcons.package,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -345,7 +346,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: AppMetricTile(
                       label: "En cours",
                       value: "$inProgressCount",
-                      icon: Icons.local_shipping_outlined,
+                      icon: LucideIcons.truck,
                       tint: AppPalette.warning,
                     ),
                   ),
@@ -354,7 +355,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: AppMetricTile(
                       label: "Finalisees",
                       value: "$completedCount",
-                      icon: Icons.verified_outlined,
+                      icon: LucideIcons.badgeCheck,
                       tint: AppPalette.success,
                     ),
                   ),

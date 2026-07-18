@@ -99,6 +99,8 @@ class VelocityChecker:
             cache.set(key, new, timeout=ttl_seconds)
             return new
         except Exception:
+            # Cache HS = compteurs de velocite aveugles : signal securite majeur.
+            logger.exception("fraud_velocity_cache_unavailable key=%s", key)
             return 0
 
     @classmethod
@@ -124,6 +126,7 @@ class VelocityChecker:
             cache.set(amt_day_key, new_cents, timeout=86400)
             result["user_amount_24h_cents"] = new_cents
         except Exception:
+            logger.exception("fraud_velocity_cache_unavailable key=%s", amt_day_key)
             result["user_amount_24h_cents"] = 0
 
         # Per-IP: transaction count per hour
@@ -144,7 +147,7 @@ class VelocityChecker:
             if ip:
                 result["ip_tx_count_1h"] = int(cache.get(cls._key("ip_tx_count", ip, "1h"), 0))
         except Exception:
-            pass
+            logger.exception("fraud_velocity_cache_unavailable user=%s", uid)
         return result
 
 

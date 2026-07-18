@@ -1,7 +1,7 @@
 from rest_framework import decorators, permissions, response, status, viewsets
 
-from .models import Notification
-from .serializers import NotificationSerializer
+from .models import Notification, NotificationCategory, NotificationPreference
+from .serializers import NotificationPreferenceSerializer, NotificationSerializer
 
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
@@ -10,7 +10,22 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Notification.objects.all()
 
     def get_queryset(self):
-        return self.queryset.filter(user=self.request.user).order_by("-created_at")
+        qs = self.queryset.filter(user=self.request.user).order_by("-created_at")
+        category = self.request.query_params.get("category", "").upper()
+        if category in NotificationCategory.values:
+            qs = qs.filter(category=category)
+        if self.request.query_params.get("unread") == "1":
+            qs = qs.filter(is_read=False)
+        return qs
+
+    @decorators.action(detail=False, methods=["get", "put", "patch"], url_path="preferences")
+    def preferences(self, request):
+        prefs, _ = NotificationPreference.objects.get_or_create(user=request.user)
+        if request.method in {"PUT", "PATCH"}:
+            serializer = NotificationPreferenceSerializer(prefs, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+        return response.Response(NotificationPreferenceSerializer(prefs).data)
 
     @decorators.action(detail=True, methods=["post"])
     def mark_read(self, request, pk=None):

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import '../../../features/auth/application/auth_notifier.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     Positioned(
                       right: -30,
                       bottom: -40,
-                      child: Icon(Icons.local_shipping,
+                      child: Icon(LucideIcons.truck,
                           size: 160,
                           color: Colors.white.withValues(alpha: 0.08)),
                     ),
@@ -126,7 +127,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                 ),
                               ),
                               _IconBtn(
-                                icon: Icons.notifications_outlined,
+                                icon: LucideIcons.bell,
                                 light: true,
                                 onTap: () {},
                               ),
@@ -292,7 +293,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   childAspectRatio: 1.5,
                   children: [
                     _KpiCard(
-                      icon: Icons.balance,
+                      icon: LucideIcons.scale,
                       tone: 'warn',
                       value: '12',
                       label: 'Devis ouverts',
@@ -301,7 +302,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       onAction: () => context.go('/missions'),
                     ),
                     _KpiCard(
-                      icon: Icons.local_shipping,
+                      icon: LucideIcons.truck,
                       tone: 'info',
                       value: '2',
                       label: 'En cours',
@@ -310,14 +311,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       onAction: () => context.go('/active'),
                     ),
                     const _KpiCard(
-                      icon: Icons.inventory_2_outlined,
+                      icon: LucideIcons.package,
                       tone: 'success',
                       value: '148',
                       label: 'Livrées',
                       sub: 'ce mois',
                     ),
                     const _KpiCard(
-                      icon: Icons.emoji_events_outlined,
+                      icon: LucideIcons.trophy,
                       tone: 'coral',
                       value: '98 %',
                       label: "À l'heure",
@@ -675,7 +676,7 @@ class _BidCard extends StatelessWidget {
               Text(from, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: T.ink)),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(Icons.arrow_forward, size: 14, color: T.ink3),
+                child: Icon(LucideIcons.arrowRight, size: 14, color: T.ink3),
               ),
               Container(width: 8, height: 8, decoration: const BoxDecoration(color: T.accent, shape: BoxShape.circle)),
               const SizedBox(width: 6),
@@ -691,7 +692,7 @@ class _BidCard extends StatelessWidget {
                   color: T.surface2,
                   borderRadius: BorderRadius.circular(8)),
               child: Row(children: [
-                const Icon(Icons.inventory_2_outlined, size: 12, color: T.ink3),
+                const Icon(LucideIcons.package, size: 12, color: T.ink3),
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text('$kind · ',
@@ -754,7 +755,7 @@ class _CourseCard extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: pillBg, borderRadius: BorderRadius.circular(999)),
                 child: Row(children: [
-                  Icon(Icons.local_shipping, size: 10, color: pillFg),
+                  Icon(LucideIcons.truck, size: 10, color: pillFg),
                   const SizedBox(width: 4),
                   Text(step,
                       style: TextStyle(
@@ -791,7 +792,7 @@ class _CourseCard extends StatelessWidget {
                         width: 22, height: 22,
                         decoration: const BoxDecoration(
                             color: T.accent, shape: BoxShape.circle),
-                        child: const Icon(Icons.local_shipping,
+                        child: const Icon(LucideIcons.truck,
                             size: 12, color: Color(0xFF1a0f00)),
                       ),
                     ),

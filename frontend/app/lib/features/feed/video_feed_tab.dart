@@ -1,19 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_service.dart';
 import '../../core/app_config.dart';
 import '../../core/app_theme.dart';
+import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
-import '../feed/feed_models.dart';
 import '../feed/video_comments_page.dart';
 import '../feed/video_post_player.dart';
 import '../feed/video_publish_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class VideoFeedTab extends StatefulWidget {
-  const VideoFeedTab({super.key});
+  const VideoFeedTab({super.key, this.active = false});
+
+  /// `true` uniquement quand l'onglet Vidéos est celui affiché par le shell.
+  /// Tant qu'il est `false`, on ne charge NI le feed NI aucune vidéo : le
+  /// réseau/lecteur ne démarre qu'à la première entrée dans l'écran.
+  final bool active;
 
   @override
   State<VideoFeedTab> createState() => _VideoFeedTabState();
@@ -25,17 +34,42 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
 
   List<Map<String, dynamic>> _posts = const [];
   bool _loading = true;
+  String? _error;
+  // Vrai dès la première activation de l'onglet : rien ne se charge avant.
+  bool _loadStarted = false;
   int _currentIndex = 0;
+  // Vue comptée une seule fois par vidéo et par session de feed.
+  final Set<int> _viewedIds = {};
+  StreamSubscription<Map<String, dynamic>>? _eventsSub;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.active) _load();
     _pageController.addListener(_onPageChange);
+    // Nouvelle vidéo publiée par un autre vendeur : ne rafraîchir en direct
+    // que si l'utilisateur est encore sur la 1re vidéo, pour ne jamais
+    // couper une lecture en cours plus bas dans le feed.
+    _eventsSub = RealtimeEventsService.instance.events.listen((event) {
+      if (!mounted || !_loadStarted) return;
+      if (RealtimeEventsService.instance.matchesTopic(event, 'products') &&
+          _currentIndex == 0) {
+        _load();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant VideoFeedTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !_loadStarted) {
+      _load();
+    }
   }
 
   @override
   void dispose() {
+    _eventsSub?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -44,39 +78,51 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
     final page = _pageController.page?.round() ?? 0;
     if (page != _currentIndex) {
       setState(() => _currentIndex = page);
+      if (page >= 0 && page < _posts.length) _trackView(_posts[page]);
     }
+  }
+
+  /// Comptage de vue serveur (déduplication par session ; alimente aussi les
+  /// recommandations).
+  void _trackView(Map<String, dynamic> post) {
+    final id = post['id'];
+    final productId = id is int ? id : int.tryParse('$id');
+    if (productId == null || !_viewedIds.add(productId)) return;
+    final token = context.read<SessionStore>().token;
+    _api
+        .post('/api/products/track-view/', {'product_id': productId},
+            token: token)
+        .catchError((_) => <String, dynamic>{});
   }
 
   Future<void> _load() async {
     if (!mounted) return;
-    setState(() => _loading = true);
+    setState(() {
+      _loadStarted = true;
+      _loading = _posts.isEmpty;
+      _error = null;
+    });
     final token = context.read<SessionStore>().token;
     try {
-      // Try the feed endpoint first; fallback to products with video
-      List<Map<String, dynamic>> rows = const [];
-      try {
-        rows = await _api.getList(
-          '/api/products/?has_video=true&page_size=20',
-          token: token,
-        );
-      } catch (_) {
-        rows = await _api.getList(
-          '/api/products/?page_size=20',
-          token: token,
-        );
-      }
+      // Le filtre ?has_video=true est appliqué côté serveur (les produits sans
+      // vidéo n'entrent jamais dans le feed).
+      final rows = await _api.getList(
+        '/api/products/?has_video=true',
+        token: token,
+      );
       if (!mounted) return;
-      // Keep only posts that have a video URL
-      final withVideo = rows
-          .where((r) =>
-              (r['video_url'] ?? r['video'] ?? '').toString().isNotEmpty)
-          .toList();
       setState(() {
-        _posts = withVideo.isNotEmpty ? withVideo : rows;
+        _posts = rows;
         _loading = false;
       });
+      if (rows.isNotEmpty) _trackView(rows.first);
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Impossible de charger les vidéos.';
+        });
+      }
     }
   }
 
@@ -111,7 +157,7 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.add_rounded,
+                  LucideIcons.plus,
                   color: Colors.white,
                   size: 20,
                 ),
@@ -120,29 +166,43 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
             const SizedBox(width: 8),
           ],
         ),
-        body: _loading
+        body: !_loadStarted
+            ? const SizedBox.shrink()
+            : _loading
             ? const _LoadingView()
-            : _posts.isEmpty
-                ? _EmptyFeedView(onPublish: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const VideoPublishPage()),
-                    );
-                  })
-                : PageView.builder(
-                    controller: _pageController,
-                    scrollDirection: Axis.vertical,
-                    itemCount: _posts.length,
-                    itemBuilder: (context, index) {
-                      return _VideoPage(
-                        post: _posts[index],
-                        isActive: index == _currentIndex,
-                        pageIndex: index,
-                        totalPages: _posts.length,
-                      );
-                    },
-                  ),
+            : _error != null
+                ? _ErrorView(message: _error!, onRetry: _load)
+                : _posts.isEmpty
+                    ? _EmptyFeedView(onPublish: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const VideoPublishPage()),
+                        );
+                      })
+                    : RefreshIndicator(
+                        onRefresh: _load,
+                        edgeOffset: 90,
+                        child: PageView.builder(
+                          controller: _pageController,
+                          scrollDirection: Axis.vertical,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: _posts.length,
+                          itemBuilder: (context, index) {
+                            return _VideoPage(
+                              post: _posts[index],
+                              // Préchargement TikTok : la page active joue, les
+                              // voisines (±1) initialisent leur player en pause.
+                              mountPlayer:
+                                  (index - _currentIndex).abs() <= 1,
+                              isActive:
+                                  widget.active && index == _currentIndex,
+                              pageIndex: index,
+                              totalPages: _posts.length,
+                            );
+                          },
+                        ),
+                      ),
       ),
     );
   }
@@ -150,40 +210,96 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
 
 // ─── Individual Video Page ────────────────────────────────────────────────────
 
-class _VideoPage extends StatelessWidget {
+class _VideoPage extends StatefulWidget {
   const _VideoPage({
     required this.post,
+    required this.mountPlayer,
     required this.isActive,
     required this.pageIndex,
     required this.totalPages,
   });
 
   final Map<String, dynamic> post;
+  final bool mountPlayer;
   final bool isActive;
   final int pageIndex;
   final int totalPages;
 
   @override
+  State<_VideoPage> createState() => _VideoPageState();
+}
+
+class _VideoPageState extends State<_VideoPage> {
+  // Cle vers l'ActionBar pour declencher le like au double-tap sur la video.
+  final GlobalKey<_ActionBarState> _actionBarKey = GlobalKey<_ActionBarState>();
+  // Coeur anime du double-tap like.
+  bool _showHeart = false;
+  Timer? _heartTimer;
+
+  @override
+  void dispose() {
+    _heartTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onDoubleTap() {
+    _actionBarKey.currentState?.likeViaDoubleTap();
+    _heartTimer?.cancel();
+    setState(() => _showHeart = true);
+    _heartTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) setState(() => _showHeart = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final post = widget.post;
+    final isActive = widget.isActive;
+    final pageIndex = widget.pageIndex;
+    final totalPages = widget.totalPages;
     final videoUrl = (post['video_url'] ?? post['video'] ?? '').toString();
-    final coverUrl = (post['image'] ?? '').toString();
+    final poster = (post['video_poster'] ?? '').toString();
+    final coverUrl =
+        poster.isNotEmpty ? poster : (post['image'] ?? '').toString();
     final title = (post['title'] ?? post['name'] ?? '').toString();
     final description = (post['description'] ?? '').toString();
     final supplier = (post['seller_username'] ?? '').toString();
     final price = (post['price_for_min_qty'] ?? '').toString();
     final isVerified = post['seller_is_verified'] == true;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Video / cover background
-        if (videoUrl.isNotEmpty && isActive)
+    return GestureDetector(
+      // Double-tap n'importe ou sur la video -> like (facon TikTok).
+      onDoubleTap: _onDoubleTap,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+        // Video / cover background. Le player est monté pour la page active ET
+        // ses voisines (préchargement ±1, en pause) ; au-delà, cover statique.
+        if (videoUrl.isNotEmpty && widget.mountPlayer)
           VideoPostPlayer(
             videoUrl: _fullUrl(videoUrl),
             coverUrl: coverUrl.isNotEmpty ? _fullUrl(coverUrl) : '',
+            isActive: isActive,
           )
         else
           _CoverBackground(imageUrl: coverUrl),
+
+        // Coeur du double-tap like.
+        IgnorePointer(
+          child: Center(
+            child: AnimatedScale(
+              scale: _showHeart ? 1.0 : 0.4,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutBack,
+              child: AnimatedOpacity(
+                opacity: _showHeart ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: const Icon(Icons.favorite,
+                    color: Color(0xFFFF3B5C), size: 110),
+              ),
+            ),
+          ),
+        ),
 
         // Gradient overlay bottom
         Positioned.fill(
@@ -208,7 +324,7 @@ class _VideoPage extends StatelessWidget {
         Positioned(
           right: 12,
           bottom: 120,
-          child: _ActionBar(post: post),
+          child: _ActionBar(key: _actionBarKey, post: post),
         ),
 
         // Bottom info
@@ -234,7 +350,8 @@ class _VideoPage extends StatelessWidget {
             total: totalPages,
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -254,7 +371,7 @@ class _CoverBackground extends StatelessWidget {
       return Container(
         color: const Color(0xFF0F172A),
         child: const Center(
-          child: Icon(Icons.play_circle_outline_rounded,
+          child: Icon(LucideIcons.playCircle,
               color: Colors.white38, size: 72),
         ),
       );
@@ -272,7 +389,7 @@ class _CoverBackground extends StatelessWidget {
       errorWidget: (_, __, ___) => Container(
         color: const Color(0xFF0F172A),
         child: const Center(
-          child: Icon(Icons.broken_image_outlined,
+          child: Icon(LucideIcons.imageOff,
               color: Colors.white38, size: 64),
         ),
       ),
@@ -281,7 +398,7 @@ class _CoverBackground extends StatelessWidget {
 }
 
 class _ActionBar extends StatefulWidget {
-  const _ActionBar({required this.post});
+  const _ActionBar({super.key, required this.post});
   final Map<String, dynamic> post;
 
   @override
@@ -293,13 +410,27 @@ class _ActionBarState extends State<_ActionBar> {
   bool _liked = false;
   int _likes = 0;
   bool _likeLoading = false;
+  int _comments = 0;
+  int _views = 0;
+  bool _bookmarked = false;
+  bool _bookmarkLoading = false;
+  bool _following = false;
+  bool _followLoading = false;
+
+  int _toInt(dynamic raw) => raw is int ? raw : int.tryParse('$raw') ?? 0;
 
   @override
   void initState() {
     super.initState();
-    final raw = widget.post['likes_count'] ?? widget.post['likes'] ?? 0;
-    _likes = raw is int ? raw : int.tryParse('$raw') ?? 0;
-    _liked = widget.post['is_liked_by_me'] == true;
+    // Hydratation depuis les annotations serveur du feed : compteurs réels et
+    // états « déjà liké / abonné / favori » persistants entre sessions.
+    _likes = _toInt(widget.post['video_likes_count'] ?? widget.post['likes_count'] ?? 0);
+    _liked = widget.post['is_video_liked'] == true ||
+        widget.post['is_liked_by_me'] == true;
+    _comments = _toInt(widget.post['video_comments_count'] ?? 0);
+    _views = _toInt(widget.post['video_views_count'] ?? 0);
+    _bookmarked = widget.post['is_favorited'] == true;
+    _following = widget.post['is_following_seller'] == true;
   }
 
   Future<void> _toggleLike() async {
@@ -338,31 +469,100 @@ class _ActionBarState extends State<_ActionBar> {
     }
   }
 
-  void _openComments(BuildContext context) {
+  /// Double-tap sur la video : like (jamais unlike), facon TikTok.
+  void likeViaDoubleTap() {
+    if (!_liked) _toggleLike();
+  }
+
+  Future<void> _toggleBookmark() async {
+    if (_bookmarkLoading) return;
+    final id = widget.post['id'];
+    if (id == null) return;
+    setState(() {
+      _bookmarkLoading = true;
+      _bookmarked = !_bookmarked;
+    });
+    try {
+      final token = context.read<SessionStore>().token;
+      final result = await _api.post(
+        '/api/product-favorites/toggle/',
+        {'product_id': id},
+        token: token,
+      );
+      if (!mounted) return;
+      setState(() => _bookmarked = result['favorited'] == true);
+    } catch (_) {
+      if (mounted) setState(() => _bookmarked = !_bookmarked);
+    } finally {
+      if (mounted) setState(() => _bookmarkLoading = false);
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_followLoading) return;
+    final id = widget.post['id'];
+    if (id == null) return;
+    setState(() {
+      _followLoading = true;
+      _following = !_following;
+    });
+    try {
+      final token = context.read<SessionStore>().token;
+      final result = await _api.post(
+        '/api/seller-follows/toggle/',
+        {'product_id': id},
+        token: token,
+      );
+      if (!mounted) return;
+      setState(() => _following = result['following'] == true);
+    } catch (_) {
+      if (mounted) setState(() => _following = !_following);
+    } finally {
+      if (mounted) setState(() => _followLoading = false);
+    }
+  }
+
+  /// Partage WhatsApp (canal dominant au Cameroun) avec repli presse-papier —
+  /// même pattern que le partage produit de l'app Clients.
+  Future<void> _share() async {
+    final title = (widget.post['title'] ?? widget.post['name'] ?? 'Produit').toString();
+    final ref = (widget.post['reference_code'] ?? '').toString();
+    final link =
+        '${AppConfig.apiBaseUrl}/produits/${ref.isNotEmpty ? ref : widget.post['id']}';
+    final message = '$title sur Market CM\n$link';
+    await Clipboard.setData(ClipboardData(text: message));
+    var launched = false;
+    try {
+      launched = await launchUrl(
+        Uri.parse('https://wa.me/?text=${Uri.encodeComponent(message)}'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      launched = false;
+    }
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lien copié dans le presse-papiers')),
+      );
+    }
+  }
+
+  /// Commentaires en bottom sheet (la vidéo continue derrière, façon TikTok).
+  Future<void> _openComments(BuildContext context) async {
     final id = widget.post['id'];
     final productId = id is int ? id : int.tryParse('$id') ?? 0;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => VideoCommentsPage(
-          video: VideoPostData(
-            id: productId,
-            coverUrl: (widget.post['image'] ?? '').toString(),
-            publisherName: (widget.post['seller_username'] ?? '').toString(),
-            publisherAvatar: '',
-            description: (widget.post['description'] ?? '').toString(),
-            likes: _likes,
-            comments: const [],
-            sellerId: () {
-              final s = widget.post['seller'] ?? widget.post['supplier_id'] ?? 0;
-              return s is int ? s : int.tryParse('$s') ?? 0;
-            }(),
-            videoUrl: (widget.post['video_url'] ?? widget.post['video'] ?? '')
-                .toString(),
-          ),
-        ),
+    final newCount = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => VideoCommentsSheet(
+        productId: productId,
+        initialCount: _comments,
       ),
     );
+    if (newCount != null && mounted) {
+      setState(() => _comments = newCount);
+    }
   }
 
   @override
@@ -371,34 +571,60 @@ class _ActionBarState extends State<_ActionBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _ActionItem(
-          icon: _liked
-              ? Icons.favorite_rounded
-              : Icons.favorite_border_rounded,
+          icon: LucideIcons.heart,
           label: _likes > 0 ? '$_likes' : '',
           color: _liked ? Colors.red : Colors.white,
           onTap: _toggleLike,
         ),
         const SizedBox(height: 18),
         _ActionItem(
-          icon: Icons.chat_bubble_outline_rounded,
-          label: '',
+          icon: LucideIcons.messageCircle,
+          label: _comments > 0 ? '$_comments' : '',
           color: Colors.white,
           onTap: () => _openComments(context),
         ),
         const SizedBox(height: 18),
         _ActionItem(
-          icon: Icons.share_rounded,
+          icon: LucideIcons.share2,
           label: '',
           color: Colors.white,
-          onTap: () {},
+          onTap: _share,
         ),
         const SizedBox(height: 18),
         _ActionItem(
-          icon: Icons.bookmark_border_rounded,
+          icon: LucideIcons.bookmark,
           label: '',
-          color: Colors.white,
-          onTap: () {},
+          color: _bookmarked ? AppPalette.primary : Colors.white,
+          onTap: _toggleBookmark,
         ),
+        const SizedBox(height: 18),
+        _ActionItem(
+          icon: _following
+              ? LucideIcons.user
+              : LucideIcons.userPlus,
+          label: _following ? 'Abonne' : 'Suivre',
+          color: _following ? AppPalette.primary : Colors.white,
+          onTap: _toggleFollow,
+        ),
+        if (_views > 0) ...[
+          const SizedBox(height: 18),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.eye, color: Colors.white70, size: 22),
+              const SizedBox(height: 2),
+              Text(
+                '$_views',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  shadows: [Shadow(blurRadius: 4, color: Colors.black45)],
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -480,7 +706,7 @@ class _PostInfo extends StatelessWidget {
               ),
               if (isVerified) ...[
                 const SizedBox(width: 4),
-                const Icon(Icons.verified_rounded,
+                const Icon(LucideIcons.badgeCheck,
                     color: Colors.lightBlueAccent, size: 14),
               ],
             ],
@@ -586,6 +812,37 @@ class _LoadingView extends StatelessWidget {
   }
 }
 
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(LucideIcons.alertCircle, color: Colors.white54, size: 48),
+          const SizedBox(height: 12),
+          Text(message,
+              style: const TextStyle(color: Colors.white70),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: onRetry,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppPalette.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Réessayer'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyFeedView extends StatelessWidget {
   const _EmptyFeedView({required this.onPublish});
   final VoidCallback onPublish;
@@ -605,7 +862,7 @@ class _EmptyFeedView extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.videocam_off_rounded,
+              child: const Icon(LucideIcons.videoOff,
                   color: Colors.white54, size: 38),
             ),
             const SizedBox(height: 20),
@@ -631,7 +888,7 @@ class _EmptyFeedView extends StatelessWidget {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: onPublish,
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(LucideIcons.plus),
               label: const Text('Publier une vidéo'),
               style: FilledButton.styleFrom(
                 backgroundColor: AppPalette.primary,

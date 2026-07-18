@@ -24,7 +24,8 @@ def _is_safe_geocoder_url(url: str) -> bool:
     """
     try:
         parsed = urllib.parse.urlparse(url)
-    except Exception:
+    except ValueError:
+        logger.warning("geocoder_url_unparseable url=%r", url)
         return False
     scheme = (parsed.scheme or "").lower()
     host = (parsed.hostname or "").lower()
@@ -142,6 +143,7 @@ def geocode_with_nominatim(*, city: str, country_code: str) -> GeocodePayload | 
             raw = resp.read().decode("utf-8")
         payload = json.loads(raw)
     except Exception:
+        logger.warning("geocoder_lookup_failed url=%s", base_url, exc_info=True)
         return None
     if not isinstance(payload, list) or not payload:
         return None

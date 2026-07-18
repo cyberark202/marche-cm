@@ -16,8 +16,10 @@ class KYCDocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = KYCDocument
+        # `expiry_date` est déclaré par l'utilisateur (date figurant sur la
+        # pièce) — utilisé par le contrôle d'expiration (doc 06).
         fields = ["id", "application", "document_type", "storage_key", "file_hash",
-                  "file_size_bytes", "mime_type", "is_verified", "uploaded_at"]
+                  "file_size_bytes", "mime_type", "is_verified", "expiry_date", "uploaded_at"]
         read_only_fields = [
             "id", "application", "storage_key", "file_hash",
             "file_size_bytes", "mime_type", "is_verified", "uploaded_at",

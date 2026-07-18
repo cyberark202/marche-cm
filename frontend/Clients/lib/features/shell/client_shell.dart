@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_service.dart';
 import '../../core/app_icons.dart';
 import '../../core/cm_components.dart';
+import '../../core/ui_state_widgets.dart';
+import '../auth/session_store.dart';
 import '../buyer/buyer_store.dart';
 import '../chat/chat_hub_page.dart';
 import '../orders/orders_page.dart';
@@ -21,6 +24,33 @@ class ClientShell extends StatefulWidget {
 
 class _ClientShellState extends State<ClientShell> {
   int _index = 0;
+  final ApiService _api = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _hydrateCart();
+  }
+
+  /// Restaure le panier depuis le serveur (persistant, multi-appareils).
+  Future<void> _hydrateCart() async {
+    final token = context.read<SessionStore>().token;
+    if (token == null || token.isEmpty) return;
+    try {
+      final rows = await _api.getList("/api/cart/", token: token);
+      final items = rows
+          .where((r) => r["product"] != null)
+          .map((r) => CartEntry(
+                productId: (r["product"] as num).toInt(),
+                quantity: (r["quantity"] as num?)?.toInt() ?? 1,
+              ))
+          .toList();
+      if (!mounted) return;
+      context.read<BuyerStore>().hydrateCart(items);
+    } catch (_) {
+      // Best-effort : un panier serveur inaccessible n'empêche pas d'acheter.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,15 +63,22 @@ class _ClientShellState extends State<ClientShell> {
               statusBarIconBrightness: Brightness.dark,
             ),
       child: Scaffold(
-        body: IndexedStack(
-          index: _index,
-          children: const [
-            ShopTab(),
-            VideosTab(),
-            ChatHubPage(),
-            OrdersPage(),
-            WalletPage(),
-            ProfileHubPage(),
+        body: Column(
+          children: [
+            const CmOfflineBanner(),
+            Expanded(
+              child: IndexedStack(
+                index: _index,
+                children: [
+                  const ShopTab(),
+                  VideosTab(active: _index == 1),
+                  const ChatHubPage(),
+                  const OrdersPage(),
+                  const WalletPage(),
+                  const ProfileHubPage(),
+                ],
+              ),
+            ),
           ],
         ),
         bottomNavigationBar: CmBottomNav(

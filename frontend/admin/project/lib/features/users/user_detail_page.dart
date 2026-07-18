@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/roles.dart';
 import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 34 — User profile: identity, KYC, audit-relevant facts.
 class UserDetailPage extends StatefulWidget {
@@ -119,7 +120,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
         children: [
           Row(
             children: [
-              Icon(suspended ? Icons.lock_outline : Icons.verified_user_outlined,
+              Icon(suspended ? LucideIcons.lock : LucideIcons.shieldCheck,
                   size: 18,
                   color: suspended ? AppPalette.danger : AppPalette.success),
               const SizedBox(width: 8),
@@ -141,7 +142,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   ? null
                   : FilledButton.styleFrom(backgroundColor: AppPalette.danger),
               onPressed: _busy ? null : () => _toggleSuspension(u),
-              icon: Icon(suspended ? Icons.lock_open : Icons.block),
+              icon: Icon(suspended ? LucideIcons.unlock : LucideIcons.ban),
               label: Text(suspended ? 'Réactiver le compte' : 'Suspendre le compte'),
             ),
           ),
@@ -271,14 +272,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
     return SectionCard(
       child: Column(
         children: [
-          _kv(Icons.mail_outline, 'E-mail', '${u['email'] ?? '—'}'),
+          _kv(LucideIcons.mail, 'E-mail', '${u['email'] ?? '—'}'),
           const Divider(height: 18),
-          _kv(Icons.badge_outlined, 'Rôle', Roles.label('${u['role']}')),
+          _kv(LucideIcons.badgeCheck, 'Rôle', Roles.label('${u['role']}')),
           const Divider(height: 18),
-          _kv(Icons.place_outlined, 'Localisation',
+          _kv(LucideIcons.mapPin, 'Localisation',
               '${u['location_label'] ?? u['city'] ?? '—'}'),
           const Divider(height: 18),
-          _kv(Icons.public, 'Pays', '${u['country_code'] ?? '—'}'),
+          _kv(LucideIcons.globe, 'Pays', '${u['country_code'] ?? '—'}'),
         ],
       ),
     );
@@ -333,7 +334,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       _ => (AppPalette.warning, 'EN ATTENTE'),
     };
     return TileRow(
-      leading: Icon(Icons.description_outlined,
+      leading: Icon(LucideIcons.fileText,
           color: AppPalette.textMuted, size: 22),
       title: '${doc['doc_type'] ?? 'Document'}',
       subtitle: 'Soumis ${Fmt.relative(doc['created_at'])}',

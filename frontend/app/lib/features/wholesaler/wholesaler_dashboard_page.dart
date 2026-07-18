@@ -12,6 +12,7 @@ import '../logistics/seller_dispute_page.dart';
 import '../orders/sales_summary_page.dart';
 import '../profile/compliance_documents_page.dart';
 import '../wallet/wallet_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class WholesalerDashboardPage extends StatefulWidget {
   const WholesalerDashboardPage({super.key});
@@ -267,7 +268,7 @@ class _WholesalerDashboardPageState extends State<WholesalerDashboardPage> {
                           imageName = selected.name;
                         });
                       },
-                      icon: const Icon(Icons.image_outlined),
+                      icon: const Icon(LucideIcons.image),
                       label: const Text("Importer image"),
                     ),
                     const SizedBox(width: 8),
@@ -375,22 +376,22 @@ class _WholesalerDashboardPageState extends State<WholesalerDashboardPage> {
     final session = context.watch<SessionStore>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Espace Grossiste"),
+        title: const Text("Espace Vendeur"),
         actions: [
           IconButton(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SellerDisputePage()),
             ),
-            icon: const Icon(Icons.gavel_outlined),
+            icon: const Icon(LucideIcons.gavel),
             tooltip: 'Litiges',
           ),
           IconButton(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const WalletPage()),
             ),
-            icon: const Icon(Icons.account_balance_wallet_outlined),
+            icon: const Icon(LucideIcons.wallet),
           ),
-          IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _refresh, icon: const Icon(LucideIcons.refreshCw)),
           _RoleMenu(session: session),
         ],
       ),
@@ -450,14 +451,14 @@ class _WholesalerDashboardPageState extends State<WholesalerDashboardPage> {
               const SizedBox(height: 12),
               _WindowCard(
                 title: "Suivi des ventes",
-                icon: Icons.bar_chart_outlined,
+                icon: LucideIcons.barChart3,
                 body: ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.payments_outlined),
+                  leading: const Icon(LucideIcons.banknote),
                   title: const Text("Ouvrir l'ecran montants des ventes"),
                   subtitle:
                       const Text("Comptabilisation de vos ventes par compte"),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(LucideIcons.chevronRight),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const SalesSummaryPage()),
                   ),
@@ -466,16 +467,16 @@ class _WholesalerDashboardPageState extends State<WholesalerDashboardPage> {
               const SizedBox(height: 10),
               _WindowCard(
                 title: "Certifications",
-                icon: Icons.verified_user_outlined,
+                icon: LucideIcons.shieldCheck,
                 body: Column(
                   children: [
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.verified_user_outlined),
+                      leading: const Icon(LucideIcons.shieldCheck),
                       title: const Text("Ouvrir l'ecran certifications"),
                       subtitle:
                           Text("$pendingCompliance document(s) en attente"),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(LucideIcons.chevronRight),
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const ComplianceDocumentsPage(),
@@ -498,7 +499,7 @@ class _WholesalerDashboardPageState extends State<WholesalerDashboardPage> {
               const SizedBox(height: 10),
               _WindowCard(
                 title: "Campagnes en cours",
-                icon: Icons.trending_up_outlined,
+                icon: LucideIcons.trendingUp,
                 body: _SimpleList(
                   items: payload.campaigns.take(6).map((c) {
                     final current = c["current_quantity"] ?? 0;
@@ -514,7 +515,7 @@ class _WholesalerDashboardPageState extends State<WholesalerDashboardPage> {
               const SizedBox(height: 10),
               _WindowCard(
                 title: "Flux commandes & logistique",
-                icon: Icons.inventory_outlined,
+                icon: LucideIcons.boxes,
                 body: Column(
                   children: [
                     _SimpleList(
@@ -541,7 +542,7 @@ class _WholesalerDashboardPageState extends State<WholesalerDashboardPage> {
               const SizedBox(height: 10),
               _WindowCard(
                 title: "Opportunites RFQ",
-                icon: Icons.search_outlined,
+                icon: LucideIcons.search,
                 body: _SimpleList(
                   items: payload.rfqs.take(6).map((rfq) {
                     return _SimpleItem(
@@ -562,28 +563,28 @@ class _WholesalerDashboardPageState extends State<WholesalerDashboardPage> {
           onDestinationSelected: _onBottomNavTapped,
           destinations: const [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
+              icon: Icon(LucideIcons.home),
+              selectedIcon: Icon(LucideIcons.home),
               label: "Accueil",
             ),
             NavigationDestination(
-              icon: Icon(Icons.add_business_outlined),
-              selectedIcon: Icon(Icons.add_business),
+              icon: Icon(LucideIcons.plusSquare),
+              selectedIcon: Icon(LucideIcons.plusSquare),
               label: "Produit",
             ),
             NavigationDestination(
-              icon: Icon(Icons.campaign_outlined),
-              selectedIcon: Icon(Icons.campaign),
+              icon: Icon(LucideIcons.megaphone),
+              selectedIcon: Icon(LucideIcons.megaphone),
               label: "Campagne",
             ),
             NavigationDestination(
-              icon: Icon(Icons.request_quote_outlined),
-              selectedIcon: Icon(Icons.request_quote),
+              icon: Icon(LucideIcons.fileText),
+              selectedIcon: Icon(LucideIcons.fileText),
               label: "Offres",
             ),
             NavigationDestination(
-              icon: Icon(Icons.smart_display_outlined),
-              selectedIcon: Icon(Icons.smart_display),
+              icon: Icon(LucideIcons.monitorPlay),
+              selectedIcon: Icon(LucideIcons.monitorPlay),
               label: "Video",
             ),
           ],
@@ -624,7 +625,7 @@ class _RoleMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Chip(
-      avatar: const Icon(Icons.verified_user_outlined, size: 16),
+      avatar: const Icon(LucideIcons.shieldCheck, size: 16),
       label: Text(session.role.name),
     );
   }

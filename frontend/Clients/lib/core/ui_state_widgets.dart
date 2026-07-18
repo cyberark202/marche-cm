@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'app_i18n.dart';
 import 'app_theme.dart';
 import 'app_ui.dart';
+import 'network_quality_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class AppLoadingState extends StatelessWidget {
   const AppLoadingState({super.key, this.label = ""});
@@ -37,7 +39,7 @@ class AppEmptyState extends StatelessWidget {
     required this.subtitle,
     this.onRetry,
     this.retryLabel = "",
-    this.icon = Icons.inbox_outlined,
+    this.icon = LucideIcons.inbox,
   });
 
   final String title;
@@ -74,7 +76,7 @@ class AppEmptyState extends StatelessWidget {
                 const SizedBox(height: 14),
                 FilledButton.icon(
                   onPressed: onRetry,
-                  icon: const Icon(Icons.refresh),
+                  icon: const Icon(LucideIcons.refreshCw),
                   label: Text(
                     retryLabel.isEmpty ? context.tr("state.retry") : retryLabel,
                   ),
@@ -146,7 +148,7 @@ class AppErrorState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.wifi_off_outlined,
+              const Icon(LucideIcons.wifiOff,
                   size: 42, color: AppPalette.danger),
               const SizedBox(height: 12),
               Text(
@@ -164,13 +166,67 @@ class AppErrorState extends StatelessWidget {
               const SizedBox(height: 14),
               FilledButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(LucideIcons.refreshCw),
                 label: Text(context.tr("state.retry")),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Slim banner shown when connectivity drops. Place it at the top of a Scaffold
+/// body (above the content) so the user knows why data may be stale. Collapses
+/// to zero height when online, so it costs nothing on the happy path.
+class CmOfflineBanner extends StatelessWidget {
+  const CmOfflineBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<NetworkQuality>(
+      stream: NetworkQualityService.instance.qualityStream,
+      initialData: NetworkQualityService.instance.current,
+      builder: (context, snapshot) {
+        final quality = snapshot.data ?? NetworkQuality.online;
+        if (quality == NetworkQuality.online) {
+          return const SizedBox.shrink();
+        }
+        final offline = quality == NetworkQuality.offline;
+        return Material(
+          color: offline ? AppPalette.danger : Colors.orange.shade700,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    offline ? LucideIcons.wifiOff : LucideIcons.signalLow,
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      offline
+                          ? context.tr("network.offline")
+                          : context.tr("network.weak"),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

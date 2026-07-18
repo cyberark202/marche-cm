@@ -102,7 +102,7 @@ def _send_pin_reset_notifications(user_ids: list[int]) -> int:
     """
     try:
         from apps.notifications.models import Notification
-    except Exception:
+    except ImportError:
         return 0
     rows = [
         Notification(

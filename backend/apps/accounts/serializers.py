@@ -513,10 +513,10 @@ class RegisterSerializer(serializers.ModelSerializer):
 class SellerRegisterSerializer(serializers.ModelSerializer):
     """Role-scoped self-registration for the professional (seller) app.
 
-    ISOLATION GUARANTEE: the role is constrained server-side to SUPPLIER or
-    WHOLESALER. TRANSIT_AGENT has its own dedicated endpoint and GENERAL_ADMIN
-    is never self-assignable. Any other value is rejected at validation time, so
-    a tampered client cannot escalate privileges through this endpoint.
+    ISOLATION GUARANTEE: le rôle est forcé côté serveur à SUPPLIER (compte
+    « Vendeur » unifié). Le rôle Grossiste a été fusionné dans Vendeur : il n'est
+    plus auto-assignable. TRANSIT_AGENT a son endpoint dédié et GENERAL_ADMIN
+    n'est jamais auto-assignable. Toute autre valeur est rejetée à la validation.
     """
 
     name = serializers.CharField(write_only=True, required=True, min_length=2, max_length=150)
@@ -526,11 +526,14 @@ class SellerRegisterSerializer(serializers.ModelSerializer):
     # company_name is accepted for UX parity but is not stored on User; the
     # business identity is established later through compliance documents.
     company_name = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=180)
+    # Compte vendeur unifié : seul SUPPLIER (« Vendeur ») est sélectionnable.
+    # `required=False` + défaut SUPPLIER → le client n'a plus à choisir un type.
     role = serializers.ChoiceField(
         choices=[
             (UserRole.SUPPLIER, UserRole.SUPPLIER.label),
-            (UserRole.WHOLESALER, UserRole.WHOLESALER.label),
-        ]
+        ],
+        required=False,
+        default=UserRole.SUPPLIER,
     )
 
     class Meta:

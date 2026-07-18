@@ -25,8 +25,12 @@ dependencies:
   # Realtime events (/ws/events/) + runtime-config cache — aligné sur les autres apps.
   web_socket_channel: ^3.0.1
   shared_preferences: ^2.3.2
+  # Détection hors-ligne (bannière réseau) — aligné sur les autres apps.
+  connectivity_plus: ^6.0.0
   # Brand font — Plus Jakarta Sans (design source: theme.jsx). Same as the other apps.
   google_fonts: ^6.2.1
+  # Lucide icon set — unified icon language across all four apps (no Material Icons).
+  lucide_icons: ^0.257.0
 
   # ── Firebase (admin is a web console) ────────────────────────────────────
   # Web uses the shared marche-cm web config. Android/iOS are not registered

@@ -1,0 +1,27 @@
+Release {{ .Release.Name }} déployé dans le namespace {{ .Release.Namespace }}.
+
+Composants :
+  - web (Django ASGI / daphne)  -> {{ .Values.web.autoscaling.enabled | ternary (printf "HPA %d..%d" (int .Values.web.autoscaling.minReplicas) (int .Values.web.autoscaling.maxReplicas)) (printf "%d réplique(s)" (int .Values.web.replicas)) }}
+  - worker-default ({{ .Values.workerDefault.replicas }})
+  - worker-financial (1, série)
+  - beat (1, singleton)
+  {{- if .Values.finops.enabled }}
+  - finops (boucle run_financial_ops)
+  {{- end }}
+  {{- if .Values.redis.enabled }}
+  - redis (in-cluster, PVC {{ .Values.redis.storage }})
+  {{- end }}
+
+Vérifs :
+  kubectl -n {{ .Release.Namespace }} get pods,svc,ingress
+  kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "marche-cm.fullname" . }}-web
+
+{{- if .Values.ingress.enabled }}
+URL : https://{{ .Values.ingress.host }}
+{{- end }}
+
+{{- if and .Values.secret.create (not .Values.externalSecrets.enabled) }}
+
+ATTENTION : secret.create=true — fournissez les vraies valeurs via un fichier
+values NON committé ou --set-file, jamais en clair dans le repo.
+{{- end }}

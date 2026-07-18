@@ -140,6 +140,32 @@ class BuyerStore extends ChangeNotifier {
         .toSet();
   }
 
+  // Synchronisation panier serveur (best-effort, configurée après login).
+  // Rend le panier persistant et multi-appareils. Les callbacks avalent leurs
+  // erreurs : une panne réseau ne doit jamais casser l'UI (le push au checkout
+  // réconcilie de toute façon).
+  Future<void> Function(int productId, int quantity)? _onCartUpsert;
+  Future<void> Function(int productId)? _onCartRemove;
+  Future<void> Function()? _onCartClear;
+
+  void configureCartSync({
+    Future<void> Function(int productId, int quantity)? onUpsert,
+    Future<void> Function(int productId)? onRemove,
+    Future<void> Function()? onClear,
+  }) {
+    _onCartUpsert = onUpsert;
+    _onCartRemove = onRemove;
+    _onCartClear = onClear;
+  }
+
+  /// Remplace le panier local par l'état serveur (au démarrage authentifié).
+  void hydrateCart(List<CartEntry> items) {
+    _cart
+      ..clear()
+      ..addEntries(items.map((e) => MapEntry(e.productId, e)));
+    notifyListeners();
+  }
+
   void addToCart(int productId, {int quantity = 1}) {
     final existing = _cart[productId];
     if (existing == null) {
@@ -148,6 +174,7 @@ class BuyerStore extends ChangeNotifier {
       existing.quantity += quantity;
     }
     notifyListeners();
+    _onCartUpsert?.call(productId, _cart[productId]!.quantity);
   }
 
   void updateCart(int productId,
@@ -170,16 +197,19 @@ class BuyerStore extends ChangeNotifier {
       item.transportMode = transportMode;
     }
     notifyListeners();
+    if (quantity != null) _onCartUpsert?.call(productId, item.quantity);
   }
 
   void removeFromCart(int productId) {
     _cart.remove(productId);
     notifyListeners();
+    _onCartRemove?.call(productId);
   }
 
   void clearCart() {
     _cart.clear();
     notifyListeners();
+    _onCartClear?.call();
   }
 
   void toggleFavorite(int productId) {

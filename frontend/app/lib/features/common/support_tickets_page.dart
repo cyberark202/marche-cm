@@ -8,6 +8,7 @@ import "../../core/app_i18n.dart";
 import "../../core/realtime_events_service.dart";
 import "../../core/ui_state_widgets.dart";
 import "../auth/session_store.dart";
+import 'package:lucide_icons/lucide_icons.dart';
 
 class SupportTicketsPage extends StatefulWidget {
   const SupportTicketsPage({super.key});
@@ -183,12 +184,12 @@ class _SupportTicketsPageState extends State<SupportTicketsPage> {
           IconButton(
             tooltip: context.tr("tickets.new"),
             onPressed: _openCreateTicketDialog,
-            icon: const Icon(Icons.add_circle_outline),
+            icon: const Icon(LucideIcons.plusCircle),
           ),
           IconButton(
             tooltip: context.tr("tickets.refresh"),
             onPressed: _load,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(LucideIcons.refreshCw),
           ),
         ],
       ),
@@ -219,7 +220,7 @@ class _SupportTicketsPageState extends State<SupportTicketsPage> {
                               subtitle: context.tr("tickets.empty_subtitle"),
                               onRetry: () => _openCreateTicketDialog(),
                               retryLabel: context.tr("tickets.new"),
-                              icon: Icons.support_agent,
+                              icon: LucideIcons.headphones,
                             )
                           : ListView.builder(
                               padding: const EdgeInsets.all(12),
@@ -264,7 +265,7 @@ class _SupportTicketsPageState extends State<SupportTicketsPage> {
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCreateTicketDialog,
-        icon: const Icon(Icons.add),
+        icon: const Icon(LucideIcons.plus),
         label: Text(context.tr("tickets.new")),
       ),
     );
@@ -476,7 +477,7 @@ class _SupportTicketDetailPageState extends State<SupportTicketDetailPage> {
             IconButton(
               tooltip: context.tr("tickets.close"),
               onPressed: _closeTicket,
-              icon: const Icon(Icons.task_alt_outlined),
+              icon: const Icon(LucideIcons.checkCircle2),
             ),
         ],
       ),
@@ -538,7 +539,7 @@ class _SupportTicketDetailPageState extends State<SupportTicketDetailPage> {
                           ? AppEmptyState(
                               title: context.tr("tickets.messages.empty"),
                               subtitle: context.tr("tickets.messages.empty_subtitle"),
-                              icon: Icons.chat_bubble_outline,
+                              icon: LucideIcons.messageCircle,
                             )
                           : ListView.builder(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -547,7 +548,7 @@ class _SupportTicketDetailPageState extends State<SupportTicketDetailPage> {
                                 final row = messages[index] as Map<String, dynamic>;
                                 return Card(
                                   child: ListTile(
-                                    leading: const Icon(Icons.message_outlined),
+                                    leading: const Icon(LucideIcons.messageSquare),
                                     title: Text((row["body"] ?? "").toString()),
                                     subtitle: Text(
                                       "${row["author_username"] ?? "-"} • ${row["author_role"] ?? "-"}",

@@ -40,8 +40,28 @@ _CHAT_ACTIONS = {
     "chat.read",
 }
 
-ROLE_ACTIONS = {
-    UserRole.GENERAL_ADMIN: {
+_ADMIN_ALL_ACTIONS = {
+    "admin.dashboard.view",
+    "admin.users.manage",
+    "admin.users.suspend",
+    "admin.disputes.decide",
+    "admin.dispute.appeal.resolve",
+    "admin.dispute.inspect.request",
+    "admin.dispute.inspection.upload",
+    "admin.guarantee_fund.activate",
+    "compliance.review",
+    "wallet.reconcile",
+    "wallet.reconcile.daily",
+    "wallet.webhook.manage",
+    "audit.export",
+    "admin.settings.manage",
+}
+
+# Docs 16/17 : chaque sous-rôle admin n'accède qu'aux actions de son périmètre.
+# Un scope vide (admins historiques) équivaut à SUPER.
+ADMIN_SCOPE_ACTIONS = {
+    "SUPER": _ADMIN_ALL_ACTIONS,
+    "OPERATIONS": {
         "admin.dashboard.view",
         "admin.users.manage",
         "admin.users.suspend",
@@ -50,12 +70,18 @@ ROLE_ACTIONS = {
         "admin.dispute.inspect.request",
         "admin.dispute.inspection.upload",
         "admin.guarantee_fund.activate",
-        "compliance.review",
-        "wallet.reconcile",
-        "wallet.reconcile.daily",
-        "wallet.webhook.manage",
-        "audit.export",
     },
+    "KYC": {
+        "admin.dashboard.view",
+        "compliance.review",
+    },
+    "SUPPORT": {
+        "admin.dashboard.view",
+    },
+}
+
+ROLE_ACTIONS = {
+    UserRole.GENERAL_ADMIN: _ADMIN_ALL_ACTIONS,
     UserRole.BUYER: (
         _WALLET_ACTIONS | _CHAT_ACTIONS | _DISPUTE_PARTICIPANT_ACTIONS
     ),
@@ -73,6 +99,7 @@ ROLE_ACTIONS = {
 SENSITIVE_ACTIONS_REQUIRING_2FA = {
     "wallet.withdraw",
     "wallet.reconcile",
+    "admin.settings.manage",
     "profile.update",
     "auth.password.change",
     "auth.email.change",
@@ -155,11 +182,18 @@ def sanitize_audit_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def has_action_permission(user, action_key: str) -> bool:
-    """Return True iff *user* is authorized to perform *action_key*."""
+    """Return True iff *user* is authorized to perform *action_key*.
+
+    Docs 16/17 : pour un GENERAL_ADMIN, le périmètre est restreint par son
+    sous-rôle (admin_scope). Un scope vide = SUPER (admins historiques).
+    """
     if not user or not user.is_authenticated:
         return False
     if user.is_superuser:
         return True
+    if user.role == UserRole.GENERAL_ADMIN:
+        scope = getattr(user, "admin_scope", "") or "SUPER"
+        return action_key in ADMIN_SCOPE_ACTIONS.get(scope, ADMIN_SCOPE_ACTIONS["SUPER"])
     return action_key in ROLE_ACTIONS.get(user.role, set())
 
 

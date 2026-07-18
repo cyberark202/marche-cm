@@ -8,6 +8,8 @@ import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/onboarding_page.dart';
 import '../features/auth/presentation/register_page.dart';
 import '../features/auth/presentation/reset_password_page.dart';
+import '../features/chat/presentation/driver_chat_page.dart';
+import '../features/chat/presentation/driver_conversations_page.dart';
 import '../features/delivery/presentation/active_delivery_page.dart';
 import '../features/delivery/presentation/delivery_proof_page.dart';
 import '../features/delivery/presentation/otp_validation_page.dart';
@@ -15,6 +17,7 @@ import '../features/delivery/presentation/pickup_confirmation_page.dart';
 import '../features/missions/presentation/mission_detail_page.dart';
 import '../features/missions/presentation/missions_list_page.dart';
 import '../features/profile/presentation/documents_page.dart';
+import '../features/profile/presentation/notification_preferences_page.dart';
 import '../features/profile/presentation/profile_page.dart';
 import '../features/profile/presentation/vehicle_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
@@ -45,7 +48,12 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
 
       if (!isAuth && !isAuthRoute) return '/login';
       if (isAuth && !isOnboarded && loc != '/onboarding') return '/onboarding';
-      if (isAuth && isOnboarded && isAuthRoute) return '/dashboard';
+      // Une fois le KYC soumis (isOnboarded=true), quitter les écrans d'auth ET
+      // l'onboarding. Sans le cas `/onboarding`, la page restait montée après
+      // completeKyc() — le bouton « Envoyer » tournait indéfiniment.
+      if (isAuth && isOnboarded && (isAuthRoute || loc == '/onboarding')) {
+        return '/dashboard';
+      }
       return null;
     },
     routes: [
@@ -69,6 +77,18 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
         path: '/onboarding',
         pageBuilder: (_, state) =>
             MaterialPage(key: state.pageKey, child: const OnboardingPage()),
+      ),
+
+      // ── Chat plein écran (coordination livraison, hors bottom-nav) ────────
+      GoRoute(
+        path: '/chat/:roomId',
+        pageBuilder: (_, state) => MaterialPage(
+          key: state.pageKey,
+          child: DriverChatPage(
+            roomId: int.parse(state.pathParameters['roomId']!),
+            title: state.uri.queryParameters['title'] ?? 'Discussion',
+          ),
+        ),
       ),
 
       // ── Main shell ────────────────────────────────────────
@@ -130,6 +150,11 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
+            path: '/messages',
+            pageBuilder: (_, state) => NoTransitionPage(
+                key: state.pageKey, child: const DriverConversationsPage()),
+          ),
+          GoRoute(
             path: '/wallet',
             pageBuilder: (_, state) => NoTransitionPage(
                 key: state.pageKey, child: const DriverWalletPage()),
@@ -157,6 +182,11 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
                   path: 'vehicle',
                   pageBuilder: (_, state) => MaterialPage(
                       key: state.pageKey, child: const VehiclePage())),
+              GoRoute(
+                  path: 'notifications',
+                  pageBuilder: (_, state) => MaterialPage(
+                      key: state.pageKey,
+                      child: const NotificationPreferencesPage())),
             ],
           ),
         ],

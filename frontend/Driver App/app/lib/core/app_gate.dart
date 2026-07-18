@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'runtime_config.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Porte de démarrage : intercale forced-update / maintenance / kill switch
 /// AVANT toute UI applicative. Non bloquante par défaut (fail-open) tant que le
@@ -71,7 +72,7 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
         if (cfg == null || !cfg.isBlocking) return widget.child;
         if (cfg.killSwitch) {
           return _GateScreen(
-            icon: Icons.lock_outline,
+            icon: LucideIcons.lock,
             title: lang == 'en' ? 'Service unavailable' : 'Service indisponible',
             message: lang == 'en'
                 ? 'This application has been temporarily disabled. Please try again later.'
@@ -80,7 +81,7 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
         }
         if (cfg.maintenance) {
           return _GateScreen(
-            icon: Icons.build_outlined,
+            icon: LucideIcons.wrench,
             title: lang == 'en' ? 'Maintenance' : 'Maintenance',
             message: cfg.localizedMaintenanceMessage(lang).isNotEmpty
                 ? cfg.localizedMaintenanceMessage(lang)
@@ -92,7 +93,7 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
         }
         // update_required
         return _GateScreen(
-          icon: Icons.system_update,
+          icon: LucideIcons.download,
           title: lang == 'en' ? 'Update required' : 'Mise à jour requise',
           message: cfg.localizedUpdateMessage(lang).isNotEmpty
               ? cfg.localizedUpdateMessage(lang)

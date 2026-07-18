@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import '../../core/api_service.dart';
 import '../../core/video_compression_service.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class VideoPublishPage extends StatefulWidget {
   const VideoPublishPage({super.key});
@@ -252,7 +253,7 @@ class _VideoPublishPageState extends State<VideoPublishPage> {
           child: Padding(
             padding: EdgeInsets.all(20),
             child: Text(
-              "Acces refuse. Seuls les comptes Fournisseur ou Grossiste peuvent publier des videos.",
+              "Acces refuse. Seuls les comptes Vendeur peuvent publier des videos.",
               textAlign: TextAlign.center,
             ),
           ),
@@ -267,7 +268,7 @@ class _VideoPublishPageState extends State<VideoPublishPage> {
         children: [
           FilledButton.icon(
             onPressed: _submitting ? null : _pickVideo,
-            icon: const Icon(Icons.video_library_outlined),
+            icon: const Icon(LucideIcons.video),
             label: const Text("Importer une video"),
           ),
           if (_videoName.isNotEmpty) ...[
@@ -302,13 +303,13 @@ class _VideoPublishPageState extends State<VideoPublishPage> {
             children: [
               FilledButton.tonalIcon(
                 onPressed: _loadingPreview || _submitting ? null : _preview,
-                icon: const Icon(Icons.play_circle_outline),
+                icon: const Icon(LucideIcons.playCircle),
                 label: const Text("Previsualiser"),
               ),
               const SizedBox(width: 10),
               FilledButton.icon(
                 onPressed: (_submitting || _compressing) ? null : _publish,
-                icon: const Icon(Icons.publish_outlined),
+                icon: const Icon(LucideIcons.upload),
                 label: Text(_compressing
                     ? "Compression..."
                     : _submitting
@@ -321,7 +322,7 @@ class _VideoPublishPageState extends State<VideoPublishPage> {
             const SizedBox(height: 14),
             Row(
               children: [
-                const Icon(Icons.compress_outlined, size: 16, color: Colors.blue),
+                const Icon(LucideIcons.minimize2, size: 16, color: Colors.blue),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -367,7 +368,7 @@ class _VideoPublishPageState extends State<VideoPublishPage> {
                         opacity: value.isPlaying ? 0 : 1,
                         duration: const Duration(milliseconds: 160),
                         child: const Icon(
-                          Icons.play_circle_fill,
+                          LucideIcons.playCircle,
                           color: Colors.white,
                           size: 64,
                         ),

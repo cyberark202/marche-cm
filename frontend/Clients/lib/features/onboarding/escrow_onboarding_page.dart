@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 const _prefKey = 'escrow_onboarding_seen_v1';
 
@@ -39,7 +40,7 @@ class _EscrowOnboardingPageState extends State<EscrowOnboardingPage> {
 
   static const _slides = [
     _Slide(
-      icon: Icons.lock_outlined,
+      icon: LucideIcons.lock,
       iconColor: Color(0xFF0F7A4F),
       title: 'Vos paiements sont protégés',
       body:
@@ -48,7 +49,7 @@ class _EscrowOnboardingPageState extends State<EscrowOnboardingPage> {
       accent: Color(0xFFE8F5EE),
     ),
     _Slide(
-      icon: Icons.security_outlined,
+      icon: LucideIcons.shieldCheck,
       iconColor: Color(0xFF1565C0),
       title: 'Vos fonds restent sécurisés',
       body:
@@ -57,7 +58,7 @@ class _EscrowOnboardingPageState extends State<EscrowOnboardingPage> {
       accent: Color(0xFFE3F2FD),
     ),
     _Slide(
-      icon: Icons.verified_outlined,
+      icon: LucideIcons.badgeCheck,
       iconColor: Color(0xFFE65100),
       title: 'Vous confirmez, le vendeur est payé',
       body:

@@ -12,6 +12,11 @@ class DriverDioClient {
   static bool _initialized = false;
   static Completer<String?>? _refreshCompleter;
 
+  /// Invoqué quand un 401 n'a pas pu être résorbé par le refresh (session
+  /// morte côté serveur). Câblé par AuthNotifier : sans lui, l'utilisateur
+  /// restait coincé dans le shell avec des écrans en erreur jusqu'au redémarrage.
+  static void Function()? onAuthFailed;
+
   static Dio get dio {
     assert(_initialized, 'Call DriverDioClient.initialize() in main()');
     return _dio;
@@ -25,6 +30,10 @@ class DriverDioClient {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
       connectTimeout: const Duration(seconds: 15),
+      // sendTimeout couvre la phase d'ENVOI du corps (upload multipart). Sans
+      // lui, un envoi bloqué (ex. flux qui n'atteint jamais son Content-Length)
+      // tournait indéfiniment sans jamais lever d'erreur — bouton figé.
+      sendTimeout: const Duration(seconds: 60),
       receiveTimeout: const Duration(seconds: 30),
       headers: {
         'Accept': 'application/json',
@@ -135,6 +144,7 @@ class _AuthInterceptor extends Interceptor {
       if (refreshToken == null || refreshToken.isEmpty) {
         DriverDioClient._refreshCompleter!.complete(null);
         await DriverSecureStorage.clearTokens();
+        DriverDioClient.onAuthFailed?.call();
         handler.next(err);
         return;
       }
@@ -162,6 +172,7 @@ class _AuthInterceptor extends Interceptor {
     } catch (_) {
       DriverDioClient._refreshCompleter!.complete(null);
       await DriverSecureStorage.clearTokens();
+      DriverDioClient.onAuthFailed?.call();
       handler.next(err);
     } finally {
       DriverDioClient._refreshCompleter = null;

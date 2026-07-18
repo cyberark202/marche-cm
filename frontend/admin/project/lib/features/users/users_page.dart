@@ -7,6 +7,7 @@ import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
 import 'create_managed_user_page.dart';
 import 'user_detail_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 33 — Users directory with search + role filters.
 class UsersPage extends StatefulWidget {
@@ -76,7 +77,7 @@ class _UsersPageState extends State<UsersPage> {
           );
           if (created == true) _refresh();
         },
-        icon: const Icon(Icons.person_add_alt_1),
+        icon: const Icon(LucideIcons.userPlus),
         label: const Text('Compte géré'),
       ),
       body: SafeArea(
@@ -102,7 +103,7 @@ class _UsersPageState extends State<UsersPage> {
                       ? const AppEmptyState(
                           title: 'Aucun compte',
                           subtitle: 'Aucun résultat pour ce filtre.',
-                          icon: Icons.group_outlined,
+                          icon: LucideIcons.users,
                         )
                       : RefreshIndicator(
                           onRefresh: _refresh,
@@ -141,9 +142,9 @@ class _UsersPageState extends State<UsersPage> {
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Nom, email, code réf…',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(LucideIcons.search),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.arrow_forward),
+                icon: const Icon(LucideIcons.arrowRight),
                 tooltip: 'Rechercher sur le serveur',
                 onPressed: _searchOnServer,
               ),

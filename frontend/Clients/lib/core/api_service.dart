@@ -24,6 +24,14 @@ import 'auth_token_manager.dart';
   if (n.endsWith(".pdf")) {
     return (name: filename, type: MediaType("application", "pdf"));
   }
+  // Notes vocales.
+  if (n.endsWith(".m4a")) return (name: filename, type: MediaType("audio", "mp4"));
+  if (n.endsWith(".aac")) return (name: filename, type: MediaType("audio", "aac"));
+  if (n.endsWith(".mp3")) return (name: filename, type: MediaType("audio", "mpeg"));
+  if (n.endsWith(".ogg") || n.endsWith(".opus")) {
+    return (name: filename, type: MediaType("audio", "ogg"));
+  }
+  if (n.endsWith(".wav")) return (name: filename, type: MediaType("audio", "wav"));
   // No recognized extension (e.g. a raw camera capture) — assume JPEG.
   return (name: "$filename.jpg", type: MediaType("image", "jpeg"));
 }

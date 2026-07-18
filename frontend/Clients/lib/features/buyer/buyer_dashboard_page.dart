@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_theme.dart';
 import 'buyer_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class BuyerDashboardPage extends StatelessWidget {
   const BuyerDashboardPage({super.key});
@@ -79,13 +80,13 @@ class _BuyerHomeContent extends StatelessWidget {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.grid_view_rounded, color: AppPalette.textMuted),
+            icon: const Icon(LucideIcons.layoutGrid, color: AppPalette.textMuted),
             onPressed: () {},
           ),
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined,
+                icon: const Icon(LucideIcons.bell,
                     color: AppPalette.textMuted),
                 onPressed: () {},
               ),
@@ -134,7 +135,7 @@ class _BuyerHomeContent extends StatelessWidget {
               child: const Row(
                 children: [
                   SizedBox(width: 12),
-                  Icon(Icons.search, color: AppPalette.textFaint, size: 20),
+                  Icon(LucideIcons.search, color: AppPalette.textFaint, size: 20),
                   SizedBox(width: 8),
                   Text(
                     "Rechercher huile, riz, ciment…",
@@ -152,7 +153,7 @@ class _BuyerHomeContent extends StatelessWidget {
               color: AppPalette.primary,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.tune, color: Colors.white, size: 20),
+            child: const Icon(LucideIcons.slidersHorizontal, color: Colors.white, size: 20),
           ),
         ],
       ),
@@ -187,7 +188,7 @@ class _BuyerHomeContent extends StatelessWidget {
                 ),
               ),
               Spacer(),
-              Icon(Icons.credit_card_outlined, color: Colors.white, size: 20),
+              Icon(LucideIcons.creditCard, color: Colors.white, size: 20),
             ],
           ),
           const SizedBox(height: 8),
@@ -258,14 +259,14 @@ class _BuyerHomeContent extends StatelessWidget {
 
   Widget _buildCategories() {
     const categories = [
-      (_CategoryData(icon: Icons.restaurant_outlined, label: "Alimentation")),
-      (_CategoryData(icon: Icons.checkroom_outlined, label: "Textile")),
-      (_CategoryData(icon: Icons.electrical_services_outlined, label: "Électro")),
-      (_CategoryData(icon: Icons.face_retouching_natural_outlined, label: "Beauté")),
-      (_CategoryData(icon: Icons.construction_outlined, label: "BTP")),
-      (_CategoryData(icon: Icons.agriculture_outlined, label: "Agro")),
-      (_CategoryData(icon: Icons.public_outlined, label: "Import")),
-      (_CategoryData(icon: Icons.handshake_outlined, label: "RFQ B2B")),
+      (_CategoryData(icon: LucideIcons.utensils, label: "Alimentation")),
+      (_CategoryData(icon: LucideIcons.shirt, label: "Textile")),
+      (_CategoryData(icon: LucideIcons.plug, label: "Électro")),
+      (_CategoryData(icon: LucideIcons.smile, label: "Beauté")),
+      (_CategoryData(icon: LucideIcons.construction, label: "BTP")),
+      (_CategoryData(icon: LucideIcons.sprout, label: "Agro")),
+      (_CategoryData(icon: LucideIcons.globe, label: "Import")),
+      (_CategoryData(icon: LucideIcons.heartHandshake, label: "RFQ B2B")),
     ];
 
     return Padding(
@@ -353,7 +354,7 @@ class _BuyerHomeContent extends StatelessWidget {
             ),
           ),
           Icon(
-            Icons.emoji_events_outlined,
+            LucideIcons.trophy,
             size: 48,
             color: AppPalette.accentDark.withValues(alpha: 0.4),
           ),

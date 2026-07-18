@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import (
+    DispatchOffer,
     CustodyEvent,
     DeliveryProof,
     DisputeEvidence,
@@ -43,9 +44,18 @@ class TransportProfileSerializer(serializers.ModelSerializer):
 
 
 class ShipmentSerializer(serializers.ModelSerializer):
+    # Coordonnees des extremites de l'itineraire, pour tracer la carte cote
+    # livreur/acheteur/vendeur : enlevement = position du vendeur, livraison =
+    # position de l'acheteur. Lecture seule (derivees des profils User).
+    pickup_latitude = serializers.FloatField(source="seller.location_latitude", read_only=True)
+    pickup_longitude = serializers.FloatField(source="seller.location_longitude", read_only=True)
+    dropoff_latitude = serializers.FloatField(source="buyer.location_latitude", read_only=True)
+    dropoff_longitude = serializers.FloatField(source="buyer.location_longitude", read_only=True)
+
     class Meta:
         model = Shipment
-        fields = "__all__"
+        # Les hashes OTP (collecte + livraison) ne sortent jamais de l'API.
+        exclude = ("pickup_otp_hash", "delivery_otp_hash")
         read_only_fields = (
             "buyer",
             "seller",
@@ -54,6 +64,11 @@ class ShipmentSerializer(serializers.ModelSerializer):
             "shipping_fee",
             "status",
             "contest_deadline",
+            "current_latitude",
+            "current_longitude",
+            "location_updated_at",
+            "pickup_otp_expires_at",
+            "delivery_otp_expires_at",
             "created_at",
             "updated_at",
         )
@@ -81,6 +96,20 @@ class ShipmentEventSerializer(serializers.ModelSerializer):
         model = ShipmentEvent
         fields = "__all__"
         read_only_fields = ("actor", "created_at")
+
+
+class DispatchOfferSerializer(serializers.ModelSerializer):
+    pickup_address = serializers.CharField(source="shipment.pickup_address", read_only=True)
+    dropoff_address = serializers.CharField(source="shipment.dropoff_address", read_only=True)
+    shipping_fee = serializers.DecimalField(
+        source="shipment.shipping_fee", max_digits=12, decimal_places=2, read_only=True
+    )
+    order_id = serializers.IntegerField(source="shipment.order_id", read_only=True)
+
+    class Meta:
+        model = DispatchOffer
+        fields = "__all__"
+        read_only_fields = ("shipment", "driver", "status", "distance_km", "expires_at", "responded_at", "created_at")
 
 
 class DeliveryProofSerializer(serializers.ModelSerializer):

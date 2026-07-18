@@ -165,6 +165,39 @@ class ComplianceDocumentAccessTests(APITestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["id"], doc.id)
 
+    def test_public_certifications_expose_only_approved_business_certs(self):
+        """A buyer sees a seller's APPROVED business certs, never PII/identity
+        docs and never pending ones. Fixes the 404 on the product page."""
+        approved_cert = ComplianceDocument.objects.create(
+            user=self.supplier,
+            doc_type="CERT_INSURANCE",
+            status="APPROVED",
+            file=SimpleUploadedFile("cert.jpg", b"fake", content_type="image/jpeg"),
+        )
+        # Pending business cert — hidden (not approved).
+        ComplianceDocument.objects.create(
+            user=self.supplier,
+            doc_type="CERT_TAX_CLEARANCE",
+            status="PENDING",
+            file=SimpleUploadedFile("tax.jpg", b"fake", content_type="image/jpeg"),
+        )
+        # Approved identity document — MUST NOT leak (PII).
+        ComplianceDocument.objects.create(
+            user=self.supplier,
+            doc_type="CNI",
+            status="APPROVED",
+            file=SimpleUploadedFile("cni.jpg", b"fake", content_type="image/jpeg"),
+        )
+        self._auth_as(self.buyer)  # a buyer inspecting the seller
+        url = reverse("compliance-document-public-certifications")
+        res = self.client.get(f"{url}?user_id={self.supplier.id}")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        rows = self._rows(res.data)
+        returned_types = {r["doc_type"] for r in rows}
+        self.assertEqual(returned_types, {"CERT_INSURANCE"})
+        self.assertEqual(rows[0]["id"], approved_cert.id)
+        self.assertNotIn("CNI", returned_types)
+
 
 class UserPiiEncryptionTests(APITestCase):
     def test_user_pii_fields_are_encrypted_at_rest(self):

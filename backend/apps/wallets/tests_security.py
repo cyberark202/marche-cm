@@ -479,7 +479,7 @@ class M2TimingAttackTests(TestCase):
 class M4KYCPendingLimitTests(APITestCase):
     def setUp(self):
         self.user = _make_user(username="kyc_user", email="kyc@test.local")
-        self.user.kyc_level = 0  # per_day limit = 50000 XAF
+        self.user.kyc_level = 0  # per_day limit = 150000 XAF (kyc.limits niveau 0)
         self.user.save(update_fields=["kyc_level"])
         self.client.force_authenticate(self.user)
 
@@ -489,7 +489,7 @@ class M4KYCPendingLimitTests(APITestCase):
         # Create a PENDING topup that fills the daily limit
         WalletTransaction.objects.create(
             wallet=wallet,
-            amount=Decimal("50000.00"),
+            amount=Decimal("150000.00"),
             kind="TOPUP",
             provider=PaymentProvider.MOBILE_MONEY,
             status=TransactionStatus.PENDING,

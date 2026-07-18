@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/ui_kit.dart';
 import '../auth/auth_api_service.dart';
 import '../data/admin_repository.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 39 — Wallet reconciliation (NotchPay vs system) + step-up reconcile.
 class ReconciliationPage extends StatefulWidget {
@@ -112,7 +113,7 @@ class _ReconciliationPageState extends State<ReconciliationPage> {
                           width: double.infinity,
                           child: FilledButton.icon(
                             onPressed: _startReconcile,
-                            icon: const Icon(Icons.sync),
+                            icon: const Icon(LucideIcons.refreshCw),
                             label: const Text('Rapprocher une transaction'),
                           ),
                         ),
@@ -123,7 +124,7 @@ class _ReconciliationPageState extends State<ReconciliationPage> {
                   SectionCard(
                     child: Row(
                       children: const [
-                        Icon(Icons.shield_outlined,
+                        Icon(LucideIcons.shield,
                             color: AppPalette.secondary, size: 20),
                         SizedBox(width: 12),
                         Expanded(

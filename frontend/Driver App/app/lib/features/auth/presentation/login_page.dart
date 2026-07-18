@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/theme/driver_theme.dart';
 import '../application/auth_notifier.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -72,7 +73,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(Icons.local_shipping, color: Colors.white, size: 28),
+                      child: const Icon(LucideIcons.truck, color: Colors.white, size: 28),
                     ),
                     const SizedBox(height: 20),
                     const Text('Market CM Driver',
@@ -107,7 +108,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: 'Email',
-                        prefixIcon: Icon(Icons.alternate_email),
+                        prefixIcon: Icon(LucideIcons.atSign),
                         hintText: 'votre@email.com',
                       ),
                     ),
@@ -119,11 +120,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       onSubmitted: (_) => _login(),
                       decoration: InputDecoration(
                         labelText: 'Mot de passe',
-                        prefixIcon: const Icon(Icons.lock_outline),
+                        prefixIcon: const Icon(LucideIcons.lock),
                         suffixIcon: IconButton(
                           icon: Icon(_obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
+                              ? LucideIcons.eye
+                              : LucideIcons.eyeOff),
                           onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                       ),
@@ -189,7 +190,7 @@ class _ErrorCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+            const Icon(LucideIcons.alertCircle, size: 16, color: Color(0xFFDC2626)),
             const SizedBox(width: 8),
             Expanded(child: Text(message,
                 style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13))),

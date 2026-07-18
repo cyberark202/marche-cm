@@ -13,6 +13,8 @@ import 'core/app_config.dart';
 import 'core/app_gate.dart';
 import 'core/app_i18n.dart';
 import 'core/app_theme.dart';
+import 'core/cm_components.dart';
+import 'core/network_quality_service.dart';
 import 'core/push_notification_service.dart';
 import 'core/realtime_events_service.dart';
 import 'core/security/secure_dio_client.dart';
@@ -22,9 +24,13 @@ import 'features/buyer/buyer_store.dart';
 import 'features/home/public_home_page.dart';
 import 'features/shell/main_shell.dart';
 import 'features/splash/cm_splash_screen.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Surveillance connectivité (bannière hors-ligne).
+  NetworkQualityService.instance.init();
 
   // Firebase — requires google-services.json (Android) / GoogleService-Info.plist (iOS).
   // Skipped on web: the Firebase JS SDK loads from Google CDNs which are not
@@ -117,6 +123,8 @@ class MarcheCmApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
       ],
       theme: AppTheme.light(),
+      builder: (context, child) =>
+          CmResponsive.appWrap(context, child, maxWidth: 1000),
       home: AppGate(
         systemEvents: RealtimeEventsService.instance.events,
         child: const _RootEntryPoint(),
@@ -226,6 +234,10 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
 
     final topic = (event['topic'] ?? '').toString();
     final type = (event['type'] ?? '').toString();
+    // "resync" est un signal interne émis par RealtimeEventsService après
+    // reconnexion pour déclencher un rechargement silencieux des pages — ce
+    // n'est jamais une notification destinée à l'utilisateur.
+    if (type == 'resync') return;
     final payload = event['payload'] is Map<String, dynamic>
         ? event['payload'] as Map<String, dynamic>
         : const <String, dynamic>{};
@@ -346,7 +358,7 @@ class _RoleMismatchScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.block, size: 64, color: Color(0xFFB91C1C)),
+                const Icon(LucideIcons.ban, size: 64, color: Color(0xFFB91C1C)),
                 const SizedBox(height: 20),
                 const Text(
                   "Application réservée aux vendeurs",
@@ -355,7 +367,7 @@ class _RoleMismatchScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "Market CM Pro est réservée aux comptes Fournisseur et Grossiste. "
+                  "Market CM Pro est réservée aux comptes Vendeur. "
                   "Votre compte doit utiliser $_expectedApp.",
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 14, color: Color(0xFF526252)),

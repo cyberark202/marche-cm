@@ -49,6 +49,14 @@ class ApiService {
     return {'ok': true};
   }
 
+  Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) async {
+    final response = await _dio.put(path, data: body);
+    _assertOk(response, 'PUT $path');
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    return {'ok': true};
+  }
+
   Future<String> downloadText(String path) async {
     final response = await _dio.get(
       path,

@@ -168,7 +168,8 @@ class DriverFixesTests(TestCase):
         transit_wallet = Wallet.objects.get(owner=self.transit)
         payout = transit_wallet.transactions.filter(kind="PAYOUT_LOGISTICS").first()
         self.assertIsNotNone(payout)
-        self.assertEqual(abs(payout.amount), Decimal("100000.00"))
+        # Commission plateforme de 10% sur le payout livreur : 100000 -> 90000 net.
+        self.assertEqual(abs(payout.amount), Decimal("90000.00"))
 
     def test_driver_confirm_is_not_a_buyer_only_403(self):
         # Regression for the old trap: the driver hitting the delivery endpoint
@@ -189,7 +190,8 @@ class DriverFixesTests(TestCase):
 
         carrier_payout = Wallet.objects.get(owner=self.transit).transactions.filter(kind="PAYOUT_LOGISTICS").first()
         self.assertIsNotNone(carrier_payout)
-        self.assertEqual(abs(carrier_payout.amount), Decimal("100000.00"))
+        # Commission plateforme de 10% sur le payout livreur : 100000 -> 90000 net.
+        self.assertEqual(abs(carrier_payout.amount), Decimal("90000.00"))
 
         decoy_wallet = Wallet.objects.filter(owner=self.decoy).first()
         if decoy_wallet:

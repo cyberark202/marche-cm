@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/cm_components.dart';
 import '../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class DriverShell extends StatelessWidget {
   final Widget child;
@@ -11,6 +13,7 @@ class DriverShell extends StatelessWidget {
     _Tab('/dashboard', 'Accueil'),
     _Tab('/missions',  'Demandes'),
     _Tab('/active',    'Mes courses'),
+    _Tab('/messages',  'Messages'),
     _Tab('/wallet',    'Gains'),
     _Tab('/profile',   'Profil'),
   ];
@@ -22,7 +25,12 @@ class DriverShell extends StatelessWidget {
     if (index < 0) index = 0;
 
     return Scaffold(
-      body: child,
+      body: Column(
+        children: [
+          const CmOfflineBanner(),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: T.surface,
@@ -86,13 +94,14 @@ class _Tab {
   const _Tab(this.path, this.label);
 
   IconData icon(bool active) => switch (path) {
-        '/dashboard' => active ? Icons.home : Icons.home_outlined,
-        '/missions'  => active ? Icons.balance : Icons.balance_outlined,
+        '/dashboard' => LucideIcons.home,
+        '/missions'  => LucideIcons.scale,
         '/active'    =>
-          active ? Icons.local_shipping : Icons.local_shipping_outlined,
+          LucideIcons.truck,
+        '/messages'  => LucideIcons.messageCircle,
         '/wallet'    =>
-          active ? Icons.account_balance_wallet : Icons.account_balance_wallet_outlined,
-        '/profile'   => active ? Icons.person : Icons.person_outline,
-        _            => Icons.circle,
+          LucideIcons.wallet,
+        '/profile'   => LucideIcons.user,
+        _            => LucideIcons.circle,
       };
 }

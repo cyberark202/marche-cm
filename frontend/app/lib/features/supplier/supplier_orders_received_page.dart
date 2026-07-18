@@ -5,6 +5,7 @@ import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
 import 'supplier_order_detail_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Commandes reçues vendeur (PDF 17).
 class SupplierOrdersReceivedPage extends StatefulWidget {
@@ -169,7 +170,7 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
               onPressed: onBack,
-              icon: const Icon(Icons.arrow_back, color: Colors.white)),
+              icon: const Icon(LucideIcons.arrowLeft, color: Colors.white)),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,7 +395,7 @@ class _OrderCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.inventory_2_outlined,
+                    const Icon(LucideIcons.package,
                         size: 14, color: AppPalette.textMuted),
                     const SizedBox(width: 6),
                     Expanded(
@@ -424,7 +425,7 @@ class _OrderCard extends StatelessWidget {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.lock_outline,
+                        Icon(LucideIcons.lock,
                             size: 12, color: AppPalette.primaryDark),
                         SizedBox(width: 4),
                         Text("Séquestré",
@@ -439,7 +440,7 @@ class _OrderCard extends StatelessWidget {
                   if (status == "PENDING")
                     FilledButton.icon(
                       onPressed: onAccept,
-                      icon: const Icon(Icons.check, size: 16),
+                      icon: const Icon(LucideIcons.check, size: 16),
                       label: const Text("Accepter"),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
@@ -449,7 +450,7 @@ class _OrderCard extends StatelessWidget {
                   else
                     OutlinedButton.icon(
                       onPressed: onOpen,
-                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      icon: const Icon(LucideIcons.arrowRight, size: 16),
                       label: const Text("Détails"),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
@@ -485,7 +486,7 @@ class _Empty extends StatelessWidget {
                 color: AppPalette.primarySoft,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.inbox_outlined,
+              child: const Icon(LucideIcons.inbox,
                   color: AppPalette.primaryDark, size: 32),
             ),
             const SizedBox(height: 14),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from io import BytesIO
 from pathlib import Path
 from typing import Iterable
@@ -7,6 +8,8 @@ from typing import Iterable
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
+
+logger = logging.getLogger(__name__)
 
 
 def _normalized_ext(name: str) -> str:
@@ -30,12 +33,9 @@ def _peek_magic_bytes(uploaded_file, length: int = 16) -> bytes:
             if hasattr(uploaded_file, "seek"):
                 uploaded_file.seek(0)
         except Exception:
-            pass
+            logger.debug("upload_cursor_reset_failed file=%s", getattr(uploaded_file, "name", "?"), exc_info=True)
     if isinstance(head, str):
-        try:
-            head = head.encode("latin-1", errors="ignore")
-        except Exception:
-            head = b""
+        head = head.encode("latin-1", errors="ignore")
     return head
 
 
@@ -66,6 +66,16 @@ _MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
     ".m4v": (b"ftyp", b"\x00\x00\x00"),
     # WebM/Matroska: EBML header magic
     ".webm": (b"\x1a\x45\xdf\xa3",),
+    # Voice-note audio formats.
+    # M4A/AAC-in-MP4: ftyp box at offset 4 (handled like mp4 below).
+    ".m4a": (b"ftyp", b"\x00\x00\x00"),
+    # Raw AAC (ADTS) frame sync, or an ID3-tagged stream.
+    ".aac": (b"\xff\xf1", b"\xff\xf9", b"ID3"),
+    # Ogg / Opus container.
+    ".ogg": (b"OggS",),
+    ".opus": (b"OggS",),
+    # WAV: RIFF container with "WAVE" at offset 8 (handled specially below).
+    ".wav": (b"RIFF",),
 }
 
 
@@ -78,7 +88,9 @@ def _content_matches_extension(ext: str, head: bytes) -> bool:
         return False
     if ext == ".webp":
         return head.startswith(b"RIFF") and b"WEBP" in head[:16]
-    if ext in (".mp4", ".mov", ".m4v"):
+    if ext == ".wav":
+        return head.startswith(b"RIFF") and b"WAVE" in head[:16]
+    if ext in (".mp4", ".mov", ".m4v", ".m4a"):
         # ftyp box at offset 4: head[4:8] == b"ftyp"
         return len(head) >= 8 and head[4:8] == b"ftyp"
     return any(head.startswith(sig) for sig in expected)
@@ -145,7 +157,8 @@ def scrub_image_metadata(uploaded_file):
 
     try:
         from PIL import Image
-    except Exception:
+    except ImportError:
+        logger.warning("exif_scrub_skipped: Pillow non installe")
         return uploaded_file
 
     # Audit ref: [UP-002] cap Pillow's pixel budget to defuse decompression
@@ -180,4 +193,8 @@ def scrub_image_metadata(uploaded_file):
         cleaned.name = getattr(uploaded_file, "name", "upload_image")
         return cleaned
     except Exception:
+        logger.warning(
+            "exif_scrub_failed file=%s — fichier original conserve",
+            getattr(uploaded_file, "name", "?"), exc_info=True,
+        )
         return uploaded_file

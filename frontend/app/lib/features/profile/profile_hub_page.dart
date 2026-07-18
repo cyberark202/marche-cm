@@ -19,9 +19,12 @@ import '../common/support_center_page.dart';
 import '../logistics/shipment_disputes_page.dart';
 import '../logistics/transport_profile_page.dart';
 import '../innovation/innovation_hub_page.dart';
+import '../rentals/rental_listings_page.dart';
 import 'compliance_documents_page.dart';
+import 'notification_preferences_page.dart';
 import 'security_center_page.dart';
 import '../wallet/wallet_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class ProfileHubPage extends StatefulWidget {
   const ProfileHubPage({super.key, required this.onRefresh});
@@ -180,7 +183,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                           removeAvatar = false;
                         });
                       },
-                      icon: const Icon(Icons.photo_camera_outlined),
+                      icon: const Icon(LucideIcons.camera),
                       label: const Text("Photo"),
                     ),
                     const SizedBox(width: 8),
@@ -350,7 +353,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                                             shape: BoxShape.circle,
                                           ),
                                           child: const Icon(
-                                            Icons.edit,
+                                            LucideIcons.pencil,
                                             size: 11,
                                             color: Colors.white,
                                           ),
@@ -399,7 +402,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.refresh,
+                                  icon: const Icon(LucideIcons.refreshCw,
                                       color: Colors.white),
                                   onPressed: () {
                                     _load();
@@ -449,12 +452,12 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       // Section COMPTE
                       const _SectionLabel('COMPTE'),
                       _ProfileTile(
-                        icon: Icons.edit_outlined,
+                        icon: LucideIcons.pencil,
                         title: 'Modifier le profil',
                         onTap: _openProfileEditDialog,
                       ),
                       _ProfileTile(
-                        icon: Icons.shield_outlined,
+                        icon: LucideIcons.shield,
                         title: 'Sécurité du compte',
                         subtitle: 'Sessions, mot de passe',
                         onTap: () => Navigator.of(context).push(
@@ -463,7 +466,17 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                         ),
                       ),
                       _ProfileTile(
-                        icon: Icons.account_balance_wallet_outlined,
+                        icon: LucideIcons.bellRing,
+                        title: 'Préférences de notifications',
+                        subtitle: 'Push, promotions',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  const NotificationPreferencesPage()),
+                        ),
+                      ),
+                      _ProfileTile(
+                        icon: LucideIcons.wallet,
                         title: 'Wallet',
                         subtitle: 'Solde: $walletBalance FCFA',
                         onTap: () => Navigator.of(context).push(
@@ -477,7 +490,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       const _SectionLabel('COMMERCE'),
                       if (canAccessCompliance)
                         _ProfileTile(
-                          icon: Icons.verified_user_outlined,
+                          icon: LucideIcons.shieldCheck,
                           title: 'Conformité / KYC',
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
@@ -486,7 +499,16 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                           ),
                         ),
                       _ProfileTile(
-                        icon: Icons.request_quote_outlined,
+                        icon: LucideIcons.keyRound,
+                        title: 'Mes locations',
+                        subtitle: 'Annonces et réservations de biens loués',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const RentalListingsPage()),
+                        ),
+                      ),
+                      _ProfileTile(
+                        icon: LucideIcons.fileText,
                         title: 'Demandes RFQ',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -494,7 +516,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                         ),
                       ),
                       _ProfileTile(
-                        icon: Icons.local_offer_outlined,
+                        icon: LucideIcons.tag,
                         title: 'Offres RFQ',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -503,7 +525,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       ),
                       if (isWholesaler)
                         _ProfileTile(
-                          icon: Icons.campaign_outlined,
+                          icon: LucideIcons.megaphone,
                           title: 'Campagnes',
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
@@ -512,7 +534,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                         ),
                       if (isTransitAgent)
                         _ProfileTile(
-                          icon: Icons.local_shipping_outlined,
+                          icon: LucideIcons.truck,
                           title: 'Profil transport',
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
@@ -521,7 +543,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                           ),
                         ),
                       _ProfileTile(
-                        icon: Icons.gavel_outlined,
+                        icon: LucideIcons.gavel,
                         title: 'Litiges expédition',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -534,7 +556,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       // Section SUPPORT
                       const _SectionLabel('SUPPORT'),
                       _ProfileTile(
-                        icon: Icons.help_outline,
+                        icon: LucideIcons.helpCircle,
                         title: 'Support & Aide',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -542,7 +564,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                         ),
                       ),
                       _ProfileTile(
-                        icon: Icons.lightbulb_outline,
+                        icon: LucideIcons.lightbulb,
                         title: 'Innovation Hub',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -550,7 +572,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                         ),
                       ),
                       _ProfileTile(
-                        icon: Icons.people_outline,
+                        icon: LucideIcons.users,
                         title: 'Utilisateurs en ligne',
                         subtitle: '${_onlineUsers.length} connectés',
                         onTap: () => _showOnlineUsers(context),
@@ -571,7 +593,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 4),
-                          leading: const Icon(Icons.logout,
+                          leading: const Icon(LucideIcons.logOut,
                               color: AppPalette.danger),
                           title: const Text(
                             'Déconnexion',
@@ -707,7 +729,7 @@ class _ProfileTile extends StatelessWidget {
               )
             : null,
         trailing: const Icon(
-          Icons.chevron_right,
+          LucideIcons.chevronRight,
           color: AppPalette.textMuted,
           size: 20,
         ),

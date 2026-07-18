@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../../core/app_metrics_service.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 enum _PollResult { pending, success, failed, timedOut }
 
@@ -241,21 +242,21 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
         );
       case _PollResult.success:
         return const _ResultBody(
-          icon: Icons.check_circle_rounded,
+          icon: LucideIcons.checkCircle2,
           color: Colors.green,
           title: 'Paiement confirmé',
           subtitle: 'Votre wallet a été rechargé avec succès.',
         );
       case _PollResult.failed:
         return const _ResultBody(
-          icon: Icons.cancel_rounded,
+          icon: LucideIcons.xCircle,
           color: Colors.red,
           title: 'Paiement échoué',
           subtitle: 'La transaction a été refusée ou annulée.',
         );
       case _PollResult.timedOut:
         return const _ResultBody(
-          icon: Icons.timer_off_rounded,
+          icon: LucideIcons.timerOff,
           color: Colors.orange,
           title: 'Délai dépassé',
           subtitle:

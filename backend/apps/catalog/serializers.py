@@ -3,7 +3,10 @@ from django.conf import settings
 
 from apps.accounts.upload_security import scrub_image_metadata, validate_uploaded_file
 from apps.accounts.models import UserRole
+from core.text_sanitize import redact_links
 from .models import Product, ProductCategory, ProductFavorite, ProductImage, SavedProductFilter, VideoComment, VideoLike
+from .video_poster import generate_video_poster
+from .video_probe import validate_video_stream
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -28,6 +31,9 @@ class ProductSerializer(serializers.ModelSerializer):
     # from publishing/forcing an arbitrary activation state. New products are
     # active by default (set in create()), identically for JSON and multipart.
     is_active = serializers.BooleanField(read_only=True)
+    # Machine a etats (docs 12/22) : pilotee par le serveur (creation=PUBLISHED,
+    # soft-delete=ARCHIVED, moderation admin=SUSPENDED/REJECTED). Jamais client.
+    status = serializers.CharField(read_only=True)
     # Audit ref: [M-4] These are model-required (non-null DecimalField), which
     # made DRF mark them required at field level — so the wholesaler flow 400'd
     # before validate() could derive them from `unit_price`. Mark them optional
@@ -43,6 +49,14 @@ class ProductSerializer(serializers.ModelSerializer):
     # (liste {id,url,position}). L'upload se fait via le champ multipart repete
     # `gallery_images` lu directement depuis request.FILES (cf. _collect_gallery_files).
     images = serializers.SerializerMethodField()
+    # Compteurs + états utilisateur du feed vidéo (annotations posées par
+    # ProductViewSet._with_feed_annotations ; défauts sûrs hors liste/détail).
+    video_likes_count = serializers.SerializerMethodField()
+    video_comments_count = serializers.SerializerMethodField()
+    video_views_count = serializers.SerializerMethodField()
+    is_video_liked = serializers.SerializerMethodField()
+    is_following_seller = serializers.SerializerMethodField()
+    is_favorited = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -70,6 +84,24 @@ class ProductSerializer(serializers.ModelSerializer):
             result.append({"id": img.id, "url": url, "position": img.position})
         return result
 
+    def get_video_likes_count(self, obj):
+        return int(getattr(obj, "video_likes_count", 0) or 0)
+
+    def get_video_comments_count(self, obj):
+        return int(getattr(obj, "video_comments_count", 0) or 0)
+
+    def get_video_views_count(self, obj):
+        return int(getattr(obj, "video_views_count", 0) or 0)
+
+    def get_is_video_liked(self, obj):
+        return bool(getattr(obj, "is_video_liked", False))
+
+    def get_is_following_seller(self, obj):
+        return bool(getattr(obj, "is_following_seller", False))
+
+    def get_is_favorited(self, obj):
+        return bool(getattr(obj, "is_favorited", False))
+
     def get_seller_is_verified(self, obj):
         seller = obj.seller
         if seller.role in {UserRole.SUPPLIER, UserRole.WHOLESALER, UserRole.TRANSIT_AGENT}:
@@ -87,8 +119,8 @@ class ProductSerializer(serializers.ModelSerializer):
     def _apply_legacy_aliases(cls, data):
         try:
             mutable = data.copy()  # QueryDict.copy() -> mutable, or dict.copy()
-        except Exception:
-            return data
+        except (AttributeError, TypeError):
+            return data  # Payload non copiable : les alias legacy ne s'appliquent pas.
         for legacy, canonical in cls._LEGACY_QTY_ALIASES.items():
             if mutable.get(legacy) not in (None, "") and not mutable.get(canonical):
                 mutable[canonical] = mutable.get(legacy)
@@ -113,28 +145,11 @@ class ProductSerializer(serializers.ModelSerializer):
         if not category and not category_name:
             raise serializers.ValidationError("La categorie est obligatoire.")
 
-        if role == UserRole.SUPPLIER:
-            min_qty = attrs.get("min_order_qty", getattr(self.instance, "min_order_qty", None))
-            max_qty = attrs.get("max_order_qty", getattr(self.instance, "max_order_qty", None))
-            min_price = attrs.get("price_for_min_qty", getattr(self.instance, "price_for_min_qty", None))
-            max_price = attrs.get("price_for_max_qty", getattr(self.instance, "price_for_max_qty", None))
-            if min_qty is None or max_qty is None:
-                raise serializers.ValidationError(
-                    "Le fournisseur doit renseigner les quantites min et max."
-                )
-            if min_price is None or max_price is None:
-                raise serializers.ValidationError(
-                    "Le fournisseur doit renseigner les prix min et max."
-                )
-            # Audit ref: [C-1] guard against an inverted price mapping. With a
-            # volume discount, the unit price for the MINIMUM quantity (low
-            # volume) must be >= the unit price for the MAXIMUM quantity (bulk).
-            if min_price < max_price:
-                raise serializers.ValidationError(
-                    "Prix incoherents: le prix pour la quantite minimale doit etre "
-                    ">= au prix pour la quantite maximale (remise sur volume)."
-                )
-        if role == UserRole.WHOLESALER:
+        # Compte « Vendeur » unifié (clé SUPPLIER ; WHOLESALER déprécié migré) :
+        # formulaire simple — montant (unit_price) + quantité disponible
+        # (available_qty). On dérive les gammes internes min/max pour rester
+        # compatible avec le moteur de commande (prix unique, pas de dégressif).
+        if role in UserRole.seller_roles():
             available_qty = attrs.get("available_qty", getattr(self.instance, "available_qty", None))
             unit_price = attrs.get("unit_price", getattr(self.instance, "unit_price", None))
             if available_qty is None:
@@ -162,8 +177,8 @@ class ProductSerializer(serializers.ModelSerializer):
             "allows_group_campaign",
             getattr(self.instance, "allows_group_campaign", False),
         )
-        if allows_group_campaign and request and request.user.role != UserRole.WHOLESALER:
-            raise serializers.ValidationError("Le regroupage est reserve aux grossistes.")
+        if allows_group_campaign and request and request.user.role not in UserRole.seller_roles():
+            raise serializers.ValidationError("Le regroupage est reserve aux vendeurs.")
         tags = (attrs.get("tags", getattr(self.instance, "tags", "")) or "").strip()
         variants = attrs.get("variant_options", getattr(self.instance, "variant_options", []))
         bundles = attrs.get("bundle_items", getattr(self.instance, "bundle_items", []))
@@ -227,6 +242,14 @@ class ProductSerializer(serializers.ModelSerializer):
             product.image = created[0].image
             product.save(update_fields=["image"])
 
+    # Anti-désintermédiation : neutraliser tout lien/e-mail dans les champs libres
+    # visibles par l'acheteur (contournement de l'escrow / hameçonnage).
+    def validate_title(self, value):
+        return redact_links(value)
+
+    def validate_description(self, value):
+        return redact_links(value)
+
     def validate_image(self, value):
         validate_uploaded_file(
             value,
@@ -251,6 +274,10 @@ class ProductSerializer(serializers.ModelSerializer):
                 "application/octet-stream",
             },
         )
+        # Defense en profondeur : refuser un conteneur sans piste video lisible
+        # (ex. fichier dummy ftyp + mdat tout-a-zero). Renvoie la duree detectee
+        # pour alimenter `video_duration_seconds` dans create()/update().
+        self._probed_video_duration = validate_video_stream(value)
         return value
 
     def create(self, validated_data):
@@ -263,6 +290,8 @@ class ProductSerializer(serializers.ModelSerializer):
         validated_data["is_active"] = True
         product = super().create(validated_data)
         self._save_gallery(product)
+        self._save_video_poster(product)
+        self._apply_probed_duration(product)
         return product
 
     def update(self, instance, validated_data):
@@ -272,7 +301,30 @@ class ProductSerializer(serializers.ModelSerializer):
             validated_data["category"] = category
         product = super().update(instance, validated_data)
         self._save_gallery(product)
+        self._save_video_poster(product)
+        self._apply_probed_duration(product)
         return product
+
+    def _apply_probed_duration(self, product):
+        """Enregistre la duree video detectee a la validation (si > 0)."""
+        duration = int(getattr(self, "_probed_video_duration", 0) or 0)
+        if duration > 0 and product.video and product.video_duration_seconds != duration:
+            product.video_duration_seconds = duration
+            product.save(update_fields=["video_duration_seconds"])
+
+    def _save_video_poster(self, product):
+        """Genere et attache un poster (vignette) extrait de la video.
+
+        Idempotent : ne fait rien si pas de video ou si un poster existe deja.
+        Tout echec est silencieux — la publication ne doit jamais casser pour
+        un poster manquant.
+        """
+        if not product.video or product.video_poster:
+            return
+        poster = generate_video_poster(product.video)
+        if poster is None:
+            return
+        product.video_poster.save(f"poster_{product.pk}.jpg", poster, save=True)
 
 
 class TrackProductViewSerializer(serializers.Serializer):
@@ -307,8 +359,40 @@ class SavedProductFilterSerializer(serializers.ModelSerializer):
 
 class VideoCommentSerializer(serializers.ModelSerializer):
     author = serializers.CharField(source="user.username", read_only=True)
+    # Fil TikTok : compteurs annotés par VideoCommentViewSet.get_queryset et
+    # badge « Vendeur » quand l'auteur du commentaire est le vendeur du produit.
+    likes_count = serializers.SerializerMethodField()
+    replies_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
+    is_seller = serializers.SerializerMethodField()
 
     class Meta:
         model = VideoComment
-        fields = ("id", "product", "author", "message", "created_at")
+        fields = (
+            "id",
+            "product",
+            "parent",
+            "author",
+            "message",
+            "likes_count",
+            "replies_count",
+            "is_liked",
+            "is_seller",
+            "created_at",
+        )
         read_only_fields = ("author", "created_at")
+
+    def validate_message(self, value):
+        return redact_links(value)
+
+    def get_likes_count(self, obj):
+        return int(getattr(obj, "likes_count", 0) or 0)
+
+    def get_replies_count(self, obj):
+        return int(getattr(obj, "replies_count", 0) or 0)
+
+    def get_is_liked(self, obj):
+        return bool(getattr(obj, "is_liked", False))
+
+    def get_is_seller(self, obj):
+        return obj.user_id == obj.product.seller_id

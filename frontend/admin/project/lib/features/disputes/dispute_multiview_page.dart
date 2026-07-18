@@ -4,6 +4,7 @@ import '../../core/app_theme.dart';
 import '../../core/format.dart';
 import 'arbitration_page.dart';
 import 'dispute_helpers.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Litige multi-vue (design `screens-extras.jsx`) — outil d'arbitrage admin.
 ///
@@ -35,7 +36,7 @@ class DisputeMultiviewPage extends StatelessWidget {
         role: 'Acheteur',
         name: opener,
         sub: 'Plaignant · vue acheteur',
-        icon: Icons.shopping_bag_outlined,
+        icon: LucideIcons.shoppingBag,
         tone: _Tone.info,
         kind: _PerspectiveKind.buyer,
       ),
@@ -43,7 +44,7 @@ class DisputeMultiviewPage extends StatelessWidget {
         role: 'Vendeur',
         name: 'Vendeur concerné',
         sub: 'Témoin · vue vendeur',
-        icon: Icons.inventory_2_outlined,
+        icon: LucideIcons.package,
         tone: _Tone.success,
         kind: _PerspectiveKind.vendor,
       ),
@@ -51,7 +52,7 @@ class DisputeMultiviewPage extends StatelessWidget {
         role: 'Livreur',
         name: accused,
         sub: 'Mis en cause · vue livreur',
-        icon: Icons.local_shipping_outlined,
+        icon: LucideIcons.truck,
         tone: _Tone.warn,
         kind: _PerspectiveKind.carrier,
       ),
@@ -100,7 +101,7 @@ class DisputeMultiviewPage extends StatelessWidget {
               role: 'Arbitre',
               name: 'Conversation tripartite',
               sub: 'Chat avec admin · 3 parties',
-              icon: Icons.forum_outlined,
+              icon: LucideIcons.messageCircle,
               tone: _Tone.coral,
               kind: _PerspectiveKind.arbiter,
             ),
@@ -244,7 +245,7 @@ class _PerspectiveCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right,
+            const Icon(LucideIcons.chevronRight,
                 size: 18, color: AppPalette.textMuted),
           ],
         ),
@@ -356,7 +357,7 @@ class _PerspectiveDetailPage extends StatelessWidget {
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => ArbitrationPage(disputeId: disputeId),
               )),
-              icon: const Icon(Icons.forum_outlined, size: 18),
+              icon: const Icon(LucideIcons.messageCircle, size: 18),
               label: const Text('Ouvrir la conversation arbitrage'),
               style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14)),
@@ -431,7 +432,7 @@ class _PerspectiveDetailPage extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          Icon(Icons.photo_library_outlined,
+          Icon(LucideIcons.image,
               size: 18, color: AppPalette.textMuted),
           SizedBox(width: 10),
           Expanded(

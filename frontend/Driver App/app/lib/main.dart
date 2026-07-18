@@ -5,11 +5,15 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'app.dart';
 import 'core/network/driver_dio_client.dart';
+import 'core/network_quality_service.dart';
 import 'core/push_notification_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Surveillance connectivité (bannière hors-ligne du shell).
+  NetworkQualityService.instance.init();
 
   // Portrait only — delivery app is portrait-first
   await SystemChrome.setPreferredOrientations([

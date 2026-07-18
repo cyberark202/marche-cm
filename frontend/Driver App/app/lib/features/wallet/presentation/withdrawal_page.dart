@@ -6,6 +6,7 @@ import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import 'wallet_security_dialogs.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class WithdrawalPage extends StatefulWidget {
   const WithdrawalPage({super.key});
@@ -77,12 +78,10 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
       );
       context.pop();
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = ApiError.friendly(e);
-          _busy = false;
-        });
-      }
+      if (mounted) setState(() => _error = ApiError.friendly(e));
+    } finally {
+      // Toujours relâcher le spinner (succès = navigation ; échec = ré-essai).
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -93,7 +92,7 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
       appBar: AppBar(
         title: const Text('Retrait'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () => context.pop(),
         ),
       ),
@@ -111,7 +110,7 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
                   border: Border.all(color: const Color(0xFFFCA5A5)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+                  const Icon(LucideIcons.alertCircle, size: 16, color: Color(0xFFDC2626)),
                   const SizedBox(width: 8),
                   Expanded(child: Text(_error!,
                       style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13))),
@@ -141,13 +140,13 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
                     Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(color: p.$3, borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.phone_android, color: Colors.white, size: 20),
+                      child: const Icon(LucideIcons.smartphone, color: Colors.white, size: 20),
                     ),
                     const SizedBox(width: 12),
                     Text(p.$2, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14,
                         color: sel ? DriverPalette.textPrimary : DriverPalette.textSecondary)),
                     const Spacer(),
-                    if (sel) const Icon(Icons.check_circle, color: DriverPalette.primary, size: 20),
+                    if (sel) const Icon(LucideIcons.checkCircle2, color: DriverPalette.primary, size: 20),
                   ]),
                 ),
               );
@@ -161,7 +160,7 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.phone_outlined),
+                prefixIcon: Icon(LucideIcons.phone),
                 hintText: '+2376XXXXXXXX',
               ),
             ),
@@ -176,7 +175,7 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onSubmitted: (_) => _withdraw(),
               decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.payments_outlined),
+                prefixIcon: Icon(LucideIcons.banknote),
                 hintText: 'Minimum 500 FCFA',
                 suffixText: 'FCFA',
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class SensitiveActionVerification {
   const SensitiveActionVerification({
@@ -134,7 +135,7 @@ class SensitiveActionService {
                             }
                           }
                         },
-                  icon: const Icon(Icons.refresh),
+                  icon: const Icon(LucideIcons.refreshCw),
                   label: Text(busy ? "Envoi..." : "Renvoyer code"),
                 ),
               ),

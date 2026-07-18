@@ -7,6 +7,7 @@ import '../feed/video_feed_tab.dart';
 import 'buyer_catalog_page.dart';
 import 'buyer_home_page.dart';
 import 'buyer_profile_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class BuyerShell extends StatefulWidget {
   const BuyerShell({super.key});
@@ -30,23 +31,23 @@ class _BuyerShellState extends State<BuyerShell> {
       child: Scaffold(
         body: IndexedStack(
           index: _index,
-          children: const [
-            BuyerHomePage(),
-            BuyerCatalogPage(),
-            VideoFeedTab(),
-            ChatHubPage(),
-            BuyerProfilePage(),
+          children: [
+            const BuyerHomePage(),
+            const BuyerCatalogPage(),
+            VideoFeedTab(active: _index == 2),
+            const ChatHubPage(),
+            const BuyerProfilePage(),
           ],
         ),
         bottomNavigationBar: CmBottomNav(
           currentIndex: _index,
           onSelect: (i) => setState(() => _index = i),
           items: const [
-            CmNavItem(icon: Icons.home_outlined, label: 'Accueil'),
-            CmNavItem(icon: Icons.grid_view_outlined, label: 'Catalogue'),
-            CmNavItem(icon: Icons.play_circle_outline, label: 'Vidéos'),
-            CmNavItem(icon: Icons.chat_bubble_outline, label: 'Messages'),
-            CmNavItem(icon: Icons.person_outline, label: 'Profil'),
+            CmNavItem(icon: LucideIcons.home, label: 'Accueil'),
+            CmNavItem(icon: LucideIcons.layoutGrid, label: 'Catalogue'),
+            CmNavItem(icon: LucideIcons.playCircle, label: 'Vidéos'),
+            CmNavItem(icon: LucideIcons.messageCircle, label: 'Messages'),
+            CmNavItem(icon: LucideIcons.user, label: 'Profil'),
           ],
         ),
       ),

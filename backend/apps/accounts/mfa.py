@@ -108,7 +108,8 @@ class TOTPService:
             return False
         try:
             secret_bytes = base64.b32decode(secret_b32, casefold=True)
-        except Exception:
+        except (ValueError, TypeError):
+            logger.warning("totp_secret_invalid_base32 — secret stocke corrompu ou tronque")
             return False
 
         now = time.time()

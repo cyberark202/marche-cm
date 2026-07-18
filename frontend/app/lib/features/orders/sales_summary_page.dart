@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../../core/app_ui.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class SalesSummaryPage extends StatefulWidget {
   const SalesSummaryPage({super.key});
@@ -82,7 +83,7 @@ class _SalesSummaryPageState extends State<SalesSummaryPage> {
       appBar: AppBar(
         title: const Text("Montants des ventes"),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _load, icon: const Icon(LucideIcons.refreshCw)),
         ],
       ),
       body: AppPageBackground(
@@ -96,7 +97,7 @@ class _SalesSummaryPageState extends State<SalesSummaryPage> {
                 title: "Suivi financier des ventes",
                 subtitle:
                     "Visualisez rapidement les montants vendus par compte et les commandes finalisees.",
-                trailing: Icon(Icons.bar_chart_outlined),
+                trailing: Icon(LucideIcons.barChart3),
               ),
               const SizedBox(height: 10),
               if (_loading)

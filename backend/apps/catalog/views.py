@@ -1,8 +1,10 @@
 import re
 from decimal import Decimal, InvalidOperation
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Avg, Count, Q
+from django.db.models import Avg, Count, Exists, IntegerField, OuterRef, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -14,7 +16,18 @@ from apps.accounts.security import write_audit_log
 from apps.chat.models import ChatRoom, DeliveryState, Message, MessageReceipt, MessageType
 from apps.notifications.realtime import broadcast_event
 from apps.orders.models import OrderReview
-from .models import BuyerPreferenceProfile, BuyerProductInteraction, Product, ProductFavorite, SavedProductFilter, VideoComment, VideoLike
+from .models import (
+    BuyerPreferenceProfile,
+    BuyerProductInteraction,
+    Product,
+    ProductFavorite,
+    ProductStatus,
+    SavedProductFilter,
+    SellerFollow,
+    VideoComment,
+    VideoCommentLike,
+    VideoLike,
+)
 from .serializers import (
     ProductFavoriteSerializer,
     ProductSerializer,
@@ -34,12 +47,69 @@ class ProductViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         return [permission() for permission in self.permission_classes]
 
+    def _with_feed_annotations(self, queryset):
+        """Compteurs et états utilisateur du feed vidéo (likes/commentaires/vues,
+        déjà-liké/suivi/favori) embarqués dans le payload produit : sans eux, le
+        client devait faire 3 appels HTTP PAR vidéo affichée (N+1 inter-requêtes).
+        Sous-requêtes pour éviter la multiplication de lignes des joins croisés."""
+        def count_for(model, field="pk"):
+            return Coalesce(
+                Subquery(
+                    model.objects.filter(product=OuterRef("pk"))
+                    .order_by()
+                    .values("product")
+                    .annotate(total=Count(field))
+                    .values("total")[:1],
+                    output_field=IntegerField(),
+                ),
+                0,
+            )
+
+        views_total = Coalesce(
+            Subquery(
+                BuyerProductInteraction.objects.filter(product=OuterRef("pk"))
+                .order_by()
+                .values("product")
+                .annotate(total=Sum("view_count"))
+                .values("total")[:1],
+                output_field=IntegerField(),
+            ),
+            0,
+        )
+        user = self.request.user
+        if user.is_authenticated:
+            is_liked = Exists(VideoLike.objects.filter(product=OuterRef("pk"), user=user))
+            is_following = Exists(SellerFollow.objects.filter(seller=OuterRef("seller_id"), follower=user))
+            is_favorited = Exists(ProductFavorite.objects.filter(product=OuterRef("pk"), user=user))
+        else:
+            is_liked = is_following = is_favorited = Value(False)
+        return queryset.annotate(
+            video_likes_count=count_for(VideoLike),
+            video_comments_count=count_for(VideoComment),
+            video_views_count=views_total,
+            is_video_liked=is_liked,
+            is_following_seller=is_following,
+            is_favorited=is_favorited,
+        )
+
     def get_queryset(self):
         queryset = self.queryset
         if self.action in {"list", "retrieve", "image_search"}:
             # Audit ref: [BUG-03] hide products of suspended/deactivated sellers
             # so a buyer cannot order from an account that can no longer operate.
-            queryset = queryset.filter(is_active=True, seller__is_active=True)
+            # Docs 12/22 : seuls les produits PUBLISHED sont visibles au public.
+            # File de moderation : l'admin peut lister par statut arbitraire.
+            user = self.request.user
+            is_admin = user.is_authenticated and (user.is_superuser or user.role == UserRole.GENERAL_ADMIN)
+            status_param = (self.request.query_params.get("status") or "").strip().upper()
+            if is_admin and status_param in ProductStatus.values:
+                queryset = queryset.filter(status=status_param)
+            else:
+                queryset = queryset.filter(is_active=True, status=ProductStatus.PUBLISHED, seller__is_active=True)
+        # Feed vidéo : ne servir que les produits portant une vidéo (le client
+        # vendeur envoyait déjà ce filtre, il était ignoré côté serveur).
+        if (self.request.query_params.get("has_video") or "").lower() in {"1", "true"}:
+            queryset = queryset.exclude(video="").exclude(video__isnull=True)
         search_query = (self.request.query_params.get("q") or "").strip().lower()
         if search_query:
             terms = [term for term in re.split(r"\s+", search_query) if term]
@@ -47,6 +117,8 @@ class ProductViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(
                     Q(title__icontains=term) | Q(brand__icontains=term) | Q(description__icontains=term)
                 )
+        if self.action in {"list", "retrieve", "image_search", "mine", "recommended"}:
+            queryset = self._with_feed_annotations(queryset)
         return queryset
 
     def perform_create(self, serializer):
@@ -68,6 +140,63 @@ class ProductViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("Modification reservee au vendeur proprietaire.")
         with transaction.atomic():
             serializer.save()
+
+    @action(detail=True, methods=["post"])
+    def moderate(self, request, pk=None):
+        """Modération a posteriori (docs 12/22) : suspend / refuse / rétablit.
+
+        Réservé à l'administration. Le vendeur est notifié avec le motif ;
+        chaque décision est auditée. Un statut posé ici ne peut pas être levé
+        par le vendeur (verrou dans Product._sync_status_and_active).
+        """
+        if not (request.user.is_superuser or request.user.role == UserRole.GENERAL_ADMIN):
+            raise PermissionDenied("Moderation reservee a l'administration.")
+        product = self.get_object()
+        decision = str(request.data.get("action") or "").strip().lower()
+        reason = str(request.data.get("reason") or "").strip()[:300]
+        target_status = {
+            "suspend": ProductStatus.SUSPENDED,
+            "reject": ProductStatus.REJECTED,
+            "restore": ProductStatus.PUBLISHED,
+        }.get(decision)
+        if target_status is None:
+            return Response(
+                {"detail": "Action invalide. Choisissez: suspend, reject ou restore."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        product.status = target_status
+        if target_status == ProductStatus.PUBLISHED:
+            product.is_active = True
+        product.save(update_fields=["status", "is_active"])
+        write_audit_log(
+            actor=request.user,
+            action="Moderation produit",
+            action_key="catalog.product.moderate",
+            metadata={"product_id": product.id, "decision": decision, "reason": reason},
+        )
+        try:
+            from apps.notifications.service import create_realtime_notification
+
+            labels = {
+                "suspend": "suspendu par la moderation",
+                "reject": "refuse par la moderation",
+                "restore": "retabli et de nouveau visible",
+            }
+            body = f"Votre produit « {product.title} » a ete {labels[decision]}."
+            if reason:
+                body += f" Motif : {reason}"
+            create_realtime_notification(
+                user=product.seller,
+                title="Moderation de votre annonce",
+                body=body,
+                payload={"product_id": product.id, "status": product.status},
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("notif_moderation_failed product=%s", product.id)
+        broadcast_event("products", "moderated", {"id": product.id, "status": product.status})
+        return Response({"id": product.id, "status": product.status, "is_active": product.is_active})
 
     def perform_destroy(self, instance):
         # R-01 — SOFT delete only. `Order.product` is on_delete=CASCADE: a hard
@@ -95,7 +224,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="mine")
     def mine(self, request):
-        products = self.queryset.filter(seller=request.user)
+        products = self.get_queryset().filter(seller=request.user)
         serializer = self.get_serializer(products, many=True)
         return Response(serializer.data)
 
@@ -162,24 +291,16 @@ class ProductViewSet(viewsets.ModelViewSet):
             "tags": tags,
             "is_active": True,
         }
-        if request.user.role == UserRole.SUPPLIER:
-            payload.update(
-                {
-                    "min_order_qty": 1,
-                    "max_order_qty": 1,
-                    "price_for_min_qty": "0.00",
-                    "price_for_max_qty": "0.00",
-                    "allows_group_campaign": False,
-                }
-            )
-        else:
-            payload.update(
-                {
-                    "available_qty": 1,
-                    "unit_price": "0.00",
-                    "allows_group_campaign": True,
-                }
-            )
+        # Compte « Vendeur » unifié : forme simple (quantité dispo + montant).
+        # Tarif placeholder pour une annonce vidéo ; le serializer dérive les
+        # gammes internes min/max.
+        payload.update(
+            {
+                "available_qty": 1,
+                "unit_price": "0.00",
+                "allows_group_campaign": False,
+            }
+        )
 
         serializer = self.get_serializer(data=payload)
         serializer.is_valid(raise_exception=True)
@@ -327,7 +448,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="recommended")
     def recommended(self, request):
-        products = list(self.queryset.filter(is_active=True, seller__is_active=True))
+        products = list(self.get_queryset().filter(is_active=True, seller__is_active=True))
         profile = BuyerPreferenceProfile.objects.filter(user=request.user).first()
 
         interactions = {
@@ -383,7 +504,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         q = (request.query_params.get("q") or "").strip()
         if not q:
             return Response([], status=status.HTTP_200_OK)
-        products = self.queryset.filter(is_active=True, seller__is_active=True)
+        products = self.get_queryset()
         terms = self._tokenize_text(q)
         if terms:
             products = [
@@ -400,12 +521,14 @@ class ProductViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="reviews")
     def reviews(self, request, pk=None):
         product = self.get_object()
-        rows = OrderReview.objects.filter(product=product).select_related("buyer").order_by("-created_at")[:50]
-        avg_rating = rows.aggregate(value=Avg("rating"))["value"] if rows else None
+        base = OrderReview.objects.filter(product=product)
+        # Moyenne + total sur TOUS les avis (pas seulement les 50 affiches).
+        stats = base.aggregate(value=Avg("rating"), total=Count("id"))
+        rows = base.select_related("buyer").order_by("-created_at")[:50]
         payload = {
             "product_id": product.id,
-            "reviews_count": len(rows),
-            "average_rating": float(avg_rating) if avg_rating is not None else 0,
+            "reviews_count": int(stats["total"] or 0),
+            "average_rating": float(stats["value"]) if stats["value"] is not None else 0,
             "reviews": [
                 {
                     "id": row.id,
@@ -413,6 +536,9 @@ class ProductViewSet(viewsets.ModelViewSet):
                     "buyer_username": row.buyer.username,
                     "rating": row.rating,
                     "comment": row.comment,
+                    "photo_url": request.build_absolute_uri(row.photo.url) if row.photo else None,
+                    "seller_reply": row.seller_reply,
+                    "seller_reply_at": row.seller_reply_at.isoformat() if row.seller_reply_at else None,
                     "is_verified_purchase": row.is_verified_purchase,
                     "created_at": row.created_at.isoformat(),
                 }
@@ -527,6 +653,60 @@ class VideoLikeViewSet(viewsets.ViewSet):
         return Response({"liked": liked, "total_likes": total}, status=status.HTTP_200_OK)
 
 
+class SellerFollowViewSet(viewsets.ViewSet):
+    """Abonnement a un vendeur (feed video). toggle + statut/compteur."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _resolve_seller(self, request):
+        """Resout le vendeur depuis seller_id direct ou product_id."""
+        seller_id = request.data.get("seller_id") or request.query_params.get("seller_id")
+        if seller_id:
+            try:
+                return get_user_model().objects.get(id=int(seller_id))
+            except (TypeError, ValueError, get_user_model().DoesNotExist):
+                return None
+        product_id = request.data.get("product_id") or request.query_params.get("product_id")
+        if product_id:
+            try:
+                return Product.objects.get(id=int(product_id)).seller
+            except (TypeError, ValueError, Product.DoesNotExist):
+                return None
+        return None
+
+    @action(detail=False, methods=["post"], url_path="toggle")
+    def toggle(self, request):
+        seller = self._resolve_seller(request)
+        if seller is None:
+            return Response({"detail": "Vendeur introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        if seller.id == request.user.id:
+            return Response(
+                {"detail": "Vous ne pouvez pas vous abonner a vous-meme."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        link = SellerFollow.objects.filter(follower=request.user, seller=seller).first()
+        if link:
+            link.delete()
+            following = False
+        else:
+            SellerFollow.objects.create(follower=request.user, seller=seller)
+            following = True
+        total = SellerFollow.objects.filter(seller=seller).count()
+        return Response(
+            {"following": following, "total_followers": total}, status=status.HTTP_200_OK
+        )
+
+    def list(self, request):
+        seller = self._resolve_seller(request)
+        if seller is None:
+            return Response({"detail": "Vendeur introuvable."}, status=status.HTTP_400_BAD_REQUEST)
+        total = SellerFollow.objects.filter(seller=seller).count()
+        following = SellerFollow.objects.filter(follower=request.user, seller=seller).exists()
+        return Response(
+            {"following": following, "total_followers": total}, status=status.HTTP_200_OK
+        )
+
+
 class VideoCommentViewSet(viewsets.ModelViewSet):
     serializer_class = VideoCommentSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -536,9 +716,31 @@ class VideoCommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = self.queryset
         product_id = self.request.query_params.get("product_id")
-        if product_id:
-            queryset = queryset.filter(product_id=product_id)
-        return queryset
+        parent_id = self.request.query_params.get("parent_id")
+        if parent_id:
+            # Fil de réponses (1 niveau, façon TikTok), du plus ancien au plus récent.
+            queryset = queryset.filter(parent_id=parent_id).order_by("created_at")
+        elif product_id:
+            queryset = queryset.filter(product_id=product_id, parent__isnull=True)
+        replies = (
+            VideoComment.objects.filter(parent=OuterRef("pk"))
+            .order_by()
+            .values("parent")
+            .annotate(total=Count("pk"))
+            .values("total")[:1]
+        )
+        likes = (
+            VideoCommentLike.objects.filter(comment=OuterRef("pk"))
+            .order_by()
+            .values("comment")
+            .annotate(total=Count("pk"))
+            .values("total")[:1]
+        )
+        return queryset.annotate(
+            replies_count=Coalesce(Subquery(replies, output_field=IntegerField()), 0),
+            likes_count=Coalesce(Subquery(likes, output_field=IntegerField()), 0),
+            is_liked=Exists(VideoCommentLike.objects.filter(comment=OuterRef("pk"), user=self.request.user)),
+        )
 
     def perform_create(self, serializer):
         product_id = self.request.data.get("product")
@@ -546,7 +748,24 @@ class VideoCommentViewSet(viewsets.ModelViewSet):
             product = Product.objects.get(id=int(product_id), is_active=True)
         except (TypeError, ValueError, Product.DoesNotExist):
             raise PermissionDenied("Produit introuvable.")
+        parent = serializer.validated_data.get("parent")
+        if parent is not None and (parent.product_id != product.id or parent.parent_id is not None):
+            # Même produit obligatoire, et pas de réponse à une réponse (1 niveau).
+            raise PermissionDenied("Reponse invalide pour ce commentaire.")
         serializer.save(user=self.request.user, product=product)
+
+    @action(detail=True, methods=["post"], url_path="like")
+    def like(self, request, pk=None):
+        comment = self.get_object()
+        existing = VideoCommentLike.objects.filter(comment=comment, user=request.user).first()
+        if existing:
+            existing.delete()
+            liked = False
+        else:
+            VideoCommentLike.objects.create(comment=comment, user=request.user)
+            liked = True
+        total = VideoCommentLike.objects.filter(comment=comment).count()
+        return Response({"liked": liked, "total_likes": total}, status=status.HTTP_200_OK)
 
     def perform_destroy(self, instance):
         # Audit ref: [NEW-004] enum comparison instead of string literal.

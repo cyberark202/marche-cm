@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 enum _StatsRange { d7, d30, d90, m12 }
 
@@ -123,7 +124,7 @@ class _SupplierStatsPageState extends State<SupplierStatsPage> {
                               label: "COMMANDES",
                               value: "$orders",
                               sub: "ce mois",
-                              icon: Icons.shopping_bag_outlined,
+                              icon: LucideIcons.shoppingBag,
                               tone: _StatsTone.primary)),
                       const SizedBox(width: 10),
                       Expanded(
@@ -131,7 +132,7 @@ class _SupplierStatsPageState extends State<SupplierStatsPage> {
                               label: "ACHETEURS",
                               value: "$buyers",
                               sub: "dont $newBuyers nouveaux",
-                              icon: Icons.group_outlined,
+                              icon: LucideIcons.users,
                               tone: _StatsTone.info)),
                     ],
                   ),
@@ -143,7 +144,7 @@ class _SupplierStatsPageState extends State<SupplierStatsPage> {
                               label: "NOTE MOYENNE",
                               value: rating.toStringAsFixed(1),
                               sub: "$reviews avis",
-                              icon: Icons.star_rounded,
+                              icon: LucideIcons.star,
                               tone: _StatsTone.accent)),
                       const SizedBox(width: 10),
                       Expanded(
@@ -152,7 +153,7 @@ class _SupplierStatsPageState extends State<SupplierStatsPage> {
                               value: "${onTime.toStringAsFixed(0)} %",
                               sub:
                                   "${acceptance.toStringAsFixed(0)}% acceptation",
-                              icon: Icons.timeline,
+                              icon: LucideIcons.activity,
                               tone: _StatsTone.success)),
                     ],
                   ),
@@ -212,7 +213,7 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
               onPressed: onBack,
-              icon: const Icon(Icons.arrow_back, color: Colors.white)),
+              icon: const Icon(LucideIcons.arrowLeft, color: Colors.white)),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,8 +343,8 @@ class _CARevenueCard extends StatelessWidget {
               children: [
                 Icon(
                     positive
-                        ? Icons.trending_up
-                        : Icons.trending_down,
+                        ? LucideIcons.trendingUp
+                        : LucideIcons.trendingDown,
                     size: 13,
                     color: positive
                         ? AppPalette.success

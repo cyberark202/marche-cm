@@ -7,11 +7,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
+import 'core/api_service.dart';
 import 'core/app_config.dart';
 import 'core/app_gate.dart';
 import 'core/app_i18n.dart';
 import 'core/app_theme.dart';
 import 'core/auth_token_manager.dart';
+import 'core/cm_components.dart';
+import 'core/network_quality_service.dart';
 import 'core/push_notification_service.dart';
 import 'firebase_options.dart';
 import 'core/realtime_events_service.dart';
@@ -21,9 +24,13 @@ import 'features/buyer/buyer_store.dart';
 import 'features/shell/client_shell.dart';
 import 'features/home/public_home_page.dart';
 import 'features/splash/cm_splash_screen.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Surveillance connectivité (bannière hors-ligne + garde-fou écritures).
+  NetworkQualityService.instance.init();
 
   final sessionStore = SessionStore();
   AuthTokenManager.instance.configure(
@@ -63,11 +70,43 @@ void main() async {
     }
   }
 
+  // Panier serveur : synchro best-effort des mutations locales (persistant,
+  // multi-appareils). L'hydratation au démarrage se fait dans ClientShell.
+  final cartApi = ApiService();
+  final buyerStore = BuyerStore();
+  buyerStore.configureCartSync(
+    onUpsert: (productId, quantity) async {
+      final token = sessionStore.token;
+      if (token == null || token.isEmpty) return;
+      try {
+        await cartApi.post(
+          "/api/cart/",
+          {"product": productId, "quantity": quantity},
+          token: token,
+        );
+      } catch (_) {}
+    },
+    onRemove: (productId) async {
+      final token = sessionStore.token;
+      if (token == null || token.isEmpty) return;
+      try {
+        await cartApi.post("/api/cart/remove/", {"product": productId}, token: token);
+      } catch (_) {}
+    },
+    onClear: () async {
+      final token = sessionStore.token;
+      if (token == null || token.isEmpty) return;
+      try {
+        await cartApi.post("/api/cart/clear/", {}, token: token);
+      } catch (_) {}
+    },
+  );
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<SessionStore>.value(value: sessionStore),
-        ChangeNotifierProvider(create: (_) => BuyerStore()),
+        ChangeNotifierProvider<BuyerStore>.value(value: buyerStore),
       ],
       child: const ClientsApp(),
     ),
@@ -95,6 +134,7 @@ class ClientsApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
       ],
       theme: AppTheme.light(),
+      builder: (context, child) => CmResponsive.appWrap(context, child),
       home: AppGate(
         systemEvents: RealtimeEventsService.instance.events,
         child: const _RootEntryPoint(),
@@ -204,6 +244,10 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
     }
     final topic = (event["topic"] ?? "").toString();
     final type = (event["type"] ?? "").toString();
+    // "resync" est un signal interne émis par RealtimeEventsService après
+    // reconnexion pour déclencher un rechargement silencieux des pages — ce
+    // n'est jamais une notification destinée à l'utilisateur.
+    if (type == "resync") return;
     final payload = event["payload"] is Map<String, dynamic>
         ? event["payload"] as Map<String, dynamic>
         : const <String, dynamic>{};
@@ -330,7 +374,7 @@ class _ProAccountBlockedPage extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.storefront_outlined, size: 72, color: Colors.orange),
+                const Icon(LucideIcons.store, size: 72, color: Colors.orange),
                 const SizedBox(height: 24),
                 Text(
                   "Compte professionnel détecté",
@@ -347,7 +391,7 @@ class _ProAccountBlockedPage extends StatelessWidget {
                 const SizedBox(height: 32),
                 FilledButton.icon(
                   onPressed: onLogout,
-                  icon: const Icon(Icons.logout),
+                  icon: const Icon(LucideIcons.logOut),
                   label: const Text("Se déconnecter"),
                 ),
               ],

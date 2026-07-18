@@ -34,10 +34,10 @@ from apps.accounts.views import (
     VerifyEmailView,
     WalletPinView,
 )
-from apps.catalog.views import ProductFavoriteViewSet, ProductViewSet, SavedProductFilterViewSet, VideoCommentViewSet, VideoLikeViewSet
+from apps.catalog.views import ProductFavoriteViewSet, ProductViewSet, SavedProductFilterViewSet, SellerFollowViewSet, VideoCommentViewSet, VideoLikeViewSet
 from apps.chat.views import ChatRoomViewSet, MessageViewSet
 from apps.analytics.views import GroupCampaignViewSet, RFQOfferViewSet, RequestForQuotationViewSet
-from apps.logistics.views import ShipmentDisputeViewSet, ShipmentViewSet, TransportProfileViewSet, TransportQuoteViewSet
+from apps.logistics.views import DispatchOfferViewSet, ShipmentDisputeViewSet, ShipmentViewSet, TransportProfileViewSet, TransportQuoteViewSet
 from apps.notifications.views import NotificationViewSet
 from apps.innovation.views import (
     DisputeEscalationView,
@@ -55,7 +55,7 @@ from apps.innovation.views import (
     WalletApprovalRequestViewSet,
     WebhookSubscriptionViewSet,
 )
-from apps.orders.views import OrderViewSet
+from apps.orders.views import CartItemViewSet, OrderViewSet
 from apps.support.views import SupportTicketViewSet
 from apps.wallets.views import WalletViewSet
 from apps.escrow.views import EscrowHoldViewSet
@@ -63,7 +63,8 @@ from apps.disputes.views import DisputeCaseViewSet
 from apps.fraud.views import FraudAssessmentViewSet, UserRiskProfileViewSet
 from apps.compliance.views import KYCApplicationViewSet
 from apps.audit.views import AuditEventViewSet
-from apps.appconfig.views import RuntimeConfigView
+from apps.appconfig.views import PlatformSettingsView, RuntimeConfigView
+from apps.rentals.views import RentalBookingViewSet, RentalListingViewSet
 from apps.ledger.views import LedgerAccountViewSet, LedgerTransactionViewSet
 
 router = DefaultRouter()
@@ -74,7 +75,9 @@ router.register("product-favorites", ProductFavoriteViewSet, basename="product-f
 router.register("product-filters", SavedProductFilterViewSet, basename="product-filter")
 router.register("video-likes", VideoLikeViewSet, basename="video-like")
 router.register("video-comments", VideoCommentViewSet, basename="video-comment")
+router.register("seller-follows", SellerFollowViewSet, basename="seller-follow")
 router.register("orders", OrderViewSet, basename="order")
+router.register("cart", CartItemViewSet, basename="cart")
 router.register("wallets", WalletViewSet, basename="wallet")
 router.register("chat/rooms", ChatRoomViewSet, basename="chat-room")
 router.register("chat/messages", MessageViewSet, basename="chat-message")
@@ -84,6 +87,9 @@ router.register("rfq-offers", RFQOfferViewSet, basename="rfq-offer")
 router.register("transport-profiles", TransportProfileViewSet, basename="transport-profile")
 router.register("shipments", ShipmentViewSet, basename="shipment")
 router.register("transport-quotes", TransportQuoteViewSet, basename="transport-quote")
+router.register("dispatch-offers", DispatchOfferViewSet, basename="dispatch-offer")
+router.register("rental-listings", RentalListingViewSet, basename="rental-listing")
+router.register("rental-bookings", RentalBookingViewSet, basename="rental-booking")
 router.register("shipment-disputes", ShipmentDisputeViewSet, basename="shipment-dispute")
 router.register("price-alerts", PriceAlertViewSet, basename="price-alert")
 router.register("rfq-counter-offers", RFQCounterOfferViewSet, basename="rfq-counter-offer")
@@ -106,6 +112,7 @@ urlpatterns = [
     path("api/health/", HealthView.as_view(), name="health"),
     path("api/ui-config/", UiConfigView.as_view(), name="ui-config"),
     path("api/app/runtime-config/", RuntimeConfigView.as_view(), name="app-runtime-config"),
+    path("api/admin/platform-settings/", PlatformSettingsView.as_view(), name="admin-platform-settings"),
     path(
         "api/auth/register/",
         AuthDisabledView.as_view() if settings.AUTH_LOCKDOWN else RegisterView.as_view(),
@@ -229,4 +236,13 @@ except ImportError:
     pass
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Service media compatible HTTP Range (206) : indispensable pour la lecture
+    # video dans les <video> HTML5 / Flutter web (cf. config/media_views.py).
+    # On NE passe par `static()` (django.views.static.serve) que pour les media
+    # servis localement ; en prod c'est S3/CloudFront qui gere le Range.
+    from config.media_views import serve_media_with_range
+
+    _media_prefix = settings.MEDIA_URL.lstrip("/")
+    urlpatterns += [
+        path(f"{_media_prefix}<path:path>", serve_media_with_range, name="media-range"),
+    ]

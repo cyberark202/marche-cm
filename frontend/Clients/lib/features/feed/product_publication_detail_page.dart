@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_service.dart';
 import '../../core/app_config.dart';
@@ -9,6 +11,7 @@ import '../../core/cm_components.dart';
 import '../auth/session_store.dart';
 import '../chat/chat_hub_page.dart';
 import 'feed_models.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class ProductPublicationDetailPage extends StatefulWidget {
   const ProductPublicationDetailPage({super.key, required this.product});
@@ -37,8 +40,12 @@ class _ProductPublicationDetailPageState
   Future<void> _loadCertifications() async {
     final token = context.read<SessionStore>().token;
     try {
+      // Endpoint public non-PII : certifications business APPROUVÉES du vendeur
+      // seulement (jamais CNI/passeport/selfie). L'ancien
+      // /api/compliance-documents/?user_id= renvoyait 404 pour un acheteur
+      // (anti-IDOR), donc la carte restait toujours vide.
       final certs = await _api.getList(
-          "/api/compliance-documents/?user_id=${widget.product.sellerId}",
+          "/api/compliance-documents/public-certifications/?user_id=${widget.product.sellerId}",
           token: token);
       if (mounted) setState(() => _certifications = certs);
     } catch (_) {
@@ -61,6 +68,29 @@ class _ProductPublicationDetailPageState
     }
   }
 
+  /// Partage produit : ouvre WhatsApp pré-rempli (canal dominant au Cameroun),
+  /// avec repli sur le presse-papier si aucune app de partage n'est disponible.
+  Future<void> _shareProduct() async {
+    final p = widget.product;
+    final message = "${p.title} — ${p.priceMin} FCFA sur Market CM.\n"
+        "Téléchargez l'application : ${AppConfig.siteUrl}";
+    await Clipboard.setData(ClipboardData(text: message));
+    var launched = false;
+    try {
+      launched = await launchUrl(
+        Uri.parse("https://wa.me/?text=${Uri.encodeComponent(message)}"),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      launched = false;
+    }
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Produit copié dans le presse-papier.")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = widget.product;
@@ -73,7 +103,7 @@ class _ProductPublicationDetailPageState
       backgroundColor: AppPalette.bg,
       body: CustomScrollView(
         slivers: [
-          _ProductHeroSliver(product: p),
+          _ProductHeroSliver(product: p, onShare: _shareProduct),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -86,17 +116,17 @@ class _ProductPublicationDetailPageState
                     runSpacing: 6,
                     children: [
                       const _MetaPill(
-                          icon: Icons.workspace_premium_outlined,
+                          icon: LucideIcons.award,
                           label: "GROS B2B",
                           tone: _PillTone.primary),
                       _MetaPill(
-                          icon: Icons.public,
+                          icon: LucideIcons.globe,
                           label:
                               "ORIGINE ${p.sellerCountryCode.isEmpty ? "CM" : p.sellerCountryCode.toUpperCase()}",
                           tone: _PillTone.neutral),
                       if (p.allowsGrouping)
                         const _MetaPill(
-                            icon: Icons.merge_type,
+                            icon: LucideIcons.gitMerge,
                             label: "REGROUPAGE",
                             tone: _PillTone.accent),
                     ],
@@ -115,7 +145,7 @@ class _ProductPublicationDetailPageState
                   const SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded,
+                      const Icon(LucideIcons.star,
                           color: AppPalette.accent, size: 18),
                       const SizedBox(width: 4),
                       Text(
@@ -195,10 +225,7 @@ class _ProductPublicationDetailPageState
       }
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => Scaffold(
-            appBar: AppBar(title: const Text("Discussions")),
-            body: ChatHubPage(initialRoomId: roomId),
-          ),
+          builder: (_) => ChatHubPage(initialRoomId: roomId),
         ),
       );
       ScaffoldMessenger.of(context).showSnackBar(
@@ -236,8 +263,9 @@ class _ProductPublicationDetailPageState
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ProductHeroSliver extends StatelessWidget {
-  const _ProductHeroSliver({required this.product});
+  const _ProductHeroSliver({required this.product, required this.onShare});
   final ProductCardData product;
+  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -250,7 +278,7 @@ class _ProductHeroSliver extends StatelessWidget {
       leading: Padding(
         padding: const EdgeInsets.all(8),
         child: _GlassIconButton(
-          icon: Icons.arrow_back,
+          icon: LucideIcons.arrowLeft,
           onTap: () => Navigator.maybePop(context),
         ),
       ),
@@ -258,16 +286,14 @@ class _ProductHeroSliver extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.all(8),
           child: _GlassIconButton(
-            icon: Icons.share_outlined,
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Lien produit copié.")),
-            ),
+            icon: LucideIcons.share2,
+            onTap: onShare,
           ),
         ),
         Padding(
           padding: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
           child: _GlassIconButton(
-            icon: Icons.favorite_border,
+            icon: LucideIcons.heart,
             onTap: () => ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Ajouté aux favoris.")),
             ),
@@ -317,7 +343,7 @@ class _ProductHeroSliver extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.verified,
+                    const Icon(LucideIcons.badgeCheck,
                         color: Colors.white, size: 14),
                     const SizedBox(width: 4),
                     Text(
@@ -421,7 +447,7 @@ class _SupplierCard extends StatelessWidget {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.verified,
+                            Icon(LucideIcons.badgeCheck,
                                 size: 11, color: AppPalette.primaryDark),
                             SizedBox(width: 2),
                             Text(
@@ -469,7 +495,7 @@ class _SupplierCard extends StatelessWidget {
                 color: AppPalette.primarySoft,
                 borderRadius: BorderRadius.circular(AppRadii.md),
               ),
-              child: const Icon(Icons.chat_bubble_outline,
+              child: const Icon(LucideIcons.messageCircle,
                   color: AppPalette.primaryDark, size: 18),
             ),
           ),
@@ -770,7 +796,7 @@ class _CertificationsCard extends StatelessWidget {
                   color: AppPalette.primarySoft,
                   borderRadius: BorderRadius.circular(AppRadii.sm),
                 ),
-                child: const Icon(Icons.workspace_premium,
+                child: const Icon(LucideIcons.award,
                     color: AppPalette.primaryDark, size: 17),
               ),
               const SizedBox(width: 10),
@@ -837,7 +863,7 @@ class _CertificationsCard extends StatelessWidget {
                               top: Radius.circular(AppRadii.md)),
                         ),
                         child: const Center(
-                          child: Icon(Icons.description_outlined,
+                          child: Icon(LucideIcons.fileText,
                               color: AppPalette.textMuted),
                         ),
                       );
@@ -866,7 +892,7 @@ class _CertificationsCard extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
                     child: Row(
                       children: [
-                        const Icon(Icons.verified_outlined,
+                        const Icon(LucideIcons.badgeCheck,
                             color: AppPalette.success, size: 16),
                         const SizedBox(width: 6),
                         Expanded(
@@ -931,7 +957,7 @@ class _ReviewsCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.star_rounded,
+                    const Icon(LucideIcons.star,
                         color: AppPalette.accent, size: 14),
                     const SizedBox(width: 3),
                     Text(
@@ -980,7 +1006,7 @@ class _ReviewsCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            const Icon(Icons.star_rounded,
+                            const Icon(LucideIcons.star,
                                 size: 13, color: AppPalette.accent),
                             const SizedBox(width: 2),
                             Text(
@@ -1003,6 +1029,51 @@ class _ReviewsCard extends StatelessWidget {
                             height: 1.4,
                           ),
                         ),
+                        if ((row["photo_url"] ?? "").toString().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(AppRadii.md),
+                            child: CachedNetworkImage(
+                              imageUrl: row["photo_url"].toString(),
+                              height: 120,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) =>
+                                  const SizedBox.shrink(),
+                            ),
+                          ),
+                        ],
+                        if ((row["seller_reply"] ?? "").toString().trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: AppPalette.accentSoft,
+                              borderRadius: BorderRadius.circular(AppRadii.md),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Réponse du vendeur",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11.5,
+                                    color: AppPalette.accentDark,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  row["seller_reply"].toString(),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppPalette.text,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1086,7 +1157,7 @@ class _StickyBottomBar extends StatelessWidget {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.chat_bubble_outline, size: 18),
+                    : const Icon(LucideIcons.messageCircle, size: 18),
                 label: Text(contacting ? "..." : "Chat"),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppPalette.primaryDark,
@@ -1102,7 +1173,7 @@ class _StickyBottomBar extends StatelessWidget {
               height: 48,
               child: FilledButton.icon(
                 onPressed: onBuy,
-                icon: const Icon(Icons.shopping_bag, size: 18),
+                icon: const Icon(LucideIcons.shoppingBag, size: 18),
                 label: const Text("Acheter"),
                 style: FilledButton.styleFrom(
                   padding:
@@ -1126,7 +1197,7 @@ class _BuyEscrowNote extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Row(
       children: [
-        Icon(Icons.shield_outlined, size: 13, color: AppPalette.textMuted),
+        Icon(LucideIcons.shield, size: 13, color: AppPalette.textMuted),
         SizedBox(width: 6),
         Expanded(
           child: Text(
@@ -1225,16 +1296,11 @@ class _OrderSheetState extends State<_OrderSheet> {
   final ApiService _api = ApiService();
   final TextEditingController _quantityController = TextEditingController();
   bool _joinGrouping = false;
-  int? _transitAgentId;
-  String _transportMode = "AIR";
-  List<Map<String, dynamic>> _transportProfiles = const [];
-  bool _loadingProfiles = true;
 
   @override
   void initState() {
     super.initState();
     _quantityController.text = widget.product.minQty.toString();
-    _loadProfiles();
   }
 
   @override
@@ -1243,29 +1309,9 @@ class _OrderSheetState extends State<_OrderSheet> {
     super.dispose();
   }
 
-  Future<void> _loadProfiles() async {
-    final token = context.read<SessionStore>().token;
-    try {
-      _transportProfiles =
-          await _api.getList("/api/transport-profiles/", token: token);
-      if (_transitAgentId == null && _transportProfiles.isNotEmpty) {
-        _transitAgentId = _transportProfiles.first["user"] as int?;
-      }
-    } catch (_) {
-      _transportProfiles = const [];
-    }
-    if (mounted) setState(() => _loadingProfiles = false);
-  }
-
   Future<void> _submitOrder() async {
     final token = context.read<SessionStore>().token;
     final qty = int.tryParse(_quantityController.text.trim()) ?? 0;
-    if (_transitAgentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Sélectionnez un livreur.")),
-      );
-      return;
-    }
     try {
       await _api.post(
         "/api/orders/",
@@ -1273,8 +1319,6 @@ class _OrderSheetState extends State<_OrderSheet> {
           "product": widget.product.id,
           "quantity": qty,
           "join_grouping": _joinGrouping,
-          "preferred_transit_agent": _transitAgentId,
-          "transport_mode": _transportMode,
         },
         token: token,
       );
@@ -1305,21 +1349,6 @@ class _OrderSheetState extends State<_OrderSheet> {
     final qty = int.tryParse(_quantityController.text.trim()) ?? p.minQty;
     final unitPrice = qty == p.maxQty ? p.priceMax : p.priceMin;
     final productSubtotal = (qty <= 0 ? 0 : qty) * unitPrice;
-    final selectedProfile =
-        _transportProfiles.cast<Map<String, dynamic>?>().firstWhere(
-              (profile) => profile?["user"] == _transitAgentId,
-              orElse: () => null,
-            );
-    final shippingRate = (() {
-      if (selectedProfile == null) return 0.0;
-      final key =
-          _transportMode == "AIR" ? "air_price_per_kg" : "sea_price_per_kg";
-      return double.tryParse("${selectedProfile[key] ?? 0}") ?? 0;
-    })();
-    final shippingEstimate = ((p.weightKg > 0 ? p.weightKg : 0) *
-        (qty <= 0 ? 0 : qty) *
-        shippingRate);
-    final payableTotal = productSubtotal + shippingEstimate;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1358,47 +1387,9 @@ class _OrderSheetState extends State<_OrderSheet> {
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: "Quantité (${p.minQty}–${p.maxQty})",
-                prefixIcon: const Icon(Icons.numbers),
+                prefixIcon: const Icon(LucideIcons.hash),
               ),
             ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              initialValue: _transportMode,
-              items: const [
-                DropdownMenuItem(value: "AIR", child: Text("Transport — Avion")),
-                DropdownMenuItem(value: "SEA", child: Text("Transport — Bateau")),
-              ],
-              onChanged: (value) =>
-                  setState(() => _transportMode = value ?? _transportMode),
-              decoration: const InputDecoration(
-                labelText: "Mode de transport",
-                prefixIcon: Icon(Icons.local_shipping_outlined),
-              ),
-            ),
-            const SizedBox(height: 10),
-            if (_loadingProfiles)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: LinearProgressIndicator(),
-              )
-            else
-              DropdownButtonFormField<int>(
-                initialValue: _transitAgentId,
-                items: _transportProfiles
-                    .map(
-                      (profile) => DropdownMenuItem<int>(
-                        value: profile["user"] as int?,
-                        child: Text(
-                            "${profile["company_name"]} (agent ${profile["user"]})"),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _transitAgentId = v),
-                decoration: const InputDecoration(
-                  labelText: "Livreur souhaité",
-                  prefixIcon: Icon(Icons.directions_boat_outlined),
-                ),
-              ),
             const SizedBox(height: 10),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
@@ -1425,18 +1416,26 @@ class _OrderSheetState extends State<_OrderSheet> {
                       label: "Montant produit",
                       value: "${productSubtotal.toStringAsFixed(2)} FCFA"),
                   const SizedBox(height: 4),
-                  _RecapRow(
-                      label: "Transport estimé",
-                      value: "${shippingEstimate.toStringAsFixed(2)} FCFA"),
+                  const _RecapRow(
+                      label: "Livraison",
+                      value: "150 FCFA/km (à la commande)"),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 7),
                     child:
                         Divider(height: 1, color: AppPalette.borderSoft),
                   ),
                   _RecapRow(
-                    label: "Total à séquestrer",
-                    value: "${payableTotal.toStringAsFixed(2)} FCFA",
+                    label: "Produits à séquestrer",
+                    value: "${productSubtotal.toStringAsFixed(2)} FCFA",
                     emphasis: true,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    "Frais de livraison calculés selon la distance vendeur → vous et ajoutés au séquestre. Le livreur est assigné après l'achat.",
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        color: AppPalette.textMuted),
                   ),
                 ],
               ),
@@ -1454,7 +1453,7 @@ class _OrderSheetState extends State<_OrderSheet> {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: _submitOrder,
-                    icon: const Icon(Icons.lock_outline, size: 18),
+                    icon: const Icon(LucideIcons.lock, size: 18),
                     label: const Text("Séquestrer"),
                   ),
                 ),

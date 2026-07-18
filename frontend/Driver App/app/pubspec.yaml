@@ -32,9 +32,17 @@ dependencies:
   geolocator: ^13.0.2
   permission_handler: ^11.3.1
 
+  # Carte (OpenStreetMap, sans cle API) pour le suivi GPS temps reel
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
   # Media / uploads
   image_picker: ^1.1.2
   file_picker: ^8.1.2
+  # Chat : lecture des notes vocales reçues (just_audio) + ouverture des
+  # documents joints (url_launcher) — parité avec les apps Clients/vendeur.
+  just_audio: ^0.9.42
+  url_launcher: ^6.2.6
 
   # Connectivity
   connectivity_plus: ^6.0.0
@@ -51,6 +59,7 @@ dependencies:
 
   # UI
   google_fonts: ^6.2.1
+  lucide_icons: ^0.257.0
   animations: ^2.0.11
   shimmer: ^3.0.0
   cupertino_icons: ^1.0.8

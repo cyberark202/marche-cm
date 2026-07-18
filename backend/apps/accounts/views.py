@@ -14,6 +14,7 @@ Security posture:
 """
 
 import csv
+import logging
 import secrets
 from datetime import timedelta
 
@@ -33,6 +34,9 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
+
+logger = logging.getLogger(__name__)
+security_logger = logging.getLogger("security")
 
 from apps.analytics.models import RFQStatus
 from apps.logistics.models import DisputeStatus, QuoteStatus, ShipmentStatus
@@ -529,6 +533,38 @@ class ComplianceDocumentViewSet(viewsets.ModelViewSet):
         broadcast_event("profiles", "user_verified_changed", {"user_id": document.user_id})
         return response.Response({"detail": "Document revise."})
 
+    @decorators.action(detail=False, methods=["get"], url_path="public-certifications")
+    def public_certifications(self, request):
+        """
+        Public trust signal — a seller's APPROVED *business* certifications
+        (RCCM, tax clearance, licences, insurance...), shown on the buyer-facing
+        product / video pages.
+
+        Deliberately NOT subject to the relational-authorization get_queryset:
+        it returns ONLY CERTIFICATION_DOC_TYPES — never identity documents / PII
+        (CNI, passport, selfie, proof of address, driver licence) — and only
+        APPROVED ones. Any authenticated user may therefore read them, while
+        identity KYC stays strictly private (OWASP A01 preserved).
+        """
+        try:
+            target_id = int(request.query_params.get("user_id"))
+        except (TypeError, ValueError):
+            return response.Response([], status=status.HTTP_200_OK)
+        docs = (
+            ComplianceDocument.objects.filter(
+                user_id=target_id,
+                status="APPROVED",
+                doc_type__in=ComplianceDocumentSerializer.CERTIFICATION_TYPES,
+            )
+            .select_related("user", "reviewed_by")
+            .order_by("-created_at")
+        )
+        return response.Response(
+            ComplianceDocumentSerializer(
+                docs, many=True, context={"request": request}
+            ).data
+        )
+
 
 class BuyerKycSubmitView(APIView):
     """
@@ -887,6 +923,7 @@ class LogoutView(APIView):
             token = RefreshToken(refresh_token)
             token.blacklist()
         except Exception:
+            logger.debug("logout_invalid_refresh_token user=%d", request.user.id, exc_info=True)
             return response.Response({"detail": "Token refresh invalide."}, status=status.HTTP_400_BAD_REQUEST)
         write_audit_log(actor=request.user, action="Logout", metadata={"user_id": request.user.id})
         return response.Response({"detail": "Session revoquee."}, status=status.HTTP_200_OK)
@@ -965,6 +1002,7 @@ class SensitiveActionRequestView(APIView):
                 fail_silently=False,
             )
         except Exception:
+            logger.exception("sensitive_action_otp_email_failed user=%d action=%s", request.user.id, action_key)
             return response.Response(
                 {"detail": "Echec d'envoi du code de securite. Reessayez plus tard."},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -1297,6 +1335,7 @@ class GoogleAuthView(APIView):
                 settings.GOOGLE_CLIENT_ID or None,
             )
         except Exception:
+            security_logger.warning("google_id_token_rejected", exc_info=True)
             return response.Response({"detail": "Token Google invalide."}, status=status.HTTP_400_BAD_REQUEST)
 
         email = (payload.get("email") or "").strip().lower()
@@ -1388,7 +1427,6 @@ class FCMTokenView(APIView):
         # legitimate device holder can DELETE first then re-register.
         existing = FCMToken.objects.filter(registration_id=registration_id).first()
         if existing and existing.user_id != request.user.id:
-            security_logger = __import__("logging").getLogger("security")
             security_logger.warning(
                 "fcm.token_reassign_blocked",
                 extra={

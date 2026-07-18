@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG-ONLY network security config.
+  Allows cleartext HTTP to any host so real devices on WiFi can reach the
+  local dev server by its LAN IP (192.168.x.x, 10.x.x.x, etc.).
+  This file is NEVER included in release builds.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <!-- Trust user-installed CAs in debug (e.g. Charles/mitmproxy root cert). -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

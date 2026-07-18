@@ -10,6 +10,7 @@ import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
 import 'dispute_create_page.dart';
 import 'dispute_detail_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class ShipmentDisputesPage extends StatefulWidget {
   const ShipmentDisputesPage({super.key});
@@ -117,7 +118,7 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Litiges'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        actions: [IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _load)],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: SizedBox(
@@ -139,7 +140,7 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ActionChip(
-                      avatar: const Icon(Icons.close, size: 14),
+                      avatar: const Icon(LucideIcons.x, size: 14),
                       label: const Text('Effacer', style: TextStyle(fontSize: 12)),
                       backgroundColor: Colors.orange.shade50,
                       side: BorderSide(color: Colors.orange.shade300),
@@ -162,7 +163,7 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
                           ? 'Aucun litige ouvert pour le moment.'
                           : 'Aucun litige avec ce statut.',
                       onRetry: _load,
-                      icon: Icons.gavel_outlined,
+                      icon: LucideIcons.gavel,
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
@@ -185,7 +186,7 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
                     ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openNewDispute,
-        icon: const Icon(Icons.add),
+        icon: const Icon(LucideIcons.plus),
         label: const Text('Nouveau litige'),
       ),
     );
@@ -257,7 +258,7 @@ class _DisputeTile extends StatelessWidget {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Icon(Icons.timer_outlined,
+                    Icon(LucideIcons.timer,
                         size: 13, color: slaExpired ? Colors.red : Colors.blue),
                     const SizedBox(width: 4),
                     Text(
@@ -280,13 +281,13 @@ class _DisputeTile extends StatelessWidget {
 
   (String, Color, IconData) _statusMeta(String s) {
     switch (s) {
-      case 'OPEN':               return ('Ouvert', Colors.orange, Icons.gavel_outlined);
-      case 'UNDER_REVIEW':       return ('En cours', Colors.blue, Icons.manage_search_outlined);
-      case 'INSPECTION_PENDING': return ('Inspection', Colors.purple, Icons.search_outlined);
-      case 'APPEAL_REQUESTED':   return ('Appel', Colors.deepOrange, Icons.balance_outlined);
-      case 'RESOLVED':           return ('Resolu', Colors.green, Icons.check_circle_outline);
-      case 'CLOSED_NO_ACTION':   return ('Ferme', Colors.grey, Icons.cancel_outlined);
-      default:                   return (s, Colors.grey, Icons.info_outline);
+      case 'OPEN':               return ('Ouvert', Colors.orange, LucideIcons.gavel);
+      case 'UNDER_REVIEW':       return ('En cours', Colors.blue, LucideIcons.searchCheck);
+      case 'INSPECTION_PENDING': return ('Inspection', Colors.purple, LucideIcons.search);
+      case 'APPEAL_REQUESTED':   return ('Appel', Colors.deepOrange, LucideIcons.scale);
+      case 'RESOLVED':           return ('Resolu', Colors.green, LucideIcons.checkCircle2);
+      case 'CLOSED_NO_ACTION':   return ('Ferme', Colors.grey, LucideIcons.xCircle);
+      default:                   return (s, Colors.grey, LucideIcons.info);
     }
   }
 

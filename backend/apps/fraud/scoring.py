@@ -156,7 +156,8 @@ class FraudScorer:
                         "detail": "Unknown device",
                     })
         except Exception:
-            pass
+            # Verification device impossible = signal fraude potentiellement perdu.
+            logger.exception("fraud_device_check_failed user=%s", getattr(ctx.user, "id", None))
         return signals
 
     def assess(self, ctx: ScoringContext) -> FraudAssessment:

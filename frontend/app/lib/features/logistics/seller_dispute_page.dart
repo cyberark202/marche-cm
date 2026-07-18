@@ -9,6 +9,7 @@ import '../../core/realtime_events_service.dart';
 import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
 import 'dispute_detail_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // ---------------------------------------------------------------------------
 // Entry point for sellers (SUPPLIER / WHOLESALER)
@@ -111,7 +112,7 @@ class _SellerDisputePageState extends State<SellerDisputePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mes litiges'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        actions: [IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _load)],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: SizedBox(
@@ -143,7 +144,7 @@ class _SellerDisputePageState extends State<SellerDisputePage> {
                       title: 'Aucun litige',
                       subtitle: 'Aucun litige ouvert.',
                       onRetry: _load,
-                      icon: Icons.gavel_outlined,
+                      icon: LucideIcons.gavel,
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
@@ -166,7 +167,7 @@ class _SellerDisputePageState extends State<SellerDisputePage> {
                     ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCreate,
-        icon: const Icon(Icons.add),
+        icon: const Icon(LucideIcons.plus),
         label: const Text('Signaler un litige'),
       ),
     );
@@ -260,21 +261,21 @@ class _SellerDisputeTile extends StatelessWidget {
 
   (String, Color, IconData) _statusMeta(String s) {
     switch (s) {
-      case 'OPEN':               return ('Ouvert', Colors.orange, Icons.gavel_outlined);
-      case 'UNDER_REVIEW':       return ('En cours', Colors.blue, Icons.manage_search_outlined);
-      case 'INSPECTION_PENDING': return ('Inspection', Colors.purple, Icons.search_outlined);
-      case 'APPEAL_REQUESTED':   return ('Appel', Colors.deepOrange, Icons.balance_outlined);
-      case 'RESOLVED':           return ('Resolu', Colors.green, Icons.check_circle_outline);
-      case 'CLOSED_NO_ACTION':   return ('Ferme', Colors.grey, Icons.cancel_outlined);
-      default:                   return (s, Colors.grey, Icons.info_outline);
+      case 'OPEN':               return ('Ouvert', Colors.orange, LucideIcons.gavel);
+      case 'UNDER_REVIEW':       return ('En cours', Colors.blue, LucideIcons.searchCheck);
+      case 'INSPECTION_PENDING': return ('Inspection', Colors.purple, LucideIcons.search);
+      case 'APPEAL_REQUESTED':   return ('Appel', Colors.deepOrange, LucideIcons.scale);
+      case 'RESOLVED':           return ('Resolu', Colors.green, LucideIcons.checkCircle2);
+      case 'CLOSED_NO_ACTION':   return ('Ferme', Colors.grey, LucideIcons.xCircle);
+      default:                   return (s, Colors.grey, LucideIcons.info);
     }
   }
 
   IconData _roleIcon(String? role) {
     switch (role) {
-      case 'BUYER':         return Icons.person_outline;
-      case 'TRANSIT_AGENT': return Icons.local_shipping_outlined;
-      default:              return Icons.store_outlined;
+      case 'BUYER':         return LucideIcons.user;
+      case 'TRANSIT_AGENT': return LucideIcons.truck;
+      default:              return LucideIcons.store;
     }
   }
 
@@ -290,8 +291,8 @@ class _SellerDisputeTile extends StatelessWidget {
     switch (role) {
       case 'BUYER':         return 'Acheteur';
       case 'TRANSIT_AGENT': return 'Livreur';
-      case 'SUPPLIER':      return 'Fournisseur';
-      case 'WHOLESALER':    return 'Grossiste';
+      case 'SUPPLIER':      return 'Vendeur';
+      case 'WHOLESALER':    return 'Vendeur';
       default:              return role ?? '—';
     }
   }
@@ -322,39 +323,39 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
 
   // Grouped dispute types for sellers
   static const _groupsVsBuyer = [
-    ('FALSE_NON_RECEIPT',  'Fausse non-reception', Icons.gpp_bad_outlined),
-    ('USED_THEN_DISPUTED', 'Produit utilise puis conteste', Icons.swap_horiz_outlined),
-    ('CHARGEBACK',         'Chargeback / Contestation bancaire', Icons.money_off_outlined),
-    ('FAKE_REVIEWS',       'Faux avis negatifs', Icons.thumb_down_outlined),
+    ('FALSE_NON_RECEIPT',  'Fausse non-reception', LucideIcons.shieldOff),
+    ('USED_THEN_DISPUTED', 'Produit utilise puis conteste', LucideIcons.arrowLeftRight),
+    ('CHARGEBACK',         'Chargeback / Contestation bancaire', LucideIcons.coins),
+    ('FAKE_REVIEWS',       'Faux avis negatifs', LucideIcons.thumbsDown),
   ];
 
   static const _groupsVsTransit = [
-    ('INTERNAL_THEFT',  'Vol interne par le livreur', Icons.no_backpack_outlined),
-    ('FALSE_TRACKING',  'Fausse mise a jour de suivi', Icons.location_off_outlined),
-    ('DAMAGED_GOODS',   'Marchandise endommagee en transit', Icons.broken_image_outlined),
-    ('LOST_PARCEL',     'Colis perdu', Icons.search_off_outlined),
-    ('WRONG_RECIPIENT', 'Livre au mauvais destinataire', Icons.person_off_outlined),
+    ('INTERNAL_THEFT',  'Vol interne par le livreur', LucideIcons.ban),
+    ('FALSE_TRACKING',  'Fausse mise a jour de suivi', LucideIcons.mapPinOff),
+    ('DAMAGED_GOODS',   'Marchandise endommagee en transit', LucideIcons.imageOff),
+    ('LOST_PARCEL',     'Colis perdu', LucideIcons.searchX),
+    ('WRONG_RECIPIENT', 'Livre au mauvais destinataire', LucideIcons.userX),
   ];
 
   static const _groupsPlatform = [
-    ('UNJUST_SUSPENSION',   'Suspension injustifiee de mon compte', Icons.block_outlined),
-    ('MODERATION_BIAS',     'Biais dans la moderation', Icons.balance_outlined),
-    ('ESCROW_BLOCKED',      'Fonds en escrow bloques trop longtemps', Icons.lock_outlined),
-    ('WALLET_FROZEN',       'Gel de wallet injustifie', Icons.account_balance_wallet_outlined),
-    ('PREMATURE_RELEASE',   'Liberation prematuree des fonds escrow', Icons.lock_open_outlined),
-    ('WITHDRAWAL_ERROR',    'Erreur de retrait wallet', Icons.money_off_outlined),
-    ('CATALOG_COPY',        'Copie de mon catalogue par un concurrent', Icons.content_copy_outlined),
-    ('FAKE_STATS',          'Faux chiffres de boost / campagne', Icons.bar_chart_outlined),
-    ('FINANCIAL_REGULATION','Activite financiere non autorisee', Icons.account_balance_outlined),
-    ('TAX_COMPLIANCE',      'Non-conformite fiscale', Icons.receipt_long_outlined),
-    ('OTHER',               'Autre probleme (a preciser)', Icons.help_outline),
+    ('UNJUST_SUSPENSION',   'Suspension injustifiee de mon compte', LucideIcons.ban),
+    ('MODERATION_BIAS',     'Biais dans la moderation', LucideIcons.scale),
+    ('ESCROW_BLOCKED',      'Fonds en escrow bloques trop longtemps', LucideIcons.lock),
+    ('WALLET_FROZEN',       'Gel de wallet injustifie', LucideIcons.wallet),
+    ('PREMATURE_RELEASE',   'Liberation prematuree des fonds escrow', LucideIcons.unlock),
+    ('WITHDRAWAL_ERROR',    'Erreur de retrait wallet', LucideIcons.coins),
+    ('CATALOG_COPY',        'Copie de mon catalogue par un concurrent', LucideIcons.copy),
+    ('FAKE_STATS',          'Faux chiffres de boost / campagne', LucideIcons.barChart3),
+    ('FINANCIAL_REGULATION','Activite financiere non autorisee', LucideIcons.landmark),
+    ('TAX_COMPLIANCE',      'Non-conformite fiscale', LucideIcons.receipt),
+    ('OTHER',               'Autre probleme (a preciser)', LucideIcons.helpCircle),
   ];
 
   static const _groupsSecurity = [
-    ('DATA_BREACH',        'Fuite de donnees KYC / personnelles', Icons.shield_outlined),
-    ('UNAUTHORIZED_ACCESS','Acces non autorise a mon compte', Icons.no_accounts_outlined),
-    ('HISTORY_TAMPER',     'Modification de mon historique', Icons.history_edu_outlined),
-    ('MULTI_ACTOR',        'Responsabilite multi-acteurs indeterminee', Icons.group_work_outlined),
+    ('DATA_BREACH',        'Fuite de donnees KYC / personnelles', LucideIcons.shield),
+    ('UNAUTHORIZED_ACCESS','Acces non autorise a mon compte', LucideIcons.userX),
+    ('HISTORY_TAMPER',     'Modification de mon historique', LucideIcons.scrollText),
+    ('MULTI_ACTOR',        'Responsabilite multi-acteurs indeterminee', LucideIcons.users),
   ];
 
   @override
@@ -455,7 +456,7 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
               const SizedBox(height: 16),
               _GroupSection(
                 title: 'Probleme avec l\'acheteur',
-                icon: Icons.person_outline,
+                icon: LucideIcons.user,
                 color: Colors.blue,
                 types: _groupsVsBuyer,
                 selected: _selectedType,
@@ -464,7 +465,7 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
               const SizedBox(height: 16),
               _GroupSection(
                 title: 'Probleme avec le livreur',
-                icon: Icons.local_shipping_outlined,
+                icon: LucideIcons.truck,
                 color: Colors.orange,
                 types: _groupsVsTransit,
                 selected: _selectedType,
@@ -473,7 +474,7 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
               const SizedBox(height: 16),
               _GroupSection(
                 title: 'Probleme plateforme & finances',
-                icon: Icons.apps_outlined,
+                icon: LucideIcons.layoutGrid,
                 color: Colors.purple,
                 types: _groupsPlatform,
                 selected: _selectedType,
@@ -482,7 +483,7 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
               const SizedBox(height: 16),
               _GroupSection(
                 title: 'Securite & Donnees',
-                icon: Icons.shield_outlined,
+                icon: LucideIcons.shield,
                 color: Colors.red,
                 types: _groupsSecurity,
                 selected: _selectedType,
@@ -539,7 +540,7 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: _pickFile,
-                icon: const Icon(Icons.attach_file_outlined),
+                icon: const Icon(LucideIcons.paperclip),
                 label: Text(_evidenceFile == null
                     ? 'Joindre une preuve (photo, PDF…)'
                     : _evidenceFile!.name),
@@ -555,7 +556,7 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, size: 18, color: Colors.blue),
+                    const Icon(LucideIcons.info, size: 18, color: Colors.blue),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -589,7 +590,7 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.send_outlined),
+                      : const Icon(LucideIcons.send),
                   label: Text(_loading ? 'Envoi...' : 'Soumettre le litige'),
                 ),
               ),
@@ -677,7 +678,7 @@ class _GroupSection extends StatelessWidget {
                       ),
                     ),
                     if (selected == t.$1)
-                      Icon(Icons.check_circle, color: color, size: 18),
+                      Icon(LucideIcons.checkCircle2, color: color, size: 18),
                   ],
                 ),
               ),

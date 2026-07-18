@@ -32,8 +32,24 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 ZERO = Decimal("0.00")
-DEFAULT_PLATFORM_COMMISSION_RATE = Decimal("0.0500")
+DEFAULT_PLATFORM_COMMISSION_RATE = Decimal("0.1000")
 MIN_TRUST_SCORE = Decimal("1.00")
+
+
+def _logistics_commission_rate() -> Decimal:
+    """Taux de commission plateforme preleve sur le payout livreur (defaut 10%).
+
+    Configurable a chaud via la cle "commission.logistics_rate" (doc 01).
+    """
+    try:
+        from apps.appconfig.models import get_platform_setting
+
+        rate = Decimal(str(get_platform_setting("commission.logistics_rate")))
+    except Exception:  # noqa: BLE001
+        rate = Decimal("0.10")
+    if rate < ZERO or rate > Decimal("0.50"):
+        rate = Decimal("0.10")
+    return rate
 
 
 class FraudRiskError(Exception):
@@ -147,17 +163,33 @@ class OrderFinanceService:
                 order.status = OrderStatus.SOURCING
                 order.escrow_status = EscrowStatus.SPLIT_LOCKED
             else:
-                beneficiary = order.seller
+                # Le prix produit va au vendeur (escrow LOCAL). Le cout de
+                # livraison va a un escrow LOGISTICS distinct, libere au livreur
+                # reel (assigne via devis) a la confirmation, diminue de la
+                # commission plateforme. Si pas de frais (montant nul), un seul
+                # escrow local couvre le total.
+                local_amount = supplier_amount if logistics_amount > ZERO else total
                 local_escrow = OrderEscrow.objects.create(
                     order=order,
                     escrow_type=EscrowType.LOCAL,
-                    beneficiary=beneficiary,
-                    amount=total,
+                    beneficiary=order.seller,
+                    amount=local_amount,
                     release_conditions={"buyer_confirmed_delivery": True},
                     requires_buyer_confirmation=True,
                     status=EscrowLifecycleStatus.LOCKED,
                 )
                 escrows.append(local_escrow)
+                if logistics_amount > ZERO:
+                    logistics_escrow = OrderEscrow.objects.create(
+                        order=order,
+                        escrow_type=EscrowType.LOGISTICS,
+                        beneficiary=None,
+                        amount=logistics_amount,
+                        release_conditions={"buyer_confirmed_delivery": True},
+                        requires_buyer_confirmation=True,
+                        status=EscrowLifecycleStatus.LOCKED,
+                    )
+                    escrows.append(logistics_escrow)
                 order.status = OrderStatus.PENDING
                 order.escrow_status = EscrowStatus.HELD
 
@@ -819,6 +851,13 @@ class OrderFinanceService:
                 raise ValidationError("Aucun livreur beneficiaire configure.")
             transit_wallet = WalletAccountingService.get_wallet_for_update(user=beneficiary)
 
+            # Commission plateforme prelevee sur le payout livreur (defaut 10%).
+            commission_rate = _logistics_commission_rate()
+            commission = quantize_money(amount * commission_rate)
+            net_agent = quantize_money(amount - commission)
+            if net_agent < ZERO:
+                raise ValidationError("Commission logistique invalide: montant net negatif.")
+
             WalletAccountingService.mutate_wallet(
                 wallet=buyer_wallet,
                 amount=amount,
@@ -830,19 +869,33 @@ class OrderFinanceService:
                 escrow=escrow,
                 counterparty=beneficiary,
                 created_by=actor,
+                metadata={"commission": str(commission), "net_agent": str(net_agent)},
             )
             WalletAccountingService.mutate_wallet(
                 wallet=transit_wallet,
-                amount=amount,
+                amount=net_agent,
                 entry_type=LedgerEntryType.ESCROW_RELEASE,
                 direction=LedgerDirection.CREDIT,
-                pending_delta=amount,
+                pending_delta=net_agent,
                 reference=f"order:{order.id}:logistics_release:agent_credit",
                 order=order,
                 escrow=escrow,
                 counterparty=order.buyer,
                 created_by=actor,
+                metadata={"gross_amount": str(amount), "commission": str(commission)},
             )
+            if commission > ZERO:
+                WalletAccountingService.mutate_wallet(
+                    wallet=buyer_wallet,
+                    amount=commission,
+                    entry_type=LedgerEntryType.COMMISSION,
+                    direction=LedgerDirection.DEBIT,
+                    reference=f"order:{order.id}:logistics_commission",
+                    order=order,
+                    escrow=escrow,
+                    created_by=actor,
+                    metadata={"rate": str(commission_rate)},
+                )
 
             escrow.status = EscrowLifecycleStatus.PAYOUT_PENDING
             escrow.buyer_confirmed_by = actor
@@ -857,7 +910,7 @@ class OrderFinanceService:
             )
             payout_tx = cls._queue_payout_transaction(
                 beneficiary_wallet=transit_wallet,
-                amount=amount,
+                amount=net_agent,
                 order=order,
                 kind="PAYOUT_LOGISTICS",
                 escrow=escrow,
@@ -878,6 +931,28 @@ class OrderFinanceService:
                 metadata={"order_id": order.id, "amount": str(amount)},
             )
         return escrow
+
+    @classmethod
+    def release_escrows_after_buyer_confirmation(cls, *, order: Order, actor):
+        """Point d'entree unique pour la confirmation de livraison par l'acheteur.
+
+        - INTERNATIONAL : libere l'escrow logistique (l'escrow fournisseur suit
+          son propre cycle transit/preuve/admin).
+        - LOCAL : le prix produit va au vendeur (escrow LOCAL) et le cout de
+          livraison va au livreur (escrow LOGISTICS), diminue de la commission
+          plateforme. On libere d'abord le logistique (statut encore DELIVERED),
+          puis le local. La liberation logistique n'est tentee que si un livreur
+          est assigne (shipment.transit_agent) — sinon l'escrow reste bloque en
+          attente d'assignation, sans bloquer la confirmation.
+        """
+        if order.order_type == OrderType.INTERNATIONAL:
+            return cls.release_logistics_escrow_after_buyer_confirmation(order=order, actor=actor)
+
+        shipment = getattr(order, "shipment", None)
+        has_logistics = order.escrows.filter(escrow_type=EscrowType.LOGISTICS).exists()
+        if has_logistics and shipment is not None and shipment.transit_agent_id:
+            cls.release_logistics_escrow_after_buyer_confirmation(order=order, actor=actor)
+        return cls.release_local_escrow_after_buyer_confirmation(order=order, actor=actor)
 
     @classmethod
     def freeze_order_escrows(cls, *, order: Order, actor, reason: str):
@@ -1001,7 +1076,7 @@ class OrderFinanceService:
     })
 
     @classmethod
-    def cancel_order(cls, *, order: Order, actor, reason: str = "Annulation commande"):
+    def cancel_order(cls, *, order: Order, actor, reason: str = "Annulation commande", system: bool = False):
         """Cancel *order* and refund the buyer's still-locked escrow in a single
         atomic operation.
 
@@ -1012,18 +1087,24 @@ class OrderFinanceService:
         Here the cancellation and the refund commit or roll back together, and
         the order's own parties (buyer / seller) are authorized alongside
         admin / transit.
+
+        ``system=True`` est réservé aux tâches planifiées (expiration de la
+        validation vendeur, doc 13) : aucun acteur humain, audit actor=None.
         """
-        if not actor or not getattr(actor, "is_authenticated", False):
-            raise ValidationError("Authentification requise.")
-        is_party = actor.id in {order.buyer_id, order.seller_id}
-        is_staff = getattr(actor, "is_superuser", False) or getattr(actor, "role", None) in {
-            UserRole.GENERAL_ADMIN,
-            UserRole.TRANSIT_AGENT,
-        }
-        if not (is_party or is_staff):
-            raise ValidationError(
-                "Annulation reservee aux parties de la commande ou a l'administration."
-            )
+        if system:
+            actor = None
+        else:
+            if not actor or not getattr(actor, "is_authenticated", False):
+                raise ValidationError("Authentification requise.")
+            is_party = actor.id in {order.buyer_id, order.seller_id}
+            is_staff = getattr(actor, "is_superuser", False) or getattr(actor, "role", None) in {
+                UserRole.GENERAL_ADMIN,
+                UserRole.TRANSIT_AGENT,
+            }
+            if not (is_party or is_staff):
+                raise ValidationError(
+                    "Annulation reservee aux parties de la commande ou a l'administration."
+                )
         with transaction.atomic():
             locked = Order.objects.select_for_update().get(id=order.id)
             if locked.status not in cls.CANCELLABLE_ORDER_STATUSES:
@@ -1206,7 +1287,10 @@ class OrderFinanceService:
                     escrow.status = EscrowLifecycleStatus.RELEASED
                     escrow.released_at = now
                 elif portion_to_beneficiary > ZERO:
-                    escrow.status = EscrowLifecycleStatus.PARTIALLY_RELEASED if hasattr(EscrowLifecycleStatus, "PARTIALLY_RELEASED") else EscrowLifecycleStatus.REFUNDED
+                    # Split réel : une part versée au bénéficiaire, le reste
+                    # remboursé — état distinct de REFUNDED pour la réconciliation.
+                    escrow.status = EscrowLifecycleStatus.PARTIALLY_RELEASED
+                    escrow.released_at = now
                     escrow.refunded_at = now
                 else:
                     escrow.status = EscrowLifecycleStatus.REFUNDED

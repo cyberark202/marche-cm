@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 final _missionsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
@@ -72,7 +73,7 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
                       ]),
                 ),
                 _HeaderBtn(
-                  icon: Icons.refresh,
+                  icon: LucideIcons.refreshCw,
                   onTap: () => ref.invalidate(_missionsProvider),
                 ),
               ]),
@@ -120,7 +121,7 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
                     child: CircularProgressIndicator(color: T.primary)),
                 error: (e, _) => Center(
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.cloud_off_outlined,
+                    const Icon(LucideIcons.cloudOff,
                         size: 48, color: T.ink4),
                     const SizedBox(height: 12),
                     const Text('Erreur de chargement',
@@ -141,7 +142,7 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
                   if (filtered.isEmpty) {
                     return const Center(
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.balance_outlined, size: 56, color: T.ink4),
+                        Icon(LucideIcons.scale, size: 56, color: T.ink4),
                         SizedBox(height: 12),
                         Text('Aucune demande disponible',
                             style: TextStyle(color: T.ink3, fontSize: 15)),
@@ -273,7 +274,7 @@ class _MissionCard extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6),
-                child: Icon(Icons.arrow_forward, size: 14, color: T.ink3),
+                child: Icon(LucideIcons.arrowRight, size: 14, color: T.ink3),
               ),
               Container(
                   width: 9,
@@ -299,7 +300,7 @@ class _MissionCard extends StatelessWidget {
                   color: T.surface2,
                   borderRadius: BorderRadius.circular(T.r)),
               child: Row(children: [
-                const Icon(Icons.inventory_2_outlined,
+                const Icon(LucideIcons.package,
                     size: 13, color: T.ink3),
                 const SizedBox(width: 6),
                 Expanded(

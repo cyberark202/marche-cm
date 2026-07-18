@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 
 import "../../core/app_i18n.dart";
 import "support_tickets_page.dart";
+import 'package:lucide_icons/lucide_icons.dart';
 
 class SupportCenterPage extends StatelessWidget {
   const SupportCenterPage({super.key});
@@ -37,10 +38,10 @@ class SupportCenterPage extends StatelessWidget {
           const SizedBox(height: 12),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.confirmation_num_outlined),
+              leading: const Icon(LucideIcons.ticket),
               title: Text(context.tr("support.my_tickets")),
               subtitle: Text(context.tr("support.my_tickets_subtitle")),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(LucideIcons.chevronRight),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SupportTicketsPage()),
               ),
@@ -48,10 +49,10 @@ class SupportCenterPage extends StatelessWidget {
           ),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.mail_outline),
+              leading: const Icon(LucideIcons.mail),
               title: Text(context.tr("support.email")),
               subtitle: const Text("support@marche-cm.local"),
-              trailing: const Icon(Icons.copy),
+              trailing: const Icon(LucideIcons.copy),
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(context.tr("support.email_copied"))),
@@ -61,7 +62,7 @@ class SupportCenterPage extends StatelessWidget {
           ),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.schedule_outlined),
+              leading: const Icon(LucideIcons.clock),
               title: Text(context.tr("support.hours")),
               subtitle: Text(context.tr("common.hours_value")),
             ),

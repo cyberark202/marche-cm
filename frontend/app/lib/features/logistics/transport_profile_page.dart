@@ -9,6 +9,7 @@ import '../../core/app_ui.dart';
 import '../../core/backend_ui_config_service.dart';
 import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class TransportProfilePage extends StatefulWidget {
   const TransportProfilePage({super.key});
@@ -199,7 +200,7 @@ class _TransportProfilePageState extends State<TransportProfilePage> {
               subtitle:
                   "Definissez vos tarifs avion/bateau, votre couverture et vos capacites logistiques.",
               trailing: Icon(
-                hasProfile ? Icons.verified_outlined : Icons.settings_outlined,
+                hasProfile ? LucideIcons.badgeCheck : LucideIcons.settings,
               ),
             ),
             const SizedBox(height: 8),
@@ -209,7 +210,7 @@ class _TransportProfilePageState extends State<TransportProfilePage> {
                   child: AppMetricTile(
                     label: "Tarif avion",
                     value: airText,
-                    icon: Icons.flight_takeoff_outlined,
+                    icon: LucideIcons.plane,
                     tint: AppPalette.secondary,
                   ),
                 ),
@@ -218,7 +219,7 @@ class _TransportProfilePageState extends State<TransportProfilePage> {
                   child: AppMetricTile(
                     label: "Tarif bateau",
                     value: seaText,
-                    icon: Icons.directions_boat_outlined,
+                    icon: LucideIcons.ship,
                     tint: AppPalette.primary,
                   ),
                 ),
@@ -227,7 +228,7 @@ class _TransportProfilePageState extends State<TransportProfilePage> {
                   child: AppMetricTile(
                     label: "ETA moyen",
                     value: etaText,
-                    icon: Icons.schedule_outlined,
+                    icon: LucideIcons.clock,
                     tint: AppPalette.warning,
                   ),
                 ),
@@ -311,7 +312,7 @@ class _TransportProfilePageState extends State<TransportProfilePage> {
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: _saveProfile,
-                      icon: const Icon(Icons.save_outlined),
+                      icon: const Icon(LucideIcons.save),
                       label: Text(
                         _profiles.isEmpty
                             ? "Creer profil"

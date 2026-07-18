@@ -21,9 +21,9 @@ from apps.realtime.consumers import FallbackWebSocketConsumer
 from apps.realtime.routing import websocket_urlpatterns as realtime_ws_patterns
 
 # Merge all WebSocket URL patterns — order matters (first match wins).
-# realtime_ws_patterns: /ws/notifications/, /ws/chat/<id>/, /ws/tracking/<id>/, /ws/dashboard/
-# chat_ws_patterns: legacy /ws/chat/ (kept for backward compat)
-# events_ws_patterns: legacy /ws/events/
+# realtime_ws_patterns: /ws/notifications/, /ws/tracking/<id>/, /ws/dashboard/
+# chat_ws_patterns: vide (chat = REST + /ws/events/ ciblé user_<id>)
+# events_ws_patterns: /ws/events/ — canal canonique des 4 apps
 # Audit ref: [M-5] a trailing catch-all rejects unknown /ws/* paths cleanly
 # (close 4404) instead of letting URLRouter raise a 500-style failure.
 all_ws_patterns = (

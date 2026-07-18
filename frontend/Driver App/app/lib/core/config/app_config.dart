@@ -17,9 +17,23 @@ abstract final class AppConfig {
   static const String _wsBaseUrlFromEnv =
       String.fromEnvironment('WS_BASE_URL', defaultValue: '');
 
-  static String get apiBaseUrl => _apiBaseUrlFromEnv.isNotEmpty
-      ? _apiBaseUrlFromEnv
-      : (kDebugMode ? _devBaseUrl : _prodBaseUrl);
+  static String get apiBaseUrl {
+    final url = _apiBaseUrlFromEnv.isNotEmpty
+        ? _apiBaseUrlFromEnv
+        : (kDebugMode ? _devBaseUrl : _prodBaseUrl);
+    _assertHttpsInRelease(url);
+    return url;
+  }
+
+  // Protection MITM : en build release, refuser un backend non-HTTPS plutôt que
+  // d'envoyer le token chauffeur en clair. Loopback exempté (trafic local).
+  static void _assertHttpsInRelease(String url) {
+    if (kDebugMode) return;
+    if (url.startsWith('https://')) return;
+    final host = Uri.tryParse(url)?.host ?? '';
+    if (host == '127.0.0.1' || host == 'localhost') return;
+    throw StateError('[AppConfig] API_BASE_URL doit être en HTTPS en release. Reçu : $url');
+  }
 
   static String get wsBaseUrl => _wsBaseUrlFromEnv.isNotEmpty
       ? _wsBaseUrlFromEnv

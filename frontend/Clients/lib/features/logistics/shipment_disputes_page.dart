@@ -9,6 +9,7 @@ import '../../core/app_ui.dart';
 import '../../core/realtime_events_service.dart';
 import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // ---------------------------------------------------------------------------
 // List page
@@ -93,7 +94,7 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mes réclamations'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        actions: [IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _load)],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: SizedBox(
@@ -115,7 +116,7 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ActionChip(
-                      avatar: const Icon(Icons.close, size: 14),
+                      avatar: const Icon(LucideIcons.x, size: 14),
                       label: const Text('Effacer', style: TextStyle(fontSize: 12)),
                       backgroundColor: Colors.orange.shade50,
                       side: BorderSide(color: Colors.orange.shade300),
@@ -136,7 +137,7 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
                       title: 'Aucune réclamation',
                       subtitle: 'Vous n\'avez aucune réclamation ouverte.',
                       onRetry: _load,
-                      icon: Icons.gavel_outlined,
+                      icon: LucideIcons.gavel,
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
@@ -159,7 +160,7 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
                     ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCreate,
-        icon: const Icon(Icons.add),
+        icon: const Icon(LucideIcons.plus),
         label: const Text('Signaler un probleme'),
       ),
     );
@@ -243,7 +244,7 @@ class _DisputeListTile extends StatelessWidget {
                             fontSize: 10, color: color, fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(height: 4),
-                  const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                  const Icon(LucideIcons.chevronRight, size: 18, color: Colors.grey),
                 ],
               ),
             ],
@@ -255,13 +256,13 @@ class _DisputeListTile extends StatelessWidget {
 
   (String, Color, IconData) _statusMeta(String s) {
     switch (s) {
-      case 'OPEN':               return ('Ouvert', Colors.orange, Icons.gavel_outlined);
-      case 'UNDER_REVIEW':       return ('En cours', Colors.blue, Icons.manage_search_outlined);
-      case 'INSPECTION_PENDING': return ('Inspection', Colors.purple, Icons.search_outlined);
-      case 'APPEAL_REQUESTED':   return ('Appel', Colors.deepOrange, Icons.balance_outlined);
-      case 'RESOLVED':           return ('Resolu', Colors.green, Icons.check_circle_outline);
-      case 'CLOSED_NO_ACTION':   return ('Ferme', Colors.grey, Icons.cancel_outlined);
-      default:                   return (s, Colors.grey, Icons.info_outline);
+      case 'OPEN':               return ('Ouvert', Colors.orange, LucideIcons.gavel);
+      case 'UNDER_REVIEW':       return ('En cours', Colors.blue, LucideIcons.searchCheck);
+      case 'INSPECTION_PENDING': return ('Inspection', Colors.purple, LucideIcons.search);
+      case 'APPEAL_REQUESTED':   return ('Appel', Colors.deepOrange, LucideIcons.scale);
+      case 'RESOLVED':           return ('Resolu', Colors.green, LucideIcons.checkCircle2);
+      case 'CLOSED_NO_ACTION':   return ('Ferme', Colors.grey, LucideIcons.xCircle);
+      default:                   return (s, Colors.grey, LucideIcons.info);
     }
   }
 
@@ -293,28 +294,28 @@ class _DisputeCreatePageState extends State<_DisputeCreatePage> {
   // Seller-against-buyer types (FALSE_NON_RECEIPT, USED_THEN_DISPUTED) are excluded.
   static const _disputeTypes = [
     // --- Probleme avec le vendeur ---
-    ('QUALITY_DEFECT',    'Mauvaise qualite',           Icons.star_half_outlined,                  Color(0xFFE65100)),
-    ('WRONG_QUANTITY',    'Quantite incomplete',         Icons.production_quantity_limits_outlined,  Color(0xFF6A1B9A)),
-    ('COUNTERFEIT',       'Produit contrefait',          Icons.warning_amber_outlined,               Color(0xFFB71C1C)),
-    ('MISLEADING_AD',     'Publicite trompeuse',         Icons.campaign_outlined,                    Color(0xFF6A1B9A)),
-    ('FAKE_DOCUMENTS',    'Faux documents vendeur',      Icons.description_outlined,                 Color(0xFF880E4F)),
+    ('QUALITY_DEFECT',    'Mauvaise qualite',           LucideIcons.starHalf,                  Color(0xFFE65100)),
+    ('WRONG_QUANTITY',    'Quantite incomplete',         LucideIcons.packageX,  Color(0xFF6A1B9A)),
+    ('COUNTERFEIT',       'Produit contrefait',          LucideIcons.alertTriangle,               Color(0xFFB71C1C)),
+    ('MISLEADING_AD',     'Publicite trompeuse',         LucideIcons.megaphone,                    Color(0xFF6A1B9A)),
+    ('FAKE_DOCUMENTS',    'Faux documents vendeur',      LucideIcons.fileText,                 Color(0xFF880E4F)),
     // --- Livraison ---
-    ('DELIVERY_DELAY',    'Retard de livraison',         Icons.access_time_outlined,                 Color(0xFF283593)),
-    ('LOST_PARCEL',       'Colis perdu',                 Icons.search_off_outlined,                  Color(0xFF37474F)),
-    ('DAMAGED_GOODS',     'Marchandise endommagee',      Icons.broken_image_outlined,                Color(0xFF4E342E)),
-    ('WRONG_RECIPIENT',   'Livre au mauvais destinataire',Icons.person_off_outlined,                 Color(0xFF1565C0)),
+    ('DELIVERY_DELAY',    'Retard de livraison',         LucideIcons.clock,                 Color(0xFF283593)),
+    ('LOST_PARCEL',       'Colis perdu',                 LucideIcons.searchX,                  Color(0xFF37474F)),
+    ('DAMAGED_GOODS',     'Marchandise endommagee',      LucideIcons.imageOff,                Color(0xFF4E342E)),
+    ('WRONG_RECIPIENT',   'Livre au mauvais destinataire',LucideIcons.userX,                 Color(0xFF1565C0)),
     // --- Paiement & Plateforme ---
-    ('DOUBLE_CHARGE',     'Double debit Mobile Money',   Icons.money_off_outlined,                   Color(0xFF00695C)),
-    ('ESCROW_BLOCKED',    'Fonds bloques trop longtemps',Icons.lock_outlined,                        Color(0xFF558B2F)),
-    ('WALLET_FROZEN',     'Gel de wallet injustifie',    Icons.account_balance_wallet_outlined,      Color(0xFF0277BD)),
-    ('WITHDRAWAL_ERROR',  'Erreur de retrait wallet',    Icons.currency_exchange_outlined,            Color(0xFF00838F)),
-    ('PREMATURE_RELEASE', 'Liberation prematuree des fonds', Icons.lock_open_outlined,               Color(0xFFE65100)),
-    ('UNJUST_SUSPENSION', 'Suspension injustifiee de mon compte', Icons.block_outlined,              Color(0xFF6A1B9A)),
+    ('DOUBLE_CHARGE',     'Double debit Mobile Money',   LucideIcons.coins,                   Color(0xFF00695C)),
+    ('ESCROW_BLOCKED',    'Fonds bloques trop longtemps',LucideIcons.lock,                        Color(0xFF558B2F)),
+    ('WALLET_FROZEN',     'Gel de wallet injustifie',    LucideIcons.wallet,      Color(0xFF0277BD)),
+    ('WITHDRAWAL_ERROR',  'Erreur de retrait wallet',    LucideIcons.repeat2,            Color(0xFF00838F)),
+    ('PREMATURE_RELEASE', 'Liberation prematuree des fonds', LucideIcons.unlock,               Color(0xFFE65100)),
+    ('UNJUST_SUSPENSION', 'Suspension injustifiee de mon compte', LucideIcons.ban,              Color(0xFF6A1B9A)),
     // --- Securite ---
-    ('DATA_BREACH',       'Fuite de mes donnees personnelles', Icons.shield_outlined,                Color(0xFFB71C1C)),
-    ('UNAUTHORIZED_ACCESS','Acces non autorise a mon compte',  Icons.no_accounts_outlined,           Color(0xFFC62828)),
+    ('DATA_BREACH',       'Fuite de mes donnees personnelles', LucideIcons.shield,                Color(0xFFB71C1C)),
+    ('UNAUTHORIZED_ACCESS','Acces non autorise a mon compte',  LucideIcons.userX,           Color(0xFFC62828)),
     // --- Autre ---
-    ('OTHER',             'Autre probleme',              Icons.help_outline,                         Color(0xFF455A64)),
+    ('OTHER',             'Autre probleme',              LucideIcons.helpCircle,                         Color(0xFF455A64)),
   ];
 
   @override
@@ -482,7 +483,7 @@ class _DisputeCreatePageState extends State<_DisputeCreatePage> {
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: _pickFile,
-                icon: const Icon(Icons.attach_file_outlined),
+                icon: const Icon(LucideIcons.paperclip),
                 label: Text(_evidenceFile == null
                     ? 'Joindre une photo / PDF (optionnel)'
                     : _evidenceFile!.name),
@@ -498,7 +499,7 @@ class _DisputeCreatePageState extends State<_DisputeCreatePage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, size: 18, color: Colors.orange),
+                    const Icon(LucideIcons.info, size: 18, color: Colors.orange),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -533,7 +534,7 @@ class _DisputeCreatePageState extends State<_DisputeCreatePage> {
                           child:
                               CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.send_outlined),
+                      : const Icon(LucideIcons.send),
                   label: Text(_loading ? 'Envoi...' : 'Soumettre la réclamation'),
                 ),
               ),
@@ -592,7 +593,7 @@ class _TypeOption extends StatelessWidget {
                   ),
                 ),
               ),
-              if (selected) Icon(Icons.check_circle, color: color, size: 20),
+              if (selected) Icon(LucideIcons.checkCircle2, color: color, size: 20),
             ],
           ),
         ),
@@ -708,7 +709,7 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Réclamation #${widget.disputeId}'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        actions: [IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _load)],
       ),
       body: _loading
           ? const AppLoadingState(label: 'Chargement...')
@@ -775,7 +776,7 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
           child: Column(
             children: [
               ListTile(
-                leading: const Icon(Icons.attach_file_outlined),
+                leading: const Icon(LucideIcons.paperclip),
                 title: Text('Preuves (${evidences.length})',
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 trailing: !resolved
@@ -785,7 +786,7 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.add_circle_outline),
+                            : const Icon(LucideIcons.plusCircle),
                         onPressed: _uploadingEvidence ? null : _addEvidence,
                       )
                     : null,
@@ -799,7 +800,7 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
               for (final e in evidences)
                 ListTile(
                   dense: true,
-                  leading: const Icon(Icons.insert_drive_file_outlined),
+                  leading: const Icon(LucideIcons.fileText),
                   title: Text(
                     e['description']?.toString().isNotEmpty == true
                         ? e['description'] as String
@@ -827,7 +828,7 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Row(children: [
-                    Icon(Icons.check_circle_outline, color: Colors.green),
+                    Icon(LucideIcons.checkCircle2, color: Colors.green),
                     SizedBox(width: 8),
                     Text('Decision',
                         style: TextStyle(fontWeight: FontWeight.bold)),
@@ -861,7 +862,7 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Row(children: [
-                    Icon(Icons.balance_outlined, color: Colors.deepOrange),
+                    Icon(LucideIcons.scale, color: Colors.deepOrange),
                     SizedBox(width: 8),
                     Text('Contester la decision',
                         style: TextStyle(fontWeight: FontWeight.bold)),
@@ -892,7 +893,7 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
                               height: 16,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.send_outlined),
+                          : const Icon(LucideIcons.send),
                       label: const Text('Soumettre l\'appel'),
                       style:
                           FilledButton.styleFrom(backgroundColor: Colors.deepOrange),
@@ -912,8 +913,8 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
             child: ListTile(
               leading: Icon(
                 d['appeal_resolved_at'] != null
-                    ? Icons.check_circle_outline
-                    : Icons.hourglass_empty_outlined,
+                    ? LucideIcons.checkCircle2
+                    : LucideIcons.hourglass,
                 color: d['appeal_resolved_at'] != null ? Colors.green : Colors.orange,
               ),
               title: Text(d['appeal_resolved_at'] != null
@@ -952,13 +953,13 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
 
   (String, Color, IconData) _statusMeta(String s) {
     switch (s) {
-      case 'OPEN':               return ('Ouvert', Colors.orange, Icons.gavel_outlined);
-      case 'UNDER_REVIEW':       return ('En cours', Colors.blue, Icons.manage_search_outlined);
-      case 'INSPECTION_PENDING': return ('Inspection', Colors.purple, Icons.search_outlined);
-      case 'APPEAL_REQUESTED':   return ('Appel', Colors.deepOrange, Icons.balance_outlined);
-      case 'RESOLVED':           return ('Resolu', Colors.green, Icons.check_circle_outline);
-      case 'CLOSED_NO_ACTION':   return ('Ferme', Colors.grey, Icons.cancel_outlined);
-      default:                   return (s, Colors.grey, Icons.info_outline);
+      case 'OPEN':               return ('Ouvert', Colors.orange, LucideIcons.gavel);
+      case 'UNDER_REVIEW':       return ('En cours', Colors.blue, LucideIcons.searchCheck);
+      case 'INSPECTION_PENDING': return ('Inspection', Colors.purple, LucideIcons.search);
+      case 'APPEAL_REQUESTED':   return ('Appel', Colors.deepOrange, LucideIcons.scale);
+      case 'RESOLVED':           return ('Resolu', Colors.green, LucideIcons.checkCircle2);
+      case 'CLOSED_NO_ACTION':   return ('Ferme', Colors.grey, LucideIcons.xCircle);
+      default:                   return (s, Colors.grey, LucideIcons.info);
     }
   }
 
@@ -1046,7 +1047,7 @@ class _ShipmentPickerSheetState extends State<_ShipmentPickerSheet> {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: Row(
               children: [
-                const Icon(Icons.local_shipping_outlined),
+                const Icon(LucideIcons.truck),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -1055,7 +1056,7 @@ class _ShipmentPickerSheetState extends State<_ShipmentPickerSheet> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(LucideIcons.x),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -1072,7 +1073,7 @@ class _ShipmentPickerSheetState extends State<_ShipmentPickerSheet> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.wifi_off_outlined,
+                              const Icon(LucideIcons.wifiOff,
                                   color: Colors.grey, size: 40),
                               const SizedBox(height: 8),
                               Text(_error!,
@@ -1081,7 +1082,7 @@ class _ShipmentPickerSheetState extends State<_ShipmentPickerSheet> {
                               const SizedBox(height: 12),
                               FilledButton.icon(
                                 onPressed: _load,
-                                icon: const Icon(Icons.refresh),
+                                icon: const Icon(LucideIcons.refreshCw),
                                 label: const Text('Réessayer'),
                               ),
                             ],
@@ -1095,7 +1096,7 @@ class _ShipmentPickerSheetState extends State<_ShipmentPickerSheet> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.inbox_outlined,
+                                  Icon(LucideIcons.inbox,
                                       color: Colors.grey, size: 40),
                                   SizedBox(height: 8),
                                   Text('Aucune commande trouvée',
@@ -1134,7 +1135,7 @@ class _ShipmentPickerSheetState extends State<_ShipmentPickerSheet> {
                               return ListTile(
                                 leading: const CircleAvatar(
                                   backgroundColor: Color(0xFFE8F5EE),
-                                  child: Icon(Icons.local_shipping_outlined,
+                                  child: Icon(LucideIcons.truck,
                                       color: Color(0xFF0F7A4F), size: 20),
                                 ),
                                 title: Text(
@@ -1149,7 +1150,7 @@ class _ShipmentPickerSheetState extends State<_ShipmentPickerSheet> {
                                       : status,
                                   style: const TextStyle(fontSize: 12),
                                 ),
-                                trailing: const Icon(Icons.chevron_right,
+                                trailing: const Icon(LucideIcons.chevronRight,
                                     size: 18, color: Colors.grey),
                                 onTap: () => Navigator.pop(context, id),
                               );

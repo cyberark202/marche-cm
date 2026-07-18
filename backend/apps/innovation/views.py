@@ -1,11 +1,12 @@
 import hashlib
 import ipaddress
 import json
+import logging
 import secrets
 import socket
 import urllib.request
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
@@ -26,6 +27,8 @@ from apps.orders.models import EscrowStatus, Order, OrderStatus
 from apps.wallets.models import TransactionStatus, WalletTransaction
 from apps.notifications.service import create_realtime_notification
 from apps.notifications.realtime import broadcast_event
+
+logger = logging.getLogger(__name__)
 from .models import (
     ApprovalRequestStatus,
     CounterOfferStatus,
@@ -72,7 +75,8 @@ def _is_business_user(user) -> bool:
 def _is_safe_webhook_url(raw_url: str) -> bool:
     try:
         parsed = urlparse(raw_url)
-    except Exception:
+    except ValueError:
+        logger.warning("webhook_url_unparseable url=%r", raw_url)
         return False
     hostname = (parsed.hostname or "").strip().lower()
     if parsed.scheme != "https" or not hostname:
@@ -635,7 +639,7 @@ class EscrowSplitPreviewView(APIView):
         platform_pct_raw = request.query_params.get("platform_pct", "0.05")
         try:
             platform_pct = Decimal(platform_pct_raw)
-        except Exception:
+        except (InvalidOperation, ValueError, TypeError):
             return response.Response({"detail": "platform_pct invalide."}, status=status.HTTP_400_BAD_REQUEST)
         if platform_pct < 0 or platform_pct > Decimal("0.30"):
             return response.Response({"detail": "platform_pct doit etre entre 0 et 0.30."}, status=status.HTTP_400_BAD_REQUEST)
@@ -981,6 +985,7 @@ class SmartNotificationsRunView(APIView):
                     )
                     late_alerts += 1
                 except Exception:
+                    logger.exception("notif_shipment_late_failed shipment=%d user=%d", shipment.id, user.id)
                     continue
 
         pending_tx = WalletTransaction.objects.filter(
@@ -998,6 +1003,7 @@ class SmartNotificationsRunView(APIView):
                 )
                 pending_alerts += 1
             except Exception:
+                logger.exception("notif_wallet_pending_failed tx=%s", tx.id)
                 continue
 
         write_audit_log(

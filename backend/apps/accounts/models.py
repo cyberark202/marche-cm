@@ -12,15 +12,38 @@ from .encrypted_fields import EncryptedTextField
 
 class UserRole(models.TextChoices):
     GENERAL_ADMIN = "GENERAL_ADMIN", "Administrateur General"
-    SUPPLIER = "SUPPLIER", "Fournisseur"
-    WHOLESALER = "WHOLESALER", "Grossiste"
+    # « Vendeur » est le compte vendeur unifié. La clé technique reste SUPPLIER
+    # (zéro casse) ; les anciens comptes WHOLESALER ont été migrés vers SUPPLIER.
+    SUPPLIER = "SUPPLIER", "Vendeur"
+    # DÉPRÉCIÉ : fusionné dans SUPPLIER (Vendeur). Conservé pour compatibilité du
+    # code/historique ; plus aucun compte n'est créé avec ce rôle.
+    WHOLESALER = "WHOLESALER", "Grossiste (déprécié)"
     TRANSIT_AGENT = "TRANSIT_AGENT", "Livreur"
     BUYER = "BUYER", "Acheteur"
+
+    @classmethod
+    def seller_roles(cls):
+        """Rôles considérés « vendeur » (le compte unifié + l'ancien grossiste)."""
+        return {cls.SUPPLIER, cls.WHOLESALER}
+
+
+class AdminScope(models.TextChoices):
+    """Sous-rôles administratifs (docs 16/17) — séparation des responsabilités.
+
+    Ne concerne que les comptes GENERAL_ADMIN. Un scope vide équivaut à SUPER
+    (compatibilité avec les admins créés avant l'introduction des scopes).
+    """
+
+    SUPER = "SUPER", "Super Administrateur"
+    OPERATIONS = "OPERATIONS", "Administrateur Operationnel"
+    KYC = "KYC", "Administrateur KYC"
+    SUPPORT = "SUPPORT", "Administrateur Support"
 
 
 class User(AbstractUser):
     REF_PREFIX = "USR"
     role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.BUYER)
+    admin_scope = models.CharField(max_length=12, choices=AdminScope.choices, blank=True, default="")
     reference_code = models.CharField(max_length=24, unique=True, blank=True, null=True, db_index=True)
     phone_number = EncryptedTextField(blank=True, default="")
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)

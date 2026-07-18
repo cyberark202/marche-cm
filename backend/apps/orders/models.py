@@ -54,6 +54,10 @@ class Order(models.Model):
     order_type = models.CharField(max_length=20, choices=OrderType.choices, default=OrderType.LOCAL)
     status = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING)
     escrow_status = models.CharField(max_length=20, choices=EscrowStatus.choices, default=EscrowStatus.HELD)
+    # Validation vendeur (doc 13) : le vendeur accepte/refuse avant la deadline,
+    # sinon la commande expire automatiquement et l'acheteur est rembourse.
+    seller_response_deadline = models.DateTimeField(null=True, blank=True)
+    seller_accepted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -72,6 +76,9 @@ class EscrowLifecycleStatus(models.TextChoices):
     READY = "READY", "Pret a etre libere"
     PAYOUT_PENDING = "PAYOUT_PENDING", "Payout en attente"
     RELEASED = "RELEASED", "Libere"
+    # Split litige : une partie versée au bénéficiaire, le reste remboursé à
+    # l'acheteur. Distinct de REFUNDED (tout remboursé) pour une compta exacte.
+    PARTIALLY_RELEASED = "PARTIALLY_RELEASED", "Partiellement libere"
     FROZEN = "FROZEN", "Gele"
     REFUNDED = "REFUNDED", "Rembourse"
 
@@ -198,8 +205,33 @@ class OrderReview(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="order_reviews")
     rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
     comment = models.TextField(blank=True)
+    photo = models.ImageField(upload_to="reviews/", blank=True, null=True)
+    # Reponse publique du vendeur a l'avis (droit de reponse, renforce la confiance).
+    seller_reply = models.TextField(blank=True)
+    seller_reply_at = models.DateTimeField(null=True, blank=True)
     is_verified_purchase = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class CartItem(models.Model):
+    """Panier serveur de l'acheteur. Un article = un produit + une quantite.
+
+    Persiste le panier cote serveur (multi-appareils, re-validation prix/stock
+    au checkout). Le checkout groupe cree une Order par article via la logique
+    de commande existante — ce modele ne touche jamais aux escrows.
+    """
+
+    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cart_items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="cart_items")
+    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-added_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["buyer", "product"], name="unique_cart_item_per_buyer_product"),
+        ]

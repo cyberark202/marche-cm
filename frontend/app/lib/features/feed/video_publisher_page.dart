@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/api_service.dart';
 import '../auth/session_store.dart';
 import 'feed_models.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class VideoPublisherPage extends StatefulWidget {
   const VideoPublisherPage({super.key, required this.video});
@@ -28,7 +29,11 @@ class _VideoPublisherPageState extends State<VideoPublisherPage> {
   Future<void> _loadCerts() async {
     final token = context.read<SessionStore>().token;
     try {
-      _certs = await _api.getList("/api/compliance-documents/?user_id=${widget.video.sellerId}", token: token);
+      // Endpoint public non-PII : certifications business APPROUVÉES seulement
+      // (l'ancien ?user_id= renvoyait 404 pour un acheteur — anti-IDOR).
+      _certs = await _api.getList(
+          "/api/compliance-documents/public-certifications/?user_id=${widget.video.sellerId}",
+          token: token);
     } catch (_) {
       _certs = const [];
     }
@@ -71,7 +76,7 @@ class _VideoPublisherPageState extends State<VideoPublisherPage> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               errorWidget: (_, __, ___) => const Center(
-                child: Icon(Icons.broken_image_outlined, size: 48),
+                child: Icon(LucideIcons.imageOff, size: 48),
               ),
             ),
           ),
@@ -92,7 +97,7 @@ class _VideoPublisherPageState extends State<VideoPublisherPage> {
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Row(
                       children: [
-                        const Icon(Icons.workspace_premium, color: Color(0xFF16A34A), size: 18),
+                        const Icon(LucideIcons.award, color: Color(0xFF16A34A), size: 18),
                         const SizedBox(width: 8),
                         Expanded(child: Text((c["doc_type"] ?? "").toString())),
                       ],

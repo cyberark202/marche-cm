@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Canonical transaction states for all wallet/payment flows.
 enum TransactionState {
@@ -74,14 +75,14 @@ class AppTransactionBanner extends StatelessWidget {
     if (state == TransactionState.idle) return const SizedBox.shrink();
 
     final (color, icon) = switch (state) {
-      TransactionState.success => (Colors.green.shade700, Icons.check_circle),
-      TransactionState.failed => (Colors.red.shade700, Icons.error),
+      TransactionState.success => (Colors.green.shade700, LucideIcons.checkCircle2),
+      TransactionState.failed => (Colors.red.shade700, LucideIcons.alertCircle),
       TransactionState.timedOut =>
-        (Colors.orange.shade700, Icons.timer_off_rounded),
+        (Colors.orange.shade700, LucideIcons.timerOff),
       TransactionState.pendingNotchPay ||
       TransactionState.pendingMomo =>
-        (Colors.blue.shade700, Icons.hourglass_top_rounded),
-      _ => (Colors.blueGrey.shade700, Icons.sync_rounded),
+        (Colors.blue.shade700, LucideIcons.hourglass),
+      _ => (Colors.blueGrey.shade700, LucideIcons.refreshCw),
     };
 
     return AnimatedContainer(

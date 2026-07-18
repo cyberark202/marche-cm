@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -6,9 +8,11 @@ import '../../core/api_service.dart';
 import '../../core/app_config.dart';
 import '../../core/app_theme.dart';
 import '../../core/app_ui.dart';
+import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
 import '../business/rfqs_page.dart';
 import '../chat/chat_hub_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class MarketplaceTab extends StatefulWidget {
   const MarketplaceTab({super.key});
@@ -29,6 +33,7 @@ class _MarketplaceTabState extends State<MarketplaceTab> {
   String _query = '';
   int _page = 1;
   bool _hasMore = true;
+  StreamSubscription<Map<String, dynamic>>? _eventsSub;
 
   static const _categories = [
     'Tous',
@@ -46,10 +51,20 @@ class _MarketplaceTabState extends State<MarketplaceTab> {
     super.initState();
     _load(reset: true);
     _scrollController.addListener(_onScroll);
+    // Marché B2B : les autres vendeurs publient/retirent des annonces à tout
+    // moment. Sans cette écoute, la grille reste figée sur l'état du premier
+    // chargement jusqu'au prochain pull-to-refresh manuel.
+    _eventsSub = RealtimeEventsService.instance.events.listen((event) {
+      if (!mounted) return;
+      if (RealtimeEventsService.instance.matchesTopic(event, 'products')) {
+        _load(reset: true);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _eventsSub?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -131,7 +146,7 @@ class _MarketplaceTabState extends State<MarketplaceTab> {
             ? _buildSkeleton()
             : _products.isEmpty
                 ? AppEmptyStateView(
-                    icon: Icons.storefront_outlined,
+                    icon: LucideIcons.store,
                     title: 'Aucun produit trouvé',
                     message:
                         'Essayez de modifier vos filtres ou votre recherche.',
@@ -173,7 +188,7 @@ class _MarketplaceTabState extends State<MarketplaceTab> {
           context,
           MaterialPageRoute(builder: (_) => const RfqsPage()),
         ),
-        icon: const Icon(Icons.request_quote_rounded),
+        icon: const Icon(LucideIcons.fileText),
         label: const Text('Appel d\'offre'),
         backgroundColor: AppPalette.secondary,
         foregroundColor: Colors.white,
@@ -213,11 +228,11 @@ class _MarketplaceTabState extends State<MarketplaceTab> {
             },
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
-              hintText: 'Rechercher produits, fournisseurs…',
-              prefixIcon: const Icon(Icons.search, size: 20),
+              hintText: 'Rechercher produits, vendeurs…',
+              prefixIcon: const Icon(LucideIcons.search, size: 20),
               suffixIcon: _query.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
+                      icon: const Icon(LucideIcons.x, size: 18),
                       onPressed: () {
                         _searchController.clear();
                         _onSearch('');
@@ -354,7 +369,7 @@ class _ProductCard extends StatelessWidget {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.verified_rounded,
+                              Icon(LucideIcons.badgeCheck,
                                   color: Colors.white, size: 10),
                               SizedBox(width: 3),
                               Text(
@@ -379,7 +394,7 @@ class _ProductCard extends StatelessWidget {
                             color: Colors.black.withValues(alpha: 0.5),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.play_arrow_rounded,
+                          child: const Icon(LucideIcons.play,
                               color: Colors.white, size: 14),
                         ),
                       ),
@@ -581,7 +596,7 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
                       ),
                     ),
                     if (isVerified)
-                      const Icon(Icons.verified_rounded,
+                      const Icon(LucideIcons.badgeCheck,
                           color: AppPalette.success, size: 18),
                   ],
                 ),
@@ -626,7 +641,7 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white),
                           )
-                        : const Icon(Icons.chat_rounded),
+                        : const Icon(LucideIcons.messageCircle),
                     label: const Text('Contacter le vendeur'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppPalette.secondary,
@@ -646,7 +661,7 @@ class _ProductDetailSheetState extends State<_ProductDetailSheet> {
                           MaterialPageRoute(
                               builder: (_) => const RfqsPage()));
                     },
-                    icon: const Icon(Icons.request_quote_rounded),
+                    icon: const Icon(LucideIcons.fileText),
                     label: const Text('Demander un devis (RFQ)'),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppPalette.primary),
@@ -672,7 +687,7 @@ class _ImagePlaceholder extends StatelessWidget {
       height: double.infinity,
       color: AppPalette.bgSoft,
       child: const Center(
-        child: Icon(Icons.image_outlined, color: AppPalette.textFaint, size: 34),
+        child: Icon(LucideIcons.image, color: AppPalette.textFaint, size: 34),
       ),
     );
   }

@@ -103,8 +103,7 @@ class CertPinningService {
   /// normally; SPKI pinning is an additional hardening layer.
   static void assertPinsConfigured() {
     if (!isPinningActive) {
-      // ignore: avoid_print
-      print(
+      debugPrint(
         '[CertPinning] WARNING: Placeholder SPKI hashes detected. '
         'SPKI pinning is DISABLED. Replace pins with real certificate '
         'public key hashes to enable pinning. '

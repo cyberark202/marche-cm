@@ -16,6 +16,7 @@ import '../orders/sales_summary_page.dart';
 import '../profile/compliance_documents_page.dart';
 import '../profile/security_center_page.dart';
 import '../supplier/supplier_products_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -97,11 +98,11 @@ class _ProfileTabState extends State<ProfileTab> {
 
     return _SettingsGroup(
       title: 'Mon activité',
-      icon: Icons.business_center_rounded,
+      icon: LucideIcons.briefcase,
       children: [
         if (isSupplier) ...[
           _SettingsTile(
-            icon: Icons.inventory_2_outlined,
+            icon: LucideIcons.package,
             label: 'Mes produits',
             subtitle: 'Gérer votre catalogue',
             onTap: () => Navigator.push(
@@ -111,7 +112,7 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ],
         _SettingsTile(
-          icon: Icons.shopping_bag_outlined,
+          icon: LucideIcons.shoppingBag,
           label: 'Mes commandes',
           subtitle: 'Historique et suivi',
           onTap: () => Navigator.push(
@@ -120,7 +121,7 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
         _SettingsTile(
-          icon: Icons.bar_chart_outlined,
+          icon: LucideIcons.barChart3,
           label: 'Résumé des ventes',
           subtitle: 'Chiffre d\'affaires et statistiques',
           onTap: () => Navigator.push(
@@ -130,7 +131,7 @@ class _ProfileTabState extends State<ProfileTab> {
         ),
         if (isSupplier || isWholesaler) ...[
           _SettingsTile(
-            icon: Icons.request_quote_outlined,
+            icon: LucideIcons.fileText,
             label: 'Appels d\'offres',
             subtitle: 'RFQ reçus et ouverts',
             onTap: () => Navigator.push(
@@ -139,7 +140,7 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
           _SettingsTile(
-            icon: Icons.local_offer_outlined,
+            icon: LucideIcons.tag,
             label: 'Mes offres RFQ',
             subtitle: 'Offres envoyées',
             onTap: () => Navigator.push(
@@ -148,7 +149,7 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
           _SettingsTile(
-            icon: Icons.campaign_outlined,
+            icon: LucideIcons.megaphone,
             label: 'Campagnes',
             subtitle: 'Marketing et promotions',
             onTap: () => Navigator.push(
@@ -164,10 +165,10 @@ class _ProfileTabState extends State<ProfileTab> {
   Widget _buildSecuritySection(BuildContext context) {
     return _SettingsGroup(
       title: 'Sécurité & conformité',
-      icon: Icons.shield_outlined,
+      icon: LucideIcons.shield,
       children: [
         _SettingsTile(
-          icon: Icons.verified_user_outlined,
+          icon: LucideIcons.shieldCheck,
           label: 'Documents KYC',
           subtitle: 'Vérification et certifications',
           onTap: () => Navigator.push(
@@ -176,7 +177,7 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
         _SettingsTile(
-          icon: Icons.security_outlined,
+          icon: LucideIcons.shieldCheck,
           label: 'Centre de sécurité',
           subtitle: '2FA, sessions',
           onTap: () => Navigator.push(
@@ -191,10 +192,10 @@ class _ProfileTabState extends State<ProfileTab> {
   Widget _buildSupportSection(BuildContext context) {
     return _SettingsGroup(
       title: 'Support',
-      icon: Icons.help_outline_rounded,
+      icon: LucideIcons.helpCircle,
       children: [
         _SettingsTile(
-          icon: Icons.support_agent_outlined,
+          icon: LucideIcons.headphones,
           label: 'Centre d\'aide',
           subtitle: 'FAQ et documentation',
           onTap: () => Navigator.push(
@@ -203,7 +204,7 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
         ),
         _SettingsTile(
-          icon: Icons.confirmation_number_outlined,
+          icon: LucideIcons.ticket,
           label: 'Mes tickets',
           subtitle: 'Demandes en cours',
           onTap: () => Navigator.push(
@@ -218,15 +219,15 @@ class _ProfileTabState extends State<ProfileTab> {
   Widget _buildAccountSection(BuildContext context, SessionStore session) {
     return _SettingsGroup(
       title: 'Compte',
-      icon: Icons.manage_accounts_outlined,
+      icon: LucideIcons.userCog,
       children: [
         _SettingsTile(
-          icon: Icons.language_outlined,
+          icon: LucideIcons.languages,
           label: 'Langue',
           subtitle: session.appLocale.languageCode == 'fr'
               ? 'Français'
               : 'English',
-          trailing: const Icon(Icons.chevron_right, size: 18,
+          trailing: const Icon(LucideIcons.chevronRight, size: 18,
               color: AppPalette.textMuted),
           onTap: () {
             final newCode =
@@ -235,7 +236,7 @@ class _ProfileTabState extends State<ProfileTab> {
           },
         ),
         _SettingsTile(
-          icon: Icons.logout_rounded,
+          icon: LucideIcons.logOut,
           label: 'Déconnexion',
           labelColor: AppPalette.danger,
           iconColor: AppPalette.danger,
@@ -391,7 +392,7 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.account_balance_wallet_rounded,
+                      const Icon(LucideIcons.wallet,
                           color: Colors.white, size: 18),
                       const SizedBox(width: 10),
                       Expanded(
@@ -442,9 +443,9 @@ class _ProfileHeader extends StatelessWidget {
   static String _roleLabel(UserRole role) {
     switch (role) {
       case UserRole.supplier:
-        return 'Fournisseur';
+        return 'Vendeur';
       case UserRole.wholesaler:
-        return 'Grossiste';
+        return 'Vendeur';
       case UserRole.transitAgent:
         return 'Livreur';
       case UserRole.generalAdmin:
@@ -510,7 +511,7 @@ class _KycBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            verified ? Icons.verified_rounded : Icons.info_outline_rounded,
+            verified ? LucideIcons.badgeCheck : LucideIcons.info,
             color: Colors.white,
             size: 10,
           ),
@@ -661,7 +662,7 @@ class _SettingsTile extends StatelessWidget {
                 ),
               ),
               trailing ??
-                  const Icon(Icons.chevron_right_rounded,
+                  const Icon(LucideIcons.chevronRight,
                       size: 18, color: AppPalette.textFaint),
             ],
           ),

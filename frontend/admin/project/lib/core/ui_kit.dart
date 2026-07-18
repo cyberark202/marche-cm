@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Reusable visual components shared across all admin screens. Self-contained
 /// (depends only on [AppTheme]) so the admin app carries no i18n coupling.
@@ -31,7 +32,7 @@ class AppEmptyState extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle = "",
-    this.icon = Icons.inbox_outlined,
+    this.icon = LucideIcons.inbox,
     this.onRetry,
   });
   final String title;
@@ -63,7 +64,7 @@ class AppEmptyState extends StatelessWidget {
               const SizedBox(height: 14),
               FilledButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(LucideIcons.refreshCw),
                 label: const Text("Réessayer"),
               ),
             ],
@@ -93,7 +94,7 @@ class AppErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_outlined,
+            const Icon(LucideIcons.wifiOff,
                 size: 42, color: AppPalette.danger),
             const SizedBox(height: 12),
             Text(title,
@@ -107,7 +108,7 @@ class AppErrorState extends StatelessWidget {
             const SizedBox(height: 14),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(LucideIcons.refreshCw),
               label: const Text("Réessayer"),
             ),
           ],

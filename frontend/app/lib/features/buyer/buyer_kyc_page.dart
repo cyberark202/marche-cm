@@ -10,6 +10,7 @@ import 'package:dio/dio.dart';
 import '../../core/app_theme.dart';
 import '../../core/security/secure_dio_client.dart';
 import '../../core/upload_mime.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// KYC onboarding — wizard fidèle au design `screens-kyc.jsx` (6 écrans) :
 /// intro → type de compte → documents → signature → récapitulatif → succès.
@@ -229,7 +230,7 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Row(
         children: [
-          _RoundIconButton(icon: Icons.arrow_back, onTap: _back),
+          _RoundIconButton(icon: LucideIcons.arrowLeft, onTap: _back),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -275,10 +276,10 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   // ── Écran 1 : Intro ─────────────────────────────────────────────────────
   Widget _introContent() {
     const needs = [
-      (Icons.verified_user_outlined, "Pièce d'identité", 'CNI, passeport ou récépissé'),
-      (Icons.location_on_outlined, 'Justificatif de domicile', 'Facture ENEO/CAMWATER < 3 mois'),
-      (Icons.phone_iphone, 'Numéro Mobile Money', 'MTN MoMo ou Orange Money actif'),
-      (Icons.edit_outlined, 'Signature manuscrite', 'Capturée à l\'étape finale'),
+      (LucideIcons.shieldCheck, "Pièce d'identité", 'CNI, passeport ou récépissé'),
+      (LucideIcons.mapPin, 'Justificatif de domicile', 'Facture ENEO/CAMWATER < 3 mois'),
+      (LucideIcons.smartphone, 'Numéro Mobile Money', 'MTN MoMo ou Orange Money actif'),
+      (LucideIcons.pencil, 'Signature manuscrite', 'Capturée à l\'étape finale'),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,14 +366,14 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.check, size: 15, color: AppPalette.primary),
+                  const Icon(LucideIcons.check, size: 15, color: AppPalette.primary),
                 ],
               ),
             ),
           ),
         const SizedBox(height: 4),
         const _AccentNote(
-          icon: Icons.lock_outline,
+          icon: LucideIcons.lock,
           text:
               'Vos documents ne sont jamais partagés avec les autres utilisateurs. Stockés chiffrés.',
         ),
@@ -383,11 +384,11 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   // ── Écran 2 : Type de compte ────────────────────────────────────────────
   Widget _typeContent() {
     const options = [
-      (_AccountType.individual, Icons.person_outline, 'Particulier',
+      (_AccountType.individual, LucideIcons.user, 'Particulier',
           'CNI · justificatif domicile'),
-      (_AccountType.company, Icons.inventory_2_outlined, 'Entreprise / SARL',
+      (_AccountType.company, LucideIcons.package, 'Entreprise / SARL',
           'RC · NIU · CNI dirigeant'),
-      (_AccountType.pro, Icons.local_shipping_outlined, 'Profession libérale',
+      (_AccountType.pro, LucideIcons.truck, 'Profession libérale',
           'Patente · CNI · attestation'),
     ];
     return Column(
@@ -415,11 +416,11 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   Widget _docsContent() {
     const docMeta = [
       ('cni', "Carte nationale d'identité", 'Recto-verso, bonne lumière',
-          Icons.badge_outlined),
+          LucideIcons.badgeCheck),
       ('address', 'Justificatif de domicile', 'Facture ENEO < 3 mois',
-          Icons.location_on_outlined),
+          LucideIcons.mapPin),
       ('selfie', 'Selfie avec CNI', 'Pour confirmer l\'identité',
-          Icons.camera_alt_outlined),
+          LucideIcons.camera),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,7 +487,7 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
                       _signatureBytes = null;
                     });
                   },
-                  icon: const Icon(Icons.refresh, size: 16),
+                  icon: const Icon(LucideIcons.refreshCw, size: 16),
                   label: const Text('Recommencer'),
                 ),
               ),
@@ -599,7 +600,7 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
         ),
         const SizedBox(height: 12),
         const _AccentNote(
-          icon: Icons.schedule,
+          icon: LucideIcons.clock,
           text:
               'Délai de traitement : 24 h ouvrées. Vous recevrez un email à validation.',
         ),
@@ -616,19 +617,19 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     final (label, icon, enabled, onPressed) = switch (_stage) {
       _KycStage.intro => (
           'Commencer la vérification',
-          Icons.arrow_forward,
+          LucideIcons.arrowRight,
           true,
           () => setState(() => _stage = _KycStage.type),
         ),
       _KycStage.type => (
           'Continuer',
-          Icons.arrow_forward,
+          LucideIcons.arrowRight,
           true,
           () => setState(() => _stage = _KycStage.docs),
         ),
       _KycStage.docs => (
           'Continuer ($_docsDone/3)',
-          Icons.arrow_forward,
+          LucideIcons.arrowRight,
           _allDocsDone,
           () {
             if (!_allDocsDone) {
@@ -643,17 +644,17 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
         ),
       _KycStage.signature => (
           'Valider ma signature',
-          Icons.arrow_forward,
+          LucideIcons.arrowRight,
           _hasSignature && _consentAccepted,
           _validateSignature,
         ),
       _KycStage.review => (
           'Envoyer pour vérification',
-          Icons.send,
+          LucideIcons.send,
           true,
           _submit,
         ),
-      _KycStage.success => ('', Icons.check, false, () {}),
+      _KycStage.success => ('', LucideIcons.check, false, () {}),
     };
 
     return Container(
@@ -855,7 +856,7 @@ class _SelectableCard extends StatelessWidget {
                       width: 2),
                 ),
                 child: active
-                    ? const Icon(Icons.check, size: 12, color: Colors.white)
+                    ? const Icon(LucideIcons.check, size: 12, color: Colors.white)
                     : null,
               ),
             ],
@@ -907,7 +908,7 @@ class _DocUploadCard extends StatelessWidget {
                       child: const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.camera_alt_outlined,
+                          Icon(LucideIcons.camera,
                               size: 30, color: AppPalette.textMuted),
                           SizedBox(height: 6),
                           Text('TOUCHER POUR SÉLECTIONNER',
@@ -927,7 +928,7 @@ class _DocUploadCard extends StatelessWidget {
                         height: 28,
                         decoration: const BoxDecoration(
                             shape: BoxShape.circle, color: AppPalette.primary),
-                        child: const Icon(Icons.check,
+                        child: const Icon(LucideIcons.check,
                             size: 15, color: Colors.white),
                       ),
                     ),
@@ -1041,7 +1042,7 @@ class _ErrorBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.error_outline, size: 16, color: AppPalette.danger),
+            const Icon(LucideIcons.alertCircle, size: 16, color: AppPalette.danger),
             const SizedBox(width: 8),
             Expanded(
                 child: Text(message,
@@ -1094,7 +1095,7 @@ class _SuccessScreen extends StatelessWidget {
                             offset: Offset(0, 20)),
                       ],
                     ),
-                    child: const Icon(Icons.check,
+                    child: const Icon(LucideIcons.check,
                         size: 64, color: Color(0xFF1A0F00)),
                   ),
                 ),

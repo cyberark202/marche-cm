@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/theme/driver_theme.dart';
 import '../application/auth_notifier.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -27,12 +28,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   String? _error;
 
   static const _vehicles = [
-    ('MOTO', 'Moto / Scooter', Icons.two_wheeler),
-    ('CAR', 'Voiture', Icons.directions_car),
-    ('VAN', 'Camionnette', Icons.airport_shuttle),
-    ('TRUCK', 'Camion', Icons.local_shipping),
-    ('BICYCLE', 'Vélo', Icons.pedal_bike),
-    ('FOOT', 'À pied', Icons.directions_walk),
+    ('MOTO', 'Moto / Scooter', LucideIcons.bike),
+    ('CAR', 'Voiture', LucideIcons.car),
+    ('VAN', 'Camionnette', LucideIcons.bus),
+    ('TRUCK', 'Camion', LucideIcons.truck),
+    ('BICYCLE', 'Vélo', LucideIcons.bike),
+    ('FOOT', 'À pied', LucideIcons.footprints),
   ];
 
   @override
@@ -98,7 +99,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           inputDecoration: InputDecoration(
             labelText: 'Rechercher un pays',
-            prefixIcon: Icon(Icons.search),
+            prefixIcon: Icon(LucideIcons.search),
           ),
         ),
         onSelect: (c) => setState(() => _countryCode = c.countryCode),
@@ -112,7 +113,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       appBar: AppBar(
         title: const Text('Créer un compte'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () => context.pop(),
         ),
       ),
@@ -130,7 +131,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.local_shipping, color: Colors.white, size: 28),
+                  Icon(LucideIcons.truck, color: Colors.white, size: 28),
                   SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +156,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   border: Border.all(color: const Color(0xFFFCA5A5)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+                  const Icon(LucideIcons.alertCircle, size: 16, color: Color(0xFFDC2626)),
                   const SizedBox(width: 8),
                   Expanded(child: Text(_error!, style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13))),
                 ]),
@@ -165,13 +166,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
             _label('Informations personnelles'),
             const SizedBox(height: 8),
-            _tf(label: 'Nom complet', ctrl: _nameCtrl, icon: Icons.person_outline,
+            _tf(label: 'Nom complet', ctrl: _nameCtrl, icon: LucideIcons.user,
                 hint: 'Ex: Jean Dupont'),
             const SizedBox(height: 12),
-            _tf(label: 'Téléphone', ctrl: _phoneCtrl, icon: Icons.phone_outlined,
+            _tf(label: 'Téléphone', ctrl: _phoneCtrl, icon: LucideIcons.phone,
                 hint: '+2376XXXXXXXX', type: TextInputType.phone),
             const SizedBox(height: 12),
-            _tf(label: 'Email', ctrl: _emailCtrl, icon: Icons.alternate_email,
+            _tf(label: 'Email', ctrl: _emailCtrl, icon: LucideIcons.atSign,
                 hint: 'vous@email.com', type: TextInputType.emailAddress),
             const SizedBox(height: 12),
 
@@ -186,7 +187,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   border: Border.all(color: DriverPalette.border),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.public, color: DriverPalette.primary, size: 20),
+                  const Icon(LucideIcons.globe, color: DriverPalette.primary, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -199,7 +200,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       ),
                     ),
                   ),
-                  const Icon(Icons.arrow_drop_down, color: DriverPalette.textMuted),
+                  const Icon(LucideIcons.chevronDown, color: DriverPalette.textMuted),
                 ]),
               ),
             ),
@@ -252,9 +253,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               onSubmitted: (_) => _register(),
               decoration: InputDecoration(
                 labelText: 'Mot de passe',
-                prefixIcon: const Icon(Icons.lock_outline),
+                prefixIcon: const Icon(LucideIcons.lock),
                 suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  icon: Icon(_obscure ? LucideIcons.eye : LucideIcons.eyeOff),
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),

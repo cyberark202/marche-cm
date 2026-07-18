@@ -4,6 +4,7 @@ import '../../core/app_theme.dart';
 import '../../core/format.dart';
 import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 40 — Audit & activity log with CSV export.
 class AuditPage extends StatefulWidget {
@@ -86,7 +87,7 @@ class _AuditPageState extends State<AuditPage> {
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2.2))
-                : const Icon(Icons.download_outlined),
+                : const Icon(LucideIcons.download),
           ),
         ],
       ),
@@ -128,7 +129,7 @@ class _AuditPageState extends State<AuditPage> {
                     ? const AppEmptyState(
                         title: 'Journal vide',
                         subtitle: 'Aucun événement pour ce filtre.',
-                        icon: Icons.receipt_long_outlined,
+                        icon: LucideIcons.receipt,
                       )
                     : RefreshIndicator(
                         onRefresh: _refresh,
@@ -196,11 +197,11 @@ class _AuditPageState extends State<AuditPage> {
 
   IconData _iconFor(String category) {
     final c = category.toUpperCase();
-    if (c.contains('WALLET')) return Icons.account_balance_wallet_outlined;
-    if (c.contains('ORDER')) return Icons.shopping_bag_outlined;
-    if (c.contains('COMPLIANCE')) return Icons.fact_check_outlined;
-    if (c.contains('DISPUTE')) return Icons.gavel_outlined;
-    if (c.contains('AUTH')) return Icons.lock_outline;
-    return Icons.bolt_outlined;
+    if (c.contains('WALLET')) return LucideIcons.wallet;
+    if (c.contains('ORDER')) return LucideIcons.shoppingBag;
+    if (c.contains('COMPLIANCE')) return LucideIcons.clipboardCheck;
+    if (c.contains('DISPUTE')) return LucideIcons.gavel;
+    if (c.contains('AUTH')) return LucideIcons.lock;
+    return LucideIcons.zap;
   }
 }

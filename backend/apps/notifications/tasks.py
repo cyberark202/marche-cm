@@ -114,6 +114,18 @@ def _send_websocket(user_id: int, notification) -> str:
         return f"error:{exc}"
 
 
+@shared_task(name="apps.notifications.tasks.send_push", queue="default")
+def send_push(user_id: int, title: str, body: str, data: dict | None = None) -> str:
+    """Push-only FCM delivery — no in-app Notification row is created.
+
+    Used for high-frequency events (chat messages) that must reach a
+    backgrounded device but should NOT flood the in-app notification list
+    (the feature carries its own unread tracking). Runs async so it never
+    slows the originating request.
+    """
+    return _send_fcm_push(user_id, title, body, data or {})
+
+
 @shared_task(name="apps.notifications.tasks.send_bulk_notification", queue="default")
 def send_bulk_notification(user_ids: list[int], title: str, body: str, **kwargs) -> dict:
     for uid in user_ids:

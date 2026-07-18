@@ -349,7 +349,8 @@ class SuspiciousRequestMiddleware:
             current = cache.get(cache_key, 0)
             cache.set(cache_key, current + score, timeout=3600)
         except Exception:
-            pass  # Never fail a request due to cache errors
+            # Never fail a request due to cache errors — but keep the outage visible.
+            logger.warning("suspicion_counter_cache_unavailable", exc_info=True)
 
 
 # ---------------------------------------------------------------------------

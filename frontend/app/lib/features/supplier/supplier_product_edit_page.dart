@@ -6,6 +6,7 @@ import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
 import 'product_request_model.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Éditer / créer un produit fournisseur (PDF 16).
 class SupplierProductEditPage extends StatefulWidget {
@@ -230,7 +231,7 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.add,
+                            Icon(LucideIcons.plus,
                                 size: 13, color: AppPalette.primaryDark),
                             SizedBox(width: 3),
                             Text("Palier",
@@ -429,7 +430,7 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
           ),
           Expanded(
             child: Column(
@@ -496,7 +497,7 @@ class _MediaGrid extends StatelessWidget {
               child: Stack(
                 children: [
                   const Center(
-                    child: Icon(Icons.image_outlined,
+                    child: Icon(LucideIcons.image,
                         size: 36, color: AppPalette.textFaint),
                   ),
                   Positioned(
@@ -546,7 +547,7 @@ class _MediaGrid extends StatelessWidget {
                 child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_a_photo_outlined,
+                    Icon(LucideIcons.camera,
                         size: 26, color: AppPalette.primary),
                     SizedBox(height: 6),
                     Text(
@@ -660,7 +661,7 @@ class _Footer extends StatelessWidget {
                           height: 16,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.check, size: 18),
+                      : const Icon(LucideIcons.check, size: 18),
                   label:
                       Text(isEdit ? "Enregistrer" : "Publier le produit"),
                 ),

@@ -1,3 +1,9 @@
+# Infra LOCALE : Postgres + Redis + pgAdmin en Docker, pendant que Django tourne
+# sur l'hôte (python manage.py runserver / daphne). Le backend lit sa config dans
+# marche-cm.local.env (git-ignoré) qui pointe sur ces services via 127.0.0.1.
+#
+#   docker compose -f docker-compose.infra.yml up -d
+#   pgAdmin : http://localhost:5050  (admin@marche.cm / admin)
 services:
   postgres:
     image: postgres:16-alpine
@@ -30,6 +36,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # Interface d'administration web de Postgres.
+  pgadmin:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@marche.cm
+      PGADMIN_DEFAULT_PASSWORD: admin
+      # Mode bureau : pas de login pgAdmin à chaque fois, pas de master password.
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      # Serveur "Marché CM (local)" pré-enregistré au 1er démarrage.
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+
 volumes:
   pg_data:
   redis_data:
+  pgadmin_data:

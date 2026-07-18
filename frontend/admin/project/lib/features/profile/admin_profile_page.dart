@@ -7,6 +7,7 @@ import '../../core/ui_kit.dart';
 import '../auth/auth_api_service.dart';
 import '../auth/session_store.dart';
 import '../config/configuration_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 42 — Admin profile: identity, permissions, security, logout.
 class AdminProfilePage extends StatelessWidget {
@@ -69,9 +70,9 @@ class AdminProfilePage extends StatelessWidget {
             SectionCard(
               child: Column(
                 children: [
-                  _kv(Icons.mail_outline, 'E-mail professionnel', email),
+                  _kv(LucideIcons.mail, 'E-mail professionnel', email),
                   const Divider(height: 18),
-                  _kv(Icons.verified_user_outlined, 'Authentification',
+                  _kv(LucideIcons.shieldCheck, 'Authentification',
                       '2FA e-mail active'),
                 ],
               ),
@@ -102,13 +103,13 @@ class AdminProfilePage extends StatelessWidget {
               ),
               child: Row(
                 children: const [
-                  Icon(Icons.tune, color: AppPalette.textMuted),
+                  Icon(LucideIcons.slidersHorizontal, color: AppPalette.textMuted),
                   SizedBox(width: 12),
                   Expanded(
                     child: Text('Configuration de la plateforme',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
-                  Icon(Icons.chevron_right, color: AppPalette.textMuted),
+                  Icon(LucideIcons.chevronRight, color: AppPalette.textMuted),
                 ],
               ),
             ),
@@ -120,7 +121,7 @@ class AdminProfilePage extends StatelessWidget {
                 side: const BorderSide(color: AppPalette.danger),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              icon: const Icon(Icons.logout),
+              icon: const Icon(LucideIcons.logOut),
               label: const Text('Se déconnecter'),
             ),
           ],

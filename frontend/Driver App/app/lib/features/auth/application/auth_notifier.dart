@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/auth_state.dart';
 import '../infrastructure/driver_auth_api.dart';
+import '../../../core/network/driver_dio_client.dart';
 import '../../../core/security/driver_secure_storage.dart';
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
@@ -10,7 +12,15 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
 
 class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier() : super(const AuthState()) {
+    DriverDioClient.onAuthFailed = _onSessionExpired;
     _restore();
+  }
+
+  /// Un 401 dont le refresh a échoué = session morte : repasse au login
+  /// immédiatement au lieu de laisser l'utilisateur dans le shell en erreur.
+  void _onSessionExpired() {
+    if (!mounted || !state.isAuthenticated) return;
+    state = const AuthState(isLoading: false);
   }
 
   Future<void> _restore() async {
@@ -19,9 +29,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isAuthenticated: false, isLoading: false);
       return;
     }
+
+    // Valide la session auprès du backend avant d'entrer dans le shell : un
+    // token périmé laissait l'utilisateur coincé sur des écrans en 401.
+    // L'intercepteur tente un refresh transparent ; s'il échoue, il purge les
+    // tokens — leur absence après l'appel est donc le signal « session morte ».
+    // Backend injoignable (tokens toujours là) = session conservée.
+    Map<String, dynamic>? me;
+    try {
+      me = await DriverAuthApi.me();
+    } catch (e) {
+      final remaining = await DriverSecureStorage.getAccessToken();
+      if (remaining == null || remaining.isEmpty) {
+        state = state.copyWith(isAuthenticated: false, isLoading: false);
+        return;
+      }
+      debugPrint('[AuthNotifier] /me indisponible au restore: $e');
+    }
+
     final userId = await DriverSecureStorage.getUserId();
     final username = await DriverSecureStorage.getUsername();
-    final onboarded = await DriverSecureStorage.isOnboarded();
+    var onboarded = await DriverSecureStorage.isOnboarded();
+    // Reconnexion sur un nouvel appareil après validation KYC : le backend
+    // fait foi quand le flag local dit "non onboardé".
+    if (!onboarded && me != null && me['is_verified'] == true) {
+      await DriverSecureStorage.setOnboarded(true);
+      onboarded = true;
+    }
     state = state.copyWith(
       isAuthenticated: true,
       isOnboarded: onboarded,
@@ -29,9 +63,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       username: username,
       isLoading: false,
     );
-    // If the local flag says not onboarded, verify with backend in background.
-    // Handles reconnection on a new device after KYC was already validated.
-    if (!onboarded) _syncKycStatus();
+    // Hors-ligne au boot : re-vérifiera le statut KYC via le backend.
+    if (!onboarded && me == null) _syncKycStatus();
   }
 
   Future<void> _syncKycStatus() async {

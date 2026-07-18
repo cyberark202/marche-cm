@@ -14,26 +14,26 @@ class GroupCampaignViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role != UserRole.WHOLESALER:
-            raise PermissionDenied("Acces reserve aux grossistes.")
+        if user.role not in UserRole.seller_roles():
+            raise PermissionDenied("Acces reserve aux vendeurs.")
         return self.queryset.filter(wholesaler=user)
 
     def perform_create(self, serializer):
-        if self.request.user.role != UserRole.WHOLESALER:
-            raise PermissionDenied("Seul un grossiste peut creer une campagne.")
+        if self.request.user.role not in UserRole.seller_roles():
+            raise PermissionDenied("Seul un vendeur peut creer une campagne.")
         campaign = serializer.save(wholesaler=self.request.user)
         broadcast_event("analytics", "campaign_created", {"id": campaign.id, "product_id": campaign.product_id})
 
     def perform_update(self, serializer):
-        if self.request.user.role != UserRole.WHOLESALER:
-            raise PermissionDenied("Modification reservee aux grossistes.")
+        if self.request.user.role not in UserRole.seller_roles():
+            raise PermissionDenied("Modification reservee aux vendeurs.")
         if serializer.instance.wholesaler_id != self.request.user.id:
             raise PermissionDenied("Vous ne pouvez modifier que vos campagnes.")
         serializer.save()
 
     def perform_destroy(self, instance):
-        if self.request.user.role != UserRole.WHOLESALER:
-            raise PermissionDenied("Suppression reservee aux grossistes.")
+        if self.request.user.role not in UserRole.seller_roles():
+            raise PermissionDenied("Suppression reservee aux vendeurs.")
         if instance.wholesaler_id != self.request.user.id:
             raise PermissionDenied("Vous ne pouvez supprimer que vos campagnes.")
         instance.delete()

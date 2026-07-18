@@ -59,8 +59,19 @@ class Shipment(models.Model):
     # Only the salted hash is persisted (never the plaintext code).
     delivery_otp_hash = models.CharField(max_length=128, blank=True)
     delivery_otp_expires_at = models.DateTimeField(null=True, blank=True)
+    # Pickup OTP (doc 03 R7) — issued to the SELLER at driver arrival and read
+    # back to the driver; a valid code proves the physical handover of the
+    # parcel to the courier. Same hash-only storage as the delivery OTP.
+    pickup_otp_hash = models.CharField(max_length=128, blank=True)
+    pickup_otp_expires_at = models.DateTimeField(null=True, blank=True)
     # 48-hour window after delivery during which quality/quantity disputes may be opened.
     contest_deadline = models.DateTimeField(null=True, blank=True)
+    # Derniere position GPS connue du livreur (mise a jour par TrackingConsumer).
+    # Permet a l'acheteur/vendeur de voir la position des l'ouverture du suivi,
+    # avant le prochain tick WebSocket. La trace complete vit dans ShipmentEvent.
+    current_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    current_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    location_updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -90,6 +101,41 @@ class TransportQuote(models.Model):
                 fields=["shipment", "transit_agent"],
                 name="uniq_quote_per_agent_per_shipment",
             ),
+        ]
+
+
+class DispatchOfferStatus(models.TextChoices):
+    PENDING = "PENDING", "Proposee"
+    ACCEPTED = "ACCEPTED", "Acceptee"
+    REFUSED = "REFUSED", "Refusee"
+    EXPIRED = "EXPIRED", "Expiree"
+    CANCELLED = "CANCELLED", "Annulee"
+
+
+class DispatchOffer(models.Model):
+    """Attribution automatique des missions (doc 07).
+
+    Le système propose la mission au livreur éligible le plus proche ; il
+    dispose d'un délai configurable (15 min par défaut) pour accepter. À
+    expiration ou refus, l'offre passe au livreur suivant (cascade). Un
+    livreur ne reçoit jamais deux offres pour la même expédition.
+    """
+
+    shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name="dispatch_offers")
+    driver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="dispatch_offers")
+    status = models.CharField(max_length=10, choices=DispatchOfferStatus.choices, default=DispatchOfferStatus.PENDING)
+    distance_km = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    expires_at = models.DateTimeField()
+    responded_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["shipment", "driver"], name="uniq_dispatch_offer_per_driver"),
+        ]
+        indexes = [
+            models.Index(fields=["status", "expires_at"], name="idx_dispatch_status_expires"),
         ]
 
 

@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import secrets
 from datetime import timedelta
 
@@ -17,8 +18,12 @@ from apps.notifications.service import create_realtime_notification
 from apps.orders.models import OrderStatus, OrderType
 from apps.orders.services import FraudRiskError, OrderFinanceService
 
+logger = logging.getLogger(__name__)
+
 from .models import (
     DISPUTE_TYPES_AGAINST_BUYER,
+    DispatchOffer,
+    DispatchOfferStatus,
     DISPUTE_TYPES_AGAINST_SELLER,
     DISPUTE_TYPES_AGAINST_TRANSIT,
     DISPUTE_TYPES_BUYER_VS_TRANSIT,
@@ -44,6 +49,7 @@ from .models import (
 from .serializers import (
     CustodyEventSerializer,
     DeliveryProofSerializer,
+    DispatchOfferSerializer,
     DisputeEvidenceSerializer,
     ShipmentDisputeSerializer,
     ShipmentSerializer,
@@ -62,6 +68,8 @@ _EVIDENCE_MAX_MB = 50
 
 
 _DELIVERY_OTP_TTL = timedelta(minutes=30)
+# Doc 03 R7 : le code de collecte est valable 5 minutes.
+_PICKUP_OTP_TTL = timedelta(minutes=5)
 
 
 def _is_general_admin(user):
@@ -179,11 +187,13 @@ def _invalidate_user_sessions_bulk(user_ids):
                 if int(session.get_decoded().get("_auth_user_id", -1)) in valid_ids:
                     to_delete.append(session.session_key)
             except Exception:
-                pass
+                logger.debug("session_decode_failed key=%s", session.session_key, exc_info=True)
         if to_delete:
             Session.objects.filter(session_key__in=to_delete).delete()
     except Exception:
-        pass
+        # Action de securite (revocation de sessions apres DATA_BREACH) :
+        # un echec silencieux laisserait des sessions compromises actives.
+        logger.exception("session_bulk_invalidation_failed users=%s", sorted(u for u in user_ids if u))
 
 
 def _verify_custody_chain_integrity(shipment):
@@ -216,7 +226,7 @@ def _check_premature_release(shipment, dispute, actor):
                 },
             )
     except Exception:
-        pass
+        logger.exception("premature_release_check_failed dispute=%d", dispute.id)
 
 
 def _run_dispute_type_security_actions(dispute_type, shipment, dispute, actor):
@@ -347,6 +357,45 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         order = serializer.validated_data["order"]
         shipment = serializer.save(buyer=order.buyer, seller=order.seller)
         broadcast_event("logistics", "shipment_created", {"id": shipment.id, "order_id": shipment.order_id})
+        from .dispatch import notify_available_drivers
+
+        notify_available_drivers(shipment)
+
+    @decorators.action(detail=True, methods=["post"], url_path="contact")
+    def contact(self, request, pk=None):
+        """Get-or-create the driver↔buyer coordination chat for this shipment.
+
+        Only the assigned transit_agent, the buyer or the seller may open it.
+        Returns {"room_id": ...}; the standard /api/chat/ endpoints then drive
+        the conversation. Enables delivery coordination (« j'arrive dans 5 min »)
+        without a parallel messaging stack.
+        """
+        from apps.chat.models import ChatRoom
+
+        shipment = self.get_object()  # get_queryset already scopes visibility
+        user = request.user
+        if shipment.transit_agent_id is None:
+            return response.Response(
+                {"detail": "Aucun livreur assigné à cette expédition."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        allowed = {shipment.transit_agent_id, shipment.buyer_id, shipment.seller_id}
+        if user.id not in allowed and not _is_general_admin(user):
+            return response.Response(
+                {"detail": "Accès refusé."}, status=status.HTTP_403_FORBIDDEN
+            )
+        room_name = f"Livraison #{shipment.id}"
+        room = (
+            ChatRoom.objects.filter(name=room_name)
+            .filter(participants__id=shipment.transit_agent_id)
+            .filter(participants__id=shipment.buyer_id)
+            .first()
+        )
+        if room is None:
+            room = ChatRoom.objects.create(name=room_name)
+            room.participants.add(shipment.transit_agent_id, shipment.buyer_id)
+            broadcast_event("chat", "room_created", {"id": room.id, "name": room.name})
+        return response.Response({"room_id": room.id, "name": room.name})
 
     @decorators.action(detail=True, methods=["post"])
     def post_quote(self, request, pk=None):
@@ -512,10 +561,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         order.status = OrderStatus.DELIVERED
         order.save(update_fields=["status", "updated_at"])
         try:
-            if order.order_type == OrderType.INTERNATIONAL:
-                OrderFinanceService.release_logistics_escrow_after_buyer_confirmation(order=order, actor=request.user)
-            else:
-                OrderFinanceService.release_local_escrow_after_buyer_confirmation(order=order, actor=request.user)
+            OrderFinanceService.release_escrows_after_buyer_confirmation(order=order, actor=request.user)
         except (ValidationError, FraudRiskError) as exc:
             return response.Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         order.refresh_from_db(fields=["status", "escrow_status"])
@@ -529,6 +575,106 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         broadcast_event("orders", "completed", {"id": order.id})
         broadcast_event("wallets", "escrow_released", {"order_id": order.id})
         return response.Response({"detail": "Livraison validee, funds debloques vendeur + livreur."})
+
+    @decorators.action(detail=True, methods=["post"])
+    def issue_pickup_otp(self, request, pk=None):
+        """Doc 03 R7 : à son arrivée chez le vendeur, le livreur demande un
+        code de collecte. Le code (4 chiffres, 5 min) est envoyé au VENDEUR ;
+        seul son hash salé est stocké. Le vendeur le communique en main propre,
+        ce qui prouve la remise physique du colis."""
+        shipment = self.get_object()
+        if request.user.id != shipment.transit_agent_id:
+            return response.Response({"detail": "Reserve au livreur assigne."}, status=status.HTTP_403_FORBIDDEN)
+        _require_driver_kyc(request.user)
+        if shipment.status != ShipmentStatus.PICKUP_PENDING:
+            return response.Response(
+                {"detail": "La collecte n'est plus en attente pour cette expedition."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        code = f"{secrets.randbelow(10000):04d}"
+        shipment.pickup_otp_hash = make_password(code)
+        shipment.pickup_otp_expires_at = timezone.now() + _PICKUP_OTP_TTL
+        shipment.save(update_fields=["pickup_otp_hash", "pickup_otp_expires_at", "updated_at"])
+        create_realtime_notification(
+            user=shipment.seller,
+            title="Code de collecte",
+            body=f"Communiquez le code {code} au livreur pour confirmer la remise du colis.",
+            payload={"shipment_id": shipment.id, "type": "pickup_otp"},
+        )
+        write_audit_log(
+            actor=request.user,
+            action="Emission OTP de collecte",
+            action_key="logistics.pickup.otp.issue",
+            metadata={"shipment_id": shipment.id},
+        )
+        return response.Response({"detail": "Code envoye au vendeur."})
+
+    @decorators.action(detail=True, methods=["post"])
+    def confirm_pickup(self, request, pk=None):
+        """Doc 03 R7 : le livreur saisit le code obtenu du vendeur. Un code
+        valide prouve la remise physique : la collecte est enregistrée
+        (custody PICKUP) et l'expédition passe en transit."""
+        shipment = self.get_object()
+        if request.user.id != shipment.transit_agent_id:
+            return response.Response({"detail": "Reserve au livreur assigne."}, status=status.HTTP_403_FORBIDDEN)
+        _require_driver_kyc(request.user)
+        if shipment.status != ShipmentStatus.PICKUP_PENDING:
+            return response.Response({"detail": "La collecte n'est plus en attente."}, status=status.HTTP_400_BAD_REQUEST)
+        otp = str(request.data.get("otp") or "").strip()
+        if not otp:
+            return response.Response({"detail": "Code de collecte requis."}, status=status.HTTP_400_BAD_REQUEST)
+        if not shipment.pickup_otp_hash or not shipment.pickup_otp_expires_at:
+            return response.Response(
+                {"detail": "Aucun code actif. Demandez l'envoi du code au vendeur."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if timezone.now() > shipment.pickup_otp_expires_at:
+            return response.Response({"detail": "Code expire. Demandez un nouveau code."}, status=status.HTTP_400_BAD_REQUEST)
+        if not check_password(otp, shipment.pickup_otp_hash):
+            return response.Response({"detail": "Code invalide. Verifiez aupres du vendeur."}, status=status.HTTP_400_BAD_REQUEST)
+        # OTP à usage unique : consommé puis détruit.
+        shipment.pickup_otp_hash = ""
+        shipment.pickup_otp_expires_at = None
+        shipment.status = ShipmentStatus.IN_TRANSIT
+        shipment.save(update_fields=["pickup_otp_hash", "pickup_otp_expires_at", "status", "updated_at"])
+        ShipmentEvent.objects.create(
+            shipment=shipment,
+            actor=request.user,
+            status=ShipmentStatus.IN_TRANSIT,
+            note="Collecte confirmee par OTP vendeur",
+        )
+        custody = CustodyEvent.objects.create(
+            shipment=shipment,
+            actor=request.user,
+            event_type=CustodyEventType.PICKUP,
+            location=shipment.pickup_address,
+            notes="Collecte validee par OTP vendeur",
+        )
+        custody.integrity_hash = CustodyEvent.compute_hash(
+            shipment.id, CustodyEventType.PICKUP, request.user.id, custody.scanned_at.isoformat()
+        )
+        custody.save(update_fields=["integrity_hash"])
+        for user, body in (
+            (shipment.seller, f"Le livreur a recupere le colis de l'expedition #{shipment.id}."),
+            (shipment.buyer, f"Votre commande est en route : colis #{shipment.id} recupere chez le vendeur."),
+        ):
+            try:
+                create_realtime_notification(
+                    user=user,
+                    title="Colis recupere",
+                    body=body,
+                    payload={"shipment_id": shipment.id, "type": "pickup_confirmed"},
+                )
+            except Exception:
+                logger.exception("notif_pickup_confirm_failed shipment=%s", shipment.id)
+        write_audit_log(
+            actor=request.user,
+            action="Confirmation collecte par OTP",
+            action_key="logistics.pickup.otp.confirm",
+            metadata={"shipment_id": shipment.id},
+        )
+        broadcast_event("logistics", "pickup_confirmed", {"shipment_id": shipment.id})
+        return response.Response({"detail": "Collecte confirmee, expedition en transit."})
 
     @decorators.action(detail=True, methods=["post"])
     def issue_delivery_otp(self, request, pk=None):
@@ -617,10 +763,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         order.save(update_fields=["status", "updated_at"])
         # Funds are released on behalf of the buyer (OTP possession = consent).
         try:
-            if order.order_type == OrderType.INTERNATIONAL:
-                OrderFinanceService.release_logistics_escrow_after_buyer_confirmation(order=order, actor=shipment.buyer)
-            else:
-                OrderFinanceService.release_local_escrow_after_buyer_confirmation(order=order, actor=shipment.buyer)
+            OrderFinanceService.release_escrows_after_buyer_confirmation(order=order, actor=shipment.buyer)
         except (ValidationError, FraudRiskError) as exc:
             return response.Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         write_audit_log(
@@ -1287,3 +1430,110 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
             shipment=dispute.shipment
         ).select_related("actor").order_by("scanned_at")
         return response.Response(CustodyEventSerializer(events, many=True).data)
+
+
+class DispatchOfferViewSet(viewsets.ReadOnlyModelViewSet):
+    """Offres de mission (doc 07) : le livreur consulte, accepte ou refuse.
+
+    Une offre acceptée assigne le livreur à l'expédition et annule les autres
+    offres en attente. Un refus fait cascader l'offre au livreur suivant.
+    """
+
+    serializer_class = DispatchOfferSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        base = DispatchOffer.objects.select_related("shipment", "driver").order_by("-created_at")
+        if _is_general_admin(user):
+            return base
+        if user.role == UserRole.TRANSIT_AGENT:
+            return base.filter(driver=user)
+        return base.none()
+
+    @decorators.action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        offer = self.get_object()
+        if request.user.id != offer.driver_id:
+            return response.Response({"detail": "Offre reservee au livreur destinataire."}, status=status.HTTP_403_FORBIDDEN)
+        _require_driver_kyc(request.user)
+        now = timezone.now()
+        with transaction.atomic():
+            locked = DispatchOffer.objects.select_for_update().get(id=offer.id)
+            if locked.status != DispatchOfferStatus.PENDING:
+                return response.Response({"detail": "Offre deja traitee."}, status=status.HTTP_409_CONFLICT)
+            if locked.expires_at <= now:
+                locked.status = DispatchOfferStatus.EXPIRED
+                locked.responded_at = now
+                locked.save(update_fields=["status", "responded_at"])
+                return response.Response({"detail": "Offre expiree."}, status=status.HTTP_409_CONFLICT)
+            shipment = Shipment.objects.select_for_update().get(id=locked.shipment_id)
+            if shipment.transit_agent_id is not None:
+                locked.status = DispatchOfferStatus.CANCELLED
+                locked.responded_at = now
+                locked.save(update_fields=["status", "responded_at"])
+                return response.Response({"detail": "Mission deja attribuee."}, status=status.HTTP_409_CONFLICT)
+            shipment.transit_agent = request.user
+            shipment.save(update_fields=["transit_agent", "updated_at"])
+            locked.status = DispatchOfferStatus.ACCEPTED
+            locked.responded_at = now
+            locked.save(update_fields=["status", "responded_at"])
+            DispatchOffer.objects.filter(
+                shipment=shipment, status=DispatchOfferStatus.PENDING
+            ).exclude(id=locked.id).update(status=DispatchOfferStatus.CANCELLED, responded_at=now)
+            ShipmentEvent.objects.create(
+                shipment=shipment,
+                actor=request.user,
+                status=shipment.status,
+                note="Mission acceptee via dispatch automatique",
+            )
+        for user, body in (
+            (shipment.buyer, f"Un livreur a accepte la mission de votre commande (expedition #{shipment.id})."),
+            (shipment.seller, f"Un livreur a accepte la mission de l'expedition #{shipment.id}. Preparez le colis."),
+        ):
+            try:
+                create_realtime_notification(
+                    user=user,
+                    title="Livreur trouve",
+                    body=body,
+                    payload={"shipment_id": shipment.id, "type": "dispatch_accepted"},
+                )
+            except Exception:
+                logger.exception("notif_dispatch_accept_failed shipment=%s", shipment.id)
+        write_audit_log(
+            actor=request.user,
+            action="Acceptation mission dispatch",
+            action_key="logistics.dispatch.accept",
+            metadata={"shipment_id": shipment.id, "offer_id": offer.id},
+        )
+        broadcast_event("logistics", "dispatch_accepted", {"shipment_id": shipment.id, "driver_id": request.user.id})
+        return response.Response(DispatchOfferSerializer(DispatchOffer.objects.get(id=offer.id)).data)
+
+    @decorators.action(detail=True, methods=["post"])
+    def refuse(self, request, pk=None):
+        offer = self.get_object()
+        if request.user.id != offer.driver_id:
+            return response.Response({"detail": "Offre reservee au livreur destinataire."}, status=status.HTTP_403_FORBIDDEN)
+        now = timezone.now()
+        with transaction.atomic():
+            locked = DispatchOffer.objects.select_for_update().get(id=offer.id)
+            if locked.status != DispatchOfferStatus.PENDING:
+                return response.Response({"detail": "Offre deja traitee."}, status=status.HTTP_409_CONFLICT)
+            locked.status = DispatchOfferStatus.REFUSED
+            locked.responded_at = now
+            locked.save(update_fields=["status", "responded_at"])
+        write_audit_log(
+            actor=request.user,
+            action="Refus mission dispatch",
+            action_key="logistics.dispatch.refuse",
+            metadata={"shipment_id": offer.shipment_id, "offer_id": offer.id},
+        )
+        shipment = offer.shipment
+        if shipment.transit_agent_id is None:
+            try:
+                from .dispatch import offer_to_next_driver
+
+                offer_to_next_driver(shipment)
+            except Exception:
+                logger.exception("dispatch_advance_after_refuse_failed shipment=%s", shipment.id)
+        return response.Response({"detail": "Offre refusee."})

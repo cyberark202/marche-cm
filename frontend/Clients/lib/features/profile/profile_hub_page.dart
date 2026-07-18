@@ -17,10 +17,14 @@ import '../common/support_center_page.dart';
 import '../innovation/innovation_hub_page.dart';
 import '../logistics/shipment_disputes_page.dart';
 import '../orders/orders_page.dart';
+import '../rentals/my_rentals_page.dart';
+import '../rentals/rental_market_page.dart';
 import '../wallet/wallet_page.dart';
 import 'compliance_documents_page.dart';
 import 'kyc_verification_page.dart';
+import 'notification_preferences_page.dart';
 import 'security_center_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class ProfileHubPage extends StatefulWidget {
   const ProfileHubPage({super.key});
@@ -129,13 +133,13 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
         SliverToBoxAdapter(
           child: _buildSettingsGroup([
             _SettingsItem(
-              icon: Icons.person_outline,
+              icon: LucideIcons.user,
               label: "Infos personnelles",
               subtitle: "Modifier nom, photo",
               onTap: _openProfileEditDialog,
             ),
             _SettingsItem(
-              icon: Icons.shield_outlined,
+              icon: LucideIcons.shield,
               label: "Conformité KYC",
               subtitle: "Vérification d'identité (CNI, domicile, selfie)",
               trailingBadge: "OK",
@@ -146,7 +150,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       builder: (_) => const KycVerificationPage())),
             ),
             _SettingsItem(
-              icon: Icons.lock_outline,
+              icon: LucideIcons.lock,
               label: "Sécurité & PIN",
               subtitle: "Sessions, mot de passe, 2FA",
               onTap: () => Navigator.of(context).push(
@@ -154,7 +158,14 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       builder: (_) => const SecurityCenterPage())),
             ),
             _SettingsItem(
-              icon: Icons.place_outlined,
+              icon: LucideIcons.bellRing,
+              label: "Préférences de notifications",
+              subtitle: "Push, promotions",
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const NotificationPreferencesPage())),
+            ),
+            _SettingsItem(
+              icon: LucideIcons.mapPin,
               label: "Adresses",
               subtitle: "Gérer mes adresses de livraison",
               onTap: () {},
@@ -168,14 +179,14 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
         SliverToBoxAdapter(
           child: _buildSettingsGroup([
             _SettingsItem(
-              icon: Icons.shopping_bag_outlined,
+              icon: LucideIcons.shoppingBag,
               label: "Mes commandes",
               subtitle: "Suivi de mes achats",
               onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const OrdersPage())),
             ),
             _SettingsItem(
-              icon: Icons.account_balance_wallet_outlined,
+              icon: LucideIcons.wallet,
               label: "Portefeuille",
               subtitle: walletBalance != null
                   ? "Solde: $walletBalance FCFA"
@@ -184,21 +195,35 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                   MaterialPageRoute(builder: (_) => const WalletPage())),
             ),
             _SettingsItem(
-              icon: Icons.request_quote_outlined,
+              icon: LucideIcons.fileText,
               label: "Demandes RFQ",
               subtitle: "Mes demandes de devis",
               onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const RfqsPage())),
             ),
             _SettingsItem(
-              icon: Icons.gavel_outlined,
+              icon: LucideIcons.keyRound,
+              label: "Louer un bien",
+              subtitle: "Marché de la location (caution séquestrée)",
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const RentalMarketPage())),
+            ),
+            _SettingsItem(
+              icon: LucideIcons.calendarClock,
+              label: "Mes locations",
+              subtitle: "Suivi de mes biens loués",
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const MyRentalsPage())),
+            ),
+            _SettingsItem(
+              icon: LucideIcons.gavel,
               label: "Litiges",
               subtitle: "Signaler un problème sur une commande",
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => const ShipmentDisputesPage())),
             ),
             _SettingsItem(
-              icon: Icons.lightbulb_outline,
+              icon: LucideIcons.lightbulb,
               label: "Innovation Hub",
               subtitle: "Escrow, alertes, fidélité...",
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -213,20 +238,20 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
         SliverToBoxAdapter(
           child: _buildSettingsGroup([
             _SettingsItem(
-              icon: Icons.help_outline,
+              icon: LucideIcons.helpCircle,
               label: "Aide & Support",
               subtitle: "FAQ, contacter l'équipe",
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => const SupportCenterPage())),
             ),
             _SettingsItem(
-              icon: Icons.refresh,
+              icon: LucideIcons.refreshCw,
               label: "Actualiser",
               subtitle: "Recharger les données",
               onTap: _load,
             ),
             _SettingsItem(
-              icon: Icons.logout,
+              icon: LucideIcons.logOut,
               label: "Se déconnecter",
               subtitle: "Révoquer la session courante",
               iconColor: AppPalette.danger,
@@ -271,7 +296,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
               ),
               const Spacer(),
               IconButton(
-                icon: const Icon(Icons.more_vert, color: Colors.white),
+                icon: const Icon(LucideIcons.moreVertical, color: Colors.white),
                 onPressed: () {},
               ),
             ],
@@ -282,7 +307,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
             children: [
               CircleAvatar(
                 radius: 28,
-                backgroundColor: const Color(0xFFF5B400),
+                backgroundColor: AppPalette.accent,
                 backgroundImage:
                     avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
                 child: avatarUrl.isEmpty
@@ -322,13 +347,13 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF5B400),
+                        color: AppPalette.accent,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.shield_outlined,
+                          Icon(LucideIcons.shield,
                               color: Colors.white, size: 12),
                           SizedBox(width: 4),
                           Text(
@@ -409,8 +434,8 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.star,
-                            color: Color(0xFFF5B400), size: 18),
+                        Icon(LucideIcons.star,
+                            color: AppPalette.accent, size: 18),
                         Text(
                           "4,8",
                           style: TextStyle(
@@ -541,7 +566,7 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                           removeAvatar = false;
                         });
                       },
-                      icon: const Icon(Icons.photo_camera_outlined),
+                      icon: const Icon(LucideIcons.camera),
                       label: const Text("Photo"),
                     ),
                     const SizedBox(width: 8),
@@ -705,7 +730,7 @@ class _SettingsItem extends StatelessWidget {
                 ),
               ),
             )
-          : const Icon(Icons.chevron_right, color: Colors.grey),
+          : const Icon(LucideIcons.chevronRight, color: Colors.grey),
       onTap: onTap,
     );
   }

@@ -9,6 +9,7 @@ import '../../core/wallet_cache_service.dart';
 import '../auth/session_store.dart';
 import 'wallet_send_page.dart';
 import 'wallet_withdraw_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -94,7 +95,7 @@ class _WalletPageState extends State<WalletPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.error_outline,
+                      const Icon(LucideIcons.alertCircle,
                           size: 52, color: AppPalette.textFaint),
                       const SizedBox(height: 12),
                       Text(_error!,
@@ -175,8 +176,8 @@ class _WalletPageState extends State<WalletPage> {
                           setState(() => _balanceVisible = !_balanceVisible),
                       icon: Icon(
                         _balanceVisible
-                            ? Icons.visibility_rounded
-                            : Icons.visibility_off_rounded,
+                            ? LucideIcons.eye
+                            : LucideIcons.eyeOff,
                         color: Colors.white,
                         size: 22,
                       ),
@@ -186,7 +187,7 @@ class _WalletPageState extends State<WalletPage> {
                     ),
                     IconButton(
                       onPressed: _load,
-                      icon: const Icon(Icons.refresh_rounded,
+                      icon: const Icon(LucideIcons.refreshCw,
                           color: Colors.white, size: 22),
                       tooltip: 'Actualiser',
                     ),
@@ -232,14 +233,14 @@ class _WalletPageState extends State<WalletPage> {
                             value: _balanceVisible
                                 ? '$blocked FCFA'
                                 : '••••',
-                            icon: Icons.lock_outline_rounded,
+                            icon: LucideIcons.lock,
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Icon(Icons.shield_outlined,
+                          Icon(LucideIcons.shield,
                               color: Colors.white.withValues(alpha: 0.55),
                               size: 13),
                           const SizedBox(width: 5),
@@ -284,7 +285,7 @@ class _WalletPageState extends State<WalletPage> {
           children: [
             Expanded(
               child: _QuickActionTile(
-                icon: Icons.add_circle_outline_rounded,
+                icon: LucideIcons.plusCircle,
                 label: 'Recharger',
                 color: AppPalette.success,
                 onTap: () async {
@@ -300,7 +301,7 @@ class _WalletPageState extends State<WalletPage> {
             const SizedBox(width: 10),
             Expanded(
               child: _QuickActionTile(
-                icon: Icons.south_rounded,
+                icon: LucideIcons.arrowDown,
                 label: 'Retirer',
                 color: AppPalette.primary,
                 onTap: () async {
@@ -457,7 +458,7 @@ class _WalletPageState extends State<WalletPage> {
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
             child: Icon(
-              isTopup ? Icons.south_west_rounded : Icons.north_east_rounded,
+              isTopup ? LucideIcons.arrowDownLeft : LucideIcons.arrowUpRight,
               color: kindColor,
               size: 20,
             ),

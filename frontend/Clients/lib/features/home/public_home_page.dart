@@ -8,6 +8,7 @@ import '../../core/ui_state_widgets.dart';
 import '../common/support_center_page.dart';
 import '../feed/feed_api_service.dart';
 import '../feed/feed_models.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class PublicHomePage extends StatefulWidget {
   const PublicHomePage({
@@ -94,7 +95,7 @@ class _PublicHomePageState extends State<PublicHomePage> {
                     child: AppEmptyState(
                       title: context.tr("public.products.empty"),
                       subtitle: context.tr("public.products.empty_subtitle"),
-                      icon: Icons.store_mall_directory_outlined,
+                      icon: LucideIcons.store,
                     ),
                   ),
                 )
@@ -103,8 +104,8 @@ class _PublicHomePageState extends State<PublicHomePage> {
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                   sliver: SliverGrid(
                     gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 220,
                       mainAxisSpacing: 10,
                       crossAxisSpacing: 10,
                       childAspectRatio: 0.62,
@@ -160,7 +161,7 @@ class _PublicHomePageState extends State<PublicHomePage> {
                     MaterialPageRoute(
                         builder: (_) => const SupportCenterPage()),
                   ),
-                  icon: const Icon(Icons.help_outline, color: Colors.white),
+                  icon: const Icon(LucideIcons.helpCircle, color: Colors.white),
                 ),
               ],
             ),

@@ -1,7 +1,10 @@
+import logging
 from io import BytesIO
 from pathlib import Path
 
 from django.core.files.base import ContentFile
+
+logger = logging.getLogger(__name__)
 
 
 def _is_image_extension(ext: str) -> bool:
@@ -29,7 +32,8 @@ def generate_compliance_preview(document) -> bool:
 
     try:
         import pypdfium2 as pdfium
-    except Exception:
+    except ImportError:
+        logger.warning("compliance_preview_skipped: pypdfium2 non installe, pas d'apercu PDF")
         return False
 
     try:
@@ -51,4 +55,5 @@ def generate_compliance_preview(document) -> bool:
         document.preview_image.save(preview_name, ContentFile(stream.read()), save=True)
         return True
     except Exception:
+        logger.exception("compliance_preview_failed document=%s", document.pk)
         return False

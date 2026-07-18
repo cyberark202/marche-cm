@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
 import 'dispute_helpers.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 38 — Arbitration: parties, timeline, escrow decision.
 class ArbitrationPage extends StatefulWidget {
@@ -21,9 +22,9 @@ class _ArbitrationPageState extends State<ArbitrationPage> {
   bool _submitting = false;
 
   static const _decisions = [
-    ('REFUND_BUYER', 'Rembourser l\'acheteur', Icons.south_west),
-    ('RELEASE_SELLER', 'Libérer le vendeur', Icons.north_east),
-    ('SPLIT', 'Partage des fonds', Icons.call_split),
+    ('REFUND_BUYER', 'Rembourser l\'acheteur', LucideIcons.arrowDownLeft),
+    ('RELEASE_SELLER', 'Libérer le vendeur', LucideIcons.arrowUpRight),
+    ('SPLIT', 'Partage des fonds', LucideIcons.gitBranch),
   ];
 
   @override
@@ -322,7 +323,7 @@ class _ArbitrationPageState extends State<ArbitrationPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.check_circle, color: AppPalette.success),
+              const Icon(LucideIcons.checkCircle2, color: AppPalette.success),
               const SizedBox(width: 10),
               Text(label,
                   style: const TextStyle(

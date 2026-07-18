@@ -1,0 +1,9 @@
+apiVersion: v2
+name: marche-cm
+description: >-
+  Backend Marché CM (Django ASGI + Celery + finops + Redis) pour Kubernetes/EKS.
+  Le docker-compose reste la cible LOCALE ; ce chart est la cible PROD.
+type: application
+version: 0.1.0
+# Doit suivre la version applicative ; surchargeable via --set image.tag.
+appVersion: "1.0.0"

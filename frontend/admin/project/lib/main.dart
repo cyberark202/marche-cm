@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import 'core/app_gate.dart';
 import 'core/app_theme.dart';
+import 'core/cm_components.dart';
+import 'core/network_quality_service.dart';
 import 'core/push_notification_service.dart';
 import 'core/realtime_events_service.dart';
 import 'core/security/secure_dio_client.dart';
@@ -15,6 +17,8 @@ import 'features/splash/cm_splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  NetworkQualityService.instance.init();
 
   final session = AdminSessionStore();
 
@@ -61,6 +65,8 @@ class AdminConsoleApp extends StatelessWidget {
       title: 'Market CM Admin',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      builder: (context, child) =>
+          CmResponsive.appWrap(context, child, maxWidth: 1280),
       home: AppGate(
         systemEvents: RealtimeEventsService.instance.events,
         child: const _RootEntryPoint(),

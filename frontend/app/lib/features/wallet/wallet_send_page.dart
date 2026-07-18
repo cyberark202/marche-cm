@@ -12,6 +12,7 @@ import '../../core/backend_ui_config_service.dart';
 import '../auth/session_store.dart';
 import '../onboarding/escrow_onboarding_page.dart';
 import 'notchpay_pending_sheet.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class WalletTopupPage extends StatefulWidget {
   const WalletTopupPage({super.key});
@@ -366,11 +367,11 @@ class _ProviderPreview extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       ),
                     ),
-                    errorWidget: (_, __, ___) => const Icon(Icons.credit_card),
+                    errorWidget: (_, __, ___) => const Icon(LucideIcons.creditCard),
                   ),
           )
         else
-          const Icon(Icons.credit_card),
+          const Icon(LucideIcons.creditCard),
         const SizedBox(width: 8),
         Text('Canal: $provider',
             style: const TextStyle(fontWeight: FontWeight.w600)),

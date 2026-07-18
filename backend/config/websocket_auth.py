@@ -42,7 +42,8 @@ def _extract_token_from_headers(scope) -> str:
         try:
             name = raw_name.decode("latin-1").lower()
             value = raw_value.decode("latin-1")
-        except Exception:
+        except (UnicodeDecodeError, AttributeError):
+            logger.debug("ws_auth_header_decode_failed remote=%s", _peer_ip(scope))
             continue
         if name == "authorization" and value.lower().startswith("bearer "):
             return value.split(" ", 1)[1].strip()
@@ -91,6 +92,8 @@ def authenticate_scope_user(scope):
         validated_token = authenticator.get_validated_token(token)
         user = authenticator.get_user(validated_token)
     except Exception:
+        # Token expiré/forgé = flux normal de reconnexion, pas une erreur serveur.
+        logger.debug("ws_auth_invalid_token remote=%s path=%s", _peer_ip(scope), scope.get("path", ""))
         return None
 
     if not user or not getattr(user, "is_active", False):

@@ -6,6 +6,7 @@ import '../../core/ui_kit.dart';
 import 'admin_reset_password_page.dart';
 import 'auth_api_service.dart';
 import 'session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 02 — Admin login (email + password, security messaging).
 class AdminLoginPage extends StatefulWidget {
@@ -87,7 +88,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                             gradient: AppPalette.gradientPrimary,
                             borderRadius: BorderRadius.circular(AppRadii.md),
                           ),
-                          child: const Icon(Icons.shield_moon_outlined,
+                          child: const Icon(LucideIcons.shieldCheck,
                               color: Colors.white),
                         ),
                         const SizedBox(width: 12),
@@ -124,7 +125,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                       autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
                         labelText: 'E-mail professionnel',
-                        prefixIcon: Icon(Icons.mail_outline),
+                        prefixIcon: Icon(LucideIcons.mail),
                       ),
                       validator: (v) =>
                           (v == null || !v.contains('@')) ? 'E-mail invalide' : null,
@@ -137,12 +138,12 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                       onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
                         labelText: 'Mot de passe',
-                        prefixIcon: const Icon(Icons.lock_outline),
+                        prefixIcon: const Icon(LucideIcons.lock),
                         suffixIcon: IconButton(
                           onPressed: () => setState(() => _obscure = !_obscure),
                           icon: Icon(_obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
+                              ? LucideIcons.eye
+                              : LucideIcons.eyeOff),
                         ),
                       ),
                       validator: (v) => (v == null || v.length < 4)
@@ -182,7 +183,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.verified_user_outlined,
+                          Icon(LucideIcons.shieldCheck,
                               size: 18, color: AppPalette.info),
                           SizedBox(width: 10),
                           Expanded(

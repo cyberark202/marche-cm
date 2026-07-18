@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Détail commande vendeur — stepper séquestre (PDF 18).
 class SupplierOrderDetailPage extends StatefulWidget {
@@ -197,7 +198,7 @@ class _Hero extends StatelessWidget {
         children: [
           IconButton(
               onPressed: onBack,
-              icon: const Icon(Icons.arrow_back, color: Colors.white)),
+              icon: const Icon(LucideIcons.arrowLeft, color: Colors.white)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,7 +288,7 @@ class _BuyerCard extends StatelessWidget {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.verified,
+                          Icon(LucideIcons.badgeCheck,
                               size: 10, color: AppPalette.primaryDark),
                           SizedBox(width: 2),
                           Text("KYC",
@@ -319,7 +320,7 @@ class _BuyerCard extends StatelessWidget {
                 color: AppPalette.primarySoft,
                 borderRadius: BorderRadius.circular(AppRadii.md),
               ),
-              child: const Icon(Icons.chat_bubble_outline,
+              child: const Icon(LucideIcons.messageCircle,
                   color: AppPalette.primaryDark, size: 17),
             ),
           ),
@@ -357,7 +358,7 @@ class _EscrowCard extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Icon(Icons.lock_outline, color: Colors.white, size: 14),
+              Icon(LucideIcons.lock, color: Colors.white, size: 14),
               SizedBox(width: 5),
               Text("SÉQUESTRE HELD",
                   style: TextStyle(
@@ -477,7 +478,7 @@ class _ProductLine extends StatelessWidget {
               color: AppPalette.primarySoft,
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
-            child: const Icon(Icons.inventory_2_outlined,
+            child: const Icon(LucideIcons.package,
                 color: AppPalette.primaryDark, size: 20),
           ),
           const SizedBox(width: 12),
@@ -551,7 +552,7 @@ class _ActionStepper extends StatelessWidget {
       _Step(
         title: "Commande acceptée",
         subtitle: "Confirmer la commande pour l'acheteur",
-        icon: Icons.thumb_up_alt_outlined,
+        icon: LucideIcons.thumbsUp,
         action: statusUpper == "PENDING"
             ? _StepAction(label: "Accepter", onTap: onConfirm)
             : null,
@@ -559,7 +560,7 @@ class _ActionStepper extends StatelessWidget {
       _Step(
         title: "Demander un devis livreur",
         subtitle: "Express Logistics répond en ~2 h",
-        icon: Icons.local_shipping_outlined,
+        icon: LucideIcons.truck,
         action: statusUpper == "CONFIRMED" &&
                 shipment?["accepted_quote_amount"] == null
             ? _StepAction(
@@ -569,17 +570,17 @@ class _ActionStepper extends StatelessWidget {
       const _Step(
         title: "Préparer la marchandise",
         subtitle: "Emballage et conformité de l'envoi",
-        icon: Icons.inventory_outlined,
+        icon: LucideIcons.boxes,
       ),
       const _Step(
         title: "Remettre au livreur",
         subtitle: "Scanner le QR du livreur à l'enlèvement",
-        icon: Icons.qr_code_scanner,
+        icon: LucideIcons.qrCode,
       ),
       const _Step(
         title: "Libération séquestre",
         subtitle: "Fonds versés sur votre wallet",
-        icon: Icons.lock_open_outlined,
+        icon: LucideIcons.unlock,
       ),
     ];
     return Container(
@@ -662,7 +663,7 @@ class _StepRow extends StatelessWidget {
                   border: Border.all(color: ringColor, width: 2),
                 ),
                 child: done
-                    ? const Icon(Icons.check,
+                    ? const Icon(LucideIcons.check,
                         color: Colors.white, size: 12)
                     : active
                         ? Container(
@@ -722,7 +723,7 @@ class _StepRow extends StatelessWidget {
                       height: 36,
                       child: FilledButton.icon(
                         onPressed: step.action!.onTap,
-                        icon: const Icon(Icons.bolt, size: 15),
+                        icon: const Icon(LucideIcons.zap, size: 15),
                         label: Text(step.action!.label),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(

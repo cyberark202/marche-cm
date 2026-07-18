@@ -23,6 +23,7 @@ import '../business/rfqs_page.dart';
 import '../feed/feed_api_service.dart';
 import '../feed/feed_models.dart';
 import '../feed/product_publication_detail_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 enum _SortMode { relevance, priceAsc, priceDesc, trust }
 
@@ -38,7 +39,6 @@ class _ShopTabState extends State<ShopTab> {
   final FeedApiService _feedApi = FeedApiService();
   final ApiService _api = ApiService();
   final TextEditingController _searchCtrl = TextEditingController();
-  StreamSubscription<Map<String, dynamic>>? _eventsSub;
   static const String _filterDraftKey = "feed_filters_draft_v1";
 
   String _selectedCategory = "Tous";
@@ -56,6 +56,7 @@ class _ShopTabState extends State<ShopTab> {
   double? _priceMaxFilter;
   Set<int> _favoriteProductIds = const {};
   List<Map<String, dynamic>> _savedFilters = const [];
+  StreamSubscription<Map<String, dynamic>>? _eventsSub;
 
   @override
   void initState() {
@@ -64,10 +65,11 @@ class _ShopTabState extends State<ShopTab> {
     _restoreFilterDraft();
     _loadPersonalizationData();
     _feedFuture = _feedApi.loadFeed(token: context.read<SessionStore>().token);
+    // Nouvelle publication/désactivation produit par un vendeur : la boutique
+    // doit se mettre à jour sans que l'acheteur ait à tirer pour rafraîchir.
     _eventsSub = RealtimeEventsService.instance.events.listen((event) {
       if (!mounted) return;
-      final topic = (event["topic"] ?? "").toString();
-      if (topic == "products" || topic == "analytics" || topic == "orders") {
+      if (RealtimeEventsService.instance.matchesTopic(event, 'products')) {
         _reload();
       }
     });
@@ -474,7 +476,7 @@ class _ShopTabState extends State<ShopTab> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.wifi_off_outlined,
+                        const Icon(LucideIcons.wifiOff,
                             size: 48, color: Colors.black38),
                         const SizedBox(height: 12),
                         const Text("Catalogue temporairement indisponible."),
@@ -553,7 +555,7 @@ class _ShopTabState extends State<ShopTab> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.search_off,
+                                const Icon(LucideIcons.searchX,
                                     size: 56, color: Colors.black26),
                                 const SizedBox(height: 12),
                                 Text(
@@ -581,7 +583,7 @@ class _ShopTabState extends State<ShopTab> {
                                       _priceMaxFilter = null;
                                       _clearImageSearch();
                                     }),
-                                    icon: const Icon(Icons.restart_alt),
+                                    icon: const Icon(LucideIcons.rotateCcw),
                                     label: const Text("Réinitialiser filtres"),
                                   ),
                                 ],
@@ -595,8 +597,8 @@ class _ShopTabState extends State<ShopTab> {
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
                         sliver: SliverGrid(
                           gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
+                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 220,
                             childAspectRatio: 0.62,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
@@ -638,7 +640,7 @@ class _ShopTabState extends State<ShopTab> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF063D27), Color(0xFF0F7A4F)],
+          colors: [Color(0xFF063D27), AppPalette.primary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -695,7 +697,7 @@ class _ShopTabState extends State<ShopTab> {
                     if (!mounted) return;
                     context.read<BuyerStore>().markAllNotificationsRead();
                   },
-                  icon: const Icon(Icons.notifications_outlined,
+                  icon: const Icon(LucideIcons.bell,
                       color: Colors.white),
                 ),
               ),
@@ -718,7 +720,7 @@ class _ShopTabState extends State<ShopTab> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.shopping_cart_outlined,
+                  icon: const Icon(LucideIcons.shoppingCart,
                       color: Colors.white),
                 ),
               ),
@@ -737,7 +739,7 @@ class _ShopTabState extends State<ShopTab> {
                   child: Row(
                     children: [
                       const SizedBox(width: 12),
-                      const Icon(Icons.search, color: Colors.black45, size: 18),
+                      const Icon(LucideIcons.search, color: Colors.black45, size: 18),
                       const SizedBox(width: 6),
                       Expanded(
                         child: TextField(
@@ -765,27 +767,27 @@ class _ShopTabState extends State<ShopTab> {
                 isLabelVisible: _activeFiltersCount > 0,
                 backgroundColor: Colors.red,
                 child: _IconBtn(
-                  icon: Icons.tune,
+                  icon: LucideIcons.slidersHorizontal,
                   onTap: () {},
                   tooltip: "Filtres actifs",
                 ),
               ),
               const SizedBox(width: 4),
               _IconBtn(
-                icon: Icons.camera_alt_outlined,
+                icon: LucideIcons.camera,
                 onTap: _searchByImage,
                 tooltip: "Recherche image",
               ),
               const SizedBox(width: 4),
               _IconBtn(
-                icon: Icons.compare_arrows,
+                icon: LucideIcons.arrowLeftRight,
                 onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const RfqComparePage())),
                 tooltip: "Comparer offres",
               ),
               const SizedBox(width: 4),
               _IconBtn(
-                icon: Icons.request_quote_outlined,
+                icon: LucideIcons.fileText,
                 onTap: () => Navigator.of(context)
                     .push(MaterialPageRoute(builder: (_) => const RfqsPage())),
                 tooltip: "Créer RFQ",
@@ -837,7 +839,7 @@ class _ShopTabState extends State<ShopTab> {
                 side: BorderSide(
                     color: selected
                         ? AppPalette.primary
-                        : const Color(0xFFE5E7EB)),
+                        : AppPalette.border),
               );
             },
           ),
@@ -860,7 +862,7 @@ class _ShopTabState extends State<ShopTab> {
                     .toList(),
                 child: Chip(
                   label: Text("Pays: $_selectedCountry"),
-                  avatar: const Icon(Icons.public, size: 16),
+                  avatar: const Icon(LucideIcons.globe, size: 16),
                 ),
               ),
               const SizedBox(width: 8),
@@ -881,14 +883,14 @@ class _ShopTabState extends State<ShopTab> {
                             (c) => c["value"] == _sortModeKey(_sortMode),
                             orElse: () =>
                                 {"label": "Pertinence", "value": "relevance"})["label"]!),
-                    avatar: const Icon(Icons.sort, size: 16),
+                    avatar: const Icon(LucideIcons.arrowUpDown, size: 16),
                   ),
                 ),
               const SizedBox(width: 8),
               FilterChip(
                 label: const Text("Vérifié"),
                 selected: _onlyVerified,
-                avatar: const Icon(Icons.verified_outlined, size: 16),
+                avatar: const Icon(LucideIcons.badgeCheck, size: 16),
                 onSelected: (v) {
                   setState(() => _onlyVerified = v);
                   unawaited(_persistFilterDraft());
@@ -898,7 +900,7 @@ class _ShopTabState extends State<ShopTab> {
                 const SizedBox(width: 8),
                 ActionChip(
                   label: Text("Effacer ($activeFilters)"),
-                  avatar: const Icon(Icons.restart_alt, size: 16),
+                  avatar: const Icon(LucideIcons.rotateCcw, size: 16),
                   onPressed: () {
                     setState(() {
                       _selectedCategory = "Tous";
@@ -923,14 +925,14 @@ class _ShopTabState extends State<ShopTab> {
               children: [
                 Expanded(
                   child: Chip(
-                    avatar: const Icon(Icons.image_search, size: 16),
+                    avatar: const Icon(LucideIcons.search, size: 16),
                     label: Text("Image: $_imageSearchLabel",
                         overflow: TextOverflow.ellipsis),
                   ),
                 ),
                 TextButton.icon(
                   onPressed: _clearImageSearch,
-                  icon: const Icon(Icons.close, size: 16),
+                  icon: const Icon(LucideIcons.x, size: 16),
                   label: const Text("Retirer"),
                 ),
               ],
@@ -945,7 +947,7 @@ class _ShopTabState extends State<ShopTab> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: AppPalette.border),
               ),
               child: Column(
                 children: [
@@ -953,7 +955,7 @@ class _ShopTabState extends State<ShopTab> {
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                     child: Row(
                       children: [
-                        const Icon(Icons.tune, size: 16),
+                        const Icon(LucideIcons.slidersHorizontal, size: 16),
                         const SizedBox(width: 6),
                         const Text("Prix (FCFA)",
                             style: TextStyle(fontWeight: FontWeight.w700)),
@@ -993,7 +995,7 @@ class _ShopTabState extends State<ShopTab> {
             children: [
               OutlinedButton.icon(
                 onPressed: _saveCurrentFilter,
-                icon: const Icon(Icons.bookmark_add_outlined, size: 16),
+                icon: const Icon(LucideIcons.bookmarkPlus, size: 16),
                 label: const Text("Sauvegarder filtre"),
                 style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact),
@@ -1021,7 +1023,7 @@ class _ShopTabState extends State<ShopTab> {
                   label: Text((f["name"] ?? "Filtre").toString()),
                   onPressed: () => _applySavedFilter(f),
                   onDeleted: id <= 0 ? null : () => _deleteSavedFilter(id),
-                  deleteIcon: const Icon(Icons.close, size: 14),
+                  deleteIcon: const Icon(LucideIcons.x, size: 14),
                 );
               },
             ),
@@ -1130,7 +1132,7 @@ class _ProductCard extends StatelessWidget {
                           ? Container(
                               color: AppPalette.bgSoft,
                               child: const Center(
-                                child: Icon(Icons.image_outlined,
+                                child: Icon(LucideIcons.image,
                                     color: AppPalette.textFaint, size: 32),
                               ),
                             )
@@ -1143,7 +1145,7 @@ class _ProductCard extends StatelessWidget {
                               errorWidget: (_, __, ___) => Container(
                                 color: AppPalette.bgSoft,
                                 child: const Center(
-                                  child: Icon(Icons.broken_image_outlined,
+                                  child: Icon(LucideIcons.imageOff,
                                       color: AppPalette.textFaint, size: 28),
                                 ),
                               ),
@@ -1166,7 +1168,7 @@ class _ProductCard extends StatelessWidget {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.verified,
+                            Icon(LucideIcons.badgeCheck,
                                 color: Colors.white, size: 10),
                             SizedBox(width: 3),
                             Text("KYC",
@@ -1214,9 +1216,7 @@ class _ProductCard extends StatelessWidget {
                           boxShadow: AppPalette.shadowSoft,
                         ),
                         child: Icon(
-                          isFavorite
-                              ? Icons.favorite
-                              : Icons.favorite_border,
+                          LucideIcons.heart,
                           size: 15,
                           color: isFavorite
                               ? AppPalette.danger
@@ -1278,7 +1278,7 @@ class _ProductCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded,
+                        const Icon(LucideIcons.star,
                             color: AppPalette.accent, size: 13),
                         const SizedBox(width: 2),
                         Text(
@@ -1351,7 +1351,7 @@ class _ProductCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: AppPalette.shadowSoft,
                             ),
-                            child: const Icon(Icons.add_shopping_cart,
+                            child: const Icon(LucideIcons.shoppingCart,
                                 color: Colors.white, size: 16),
                           ),
                         ),

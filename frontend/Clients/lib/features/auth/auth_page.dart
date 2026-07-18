@@ -12,6 +12,7 @@ import '../../core/backend_ui_config_service.dart';
 import 'auth_api_service.dart';
 import 'password_reset_page.dart';
 import 'session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -343,7 +344,7 @@ class _AuthPageState extends State<AuthPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
         inputDecoration: InputDecoration(
           labelText: "Rechercher un pays",
-          prefixIcon: Icon(Icons.search),
+          prefixIcon: Icon(LucideIcons.search),
         ),
       ),
       onSelect: (country) {
@@ -442,7 +443,7 @@ class _AuthPageState extends State<AuthPage> {
                 TextSpan(
                   text: "pour commencer.",
                   style: TextStyle(
-                    color: Color(0xFFF5B400),
+                    color: AppPalette.accent,
                     fontWeight: FontWeight.w700,
                     fontSize: 22,
                   ),
@@ -484,7 +485,7 @@ class _AuthPageState extends State<AuthPage> {
           keyboardType: TextInputType.emailAddress,
           decoration: _fieldDecoration(
             label: "",
-            icon: Icons.alternate_email,
+            icon: LucideIcons.atSign,
             hint: "exemple@email.com",
           ),
         ),
@@ -505,10 +506,10 @@ class _AuthPageState extends State<AuthPage> {
           obscureText: !_loginPassVisible,
           decoration: _fieldDecoration(
             label: "",
-            icon: Icons.lock_outline,
+            icon: LucideIcons.lock,
             suffixIcon: IconButton(
               icon: Icon(
-                _loginPassVisible ? Icons.visibility_off : Icons.visibility,
+                _loginPassVisible ? LucideIcons.eyeOff : LucideIcons.eye,
                 color: Colors.grey,
               ),
               onPressed: () =>
@@ -662,7 +663,7 @@ class _AuthPageState extends State<AuthPage> {
           textInputAction: TextInputAction.next,
           decoration: _fieldDecoration(
             label: "Nom complet",
-            icon: Icons.person_outline,
+            icon: LucideIcons.user,
             hint: "Ex: Jean Dupont",
           ),
         ),
@@ -673,7 +674,7 @@ class _AuthPageState extends State<AuthPage> {
           keyboardType: TextInputType.phone,
           decoration: _fieldDecoration(
             label: "Numéro de téléphone",
-            icon: Icons.phone_outlined,
+            icon: LucideIcons.phone,
             hint: "Ex: +2376XXXXXXXX",
           ),
         ),
@@ -684,7 +685,7 @@ class _AuthPageState extends State<AuthPage> {
           keyboardType: TextInputType.emailAddress,
           decoration: _fieldDecoration(
             label: "Email",
-            icon: Icons.alternate_email,
+            icon: LucideIcons.atSign,
             hint: "exemple@email.com",
           ),
         ),
@@ -695,7 +696,7 @@ class _AuthPageState extends State<AuthPage> {
           child: InputDecorator(
             decoration: _fieldDecoration(
               label: "Pays de résidence",
-              icon: Icons.public,
+              icon: LucideIcons.globe,
               hint: "Selectionner",
             ),
             child: Row(
@@ -706,7 +707,7 @@ class _AuthPageState extends State<AuthPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Icon(Icons.arrow_drop_down),
+                const Icon(LucideIcons.chevronDown),
               ],
             ),
           ),
@@ -717,7 +718,7 @@ class _AuthPageState extends State<AuthPage> {
           textInputAction: TextInputAction.next,
           decoration: _fieldDecoration(
             label: "Ville (optionnel)",
-            icon: Icons.location_city_outlined,
+            icon: LucideIcons.building2,
             hint: "Ex: Douala",
           ),
         ),
@@ -729,7 +730,7 @@ class _AuthPageState extends State<AuthPage> {
           obscureText: true,
           decoration: _fieldDecoration(
             label: "Mot de passe",
-            icon: Icons.lock_outline,
+            icon: LucideIcons.lock,
           ),
         ),
         const SizedBox(height: 14),

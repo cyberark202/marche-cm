@@ -7,6 +7,7 @@ import '../../core/api_service.dart';
 import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
 import '../wallet/wallet_withdraw_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Revenus vendeur — wallet & retraits (PDF 20).
 class SupplierRevenuePage extends StatefulWidget {
@@ -173,7 +174,7 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
               onPressed: onBack,
-              icon: const Icon(Icons.arrow_back, color: Colors.white)),
+              icon: const Icon(LucideIcons.arrowLeft, color: Colors.white)),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,7 +237,7 @@ class _AvailableCard extends StatelessWidget {
             height: 48,
             child: FilledButton.icon(
               onPressed: onWithdraw,
-              icon: const Icon(Icons.south, size: 18),
+              icon: const Icon(LucideIcons.arrowDown, size: 18),
               label: const Text("Retirer"),
             ),
           ),
@@ -407,7 +408,7 @@ class _ChartCard extends StatelessWidget {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.trending_up,
+                    Icon(LucideIcons.trendingUp,
                         size: 12, color: AppPalette.success),
                     SizedBox(width: 3),
                     Text("+22 %",
@@ -456,7 +457,7 @@ class _PaymentRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
             child: Icon(
-              isOut ? Icons.north : Icons.south,
+              isOut ? LucideIcons.arrowUp : LucideIcons.arrowDown,
               size: 16,
               color: isOut
                   ? AppPalette.info

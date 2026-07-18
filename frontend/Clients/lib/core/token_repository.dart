@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // Shared storage keys — never change these; they're persisted on-device.
@@ -24,8 +25,25 @@ class TokenRepository {
     ),
   );
 
-  static Future<String?> getAccessToken() => _storage.read(key: kTokenKeyAccess);
-  static Future<String?> getRefreshToken() => _storage.read(key: kTokenKeyRefresh);
+  static Future<String?> getAccessToken() => _read(kTokenKeyAccess);
+  static Future<String?> getRefreshToken() => _read(kTokenKeyRefresh);
+
+  // Web: a localStorage ciphertext that no longer matches the WebCrypto key
+  // (key regenerated, port reused by another app) throws OperationError on
+  // every read, blocking boot and all requests. Purge and treat as logged out.
+  static Future<String?> _read(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } catch (e) {
+      debugPrint('[TokenRepository] unreadable secure storage, purging: $e');
+      try {
+        await _storage.deleteAll();
+      } catch (e) {
+        debugPrint('[TokenRepository] purge failed: $e');
+      }
+      return null;
+    }
+  }
 
   static Future<void> saveTokens({
     required String accessToken,

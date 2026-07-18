@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_gate.dart';
+import 'core/cm_components.dart';
 import 'core/realtime_events_service.dart';
 import 'core/theme/driver_theme.dart';
 import 'features/auth/application/auth_notifier.dart';
@@ -43,7 +44,7 @@ class DriverApp extends ConsumerWidget {
       // switch s'affichent au-dessus de n'importe quelle route.
       builder: (context, child) => AppGate(
         systemEvents: RealtimeEventsService.instance.events,
-        child: child ?? const SizedBox.shrink(),
+        child: CmResponsive.appWrap(context, child),
       ),
     );
   }

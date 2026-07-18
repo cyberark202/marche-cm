@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 final _missionDetailProvider =
     FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) async {
@@ -55,7 +56,7 @@ class _MissionDetailPageState extends ConsumerState<MissionDetailPage> {
       appBar: AppBar(
         title: const Text('Détail mission'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () => context.pop(),
         ),
       ),
@@ -63,7 +64,7 @@ class _MissionDetailPageState extends ConsumerState<MissionDetailPage> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => const Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.error_outline, size: 48, color: DriverPalette.textMuted),
+            Icon(LucideIcons.alertCircle, size: 48, color: DriverPalette.textMuted),
             SizedBox(height: 12),
             Text('Impossible de charger la mission',
                 style: TextStyle(color: DriverPalette.textSecondary)),
@@ -126,10 +127,10 @@ class _MissionDetail extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 const _SectionTitle('Adresses'),
-                _AddressRow(icon: Icons.circle, color: Colors.green,
+                _AddressRow(icon: LucideIcons.circle, color: Colors.green,
                     label: 'Enlèvement', address: pickupAddr),
                 const SizedBox(height: 8),
-                _AddressRow(icon: Icons.location_on, color: DriverPalette.primary,
+                _AddressRow(icon: LucideIcons.mapPin, color: DriverPalette.primary,
                     label: 'Livraison', address: deliveryAddr),
                 const SizedBox(height: 20),
 

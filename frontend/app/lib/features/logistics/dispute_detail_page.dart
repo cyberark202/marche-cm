@@ -8,6 +8,7 @@ import '../../core/api_service.dart';
 import '../../core/realtime_events_service.dart';
 import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class DisputeDetailPage extends StatefulWidget {
   final int disputeId;
@@ -227,7 +228,7 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
         Expanded(
           child: OutlinedButton.icon(
             onPressed: _deciding ? null : () => _decide('UNDER_REVIEW'),
-            icon: const Icon(Icons.manage_search_outlined, size: 18),
+            icon: const Icon(LucideIcons.searchCheck, size: 18),
             label: const Text('En cours'),
           ),
         ),
@@ -238,7 +239,7 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
             icon: _deciding
                 ? const SizedBox(width: 14, height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.check, size: 18),
+                : const Icon(LucideIcons.check, size: 18),
             label: const Text('Résoudre'),
           ),
         ),
@@ -253,7 +254,7 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
             icon: _resolvingAppeal
                 ? const SizedBox(width: 14, height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.balance_outlined, size: 18),
+                : const Icon(LucideIcons.scale, size: 18),
             label: const Text("Résoudre l'appel"),
             style: FilledButton.styleFrom(backgroundColor: Colors.deepOrange),
           ),
@@ -269,7 +270,7 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
             icon: _appealing
                 ? const SizedBox(width: 14, height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.balance_outlined, size: 18),
+                : const Icon(LucideIcons.scale, size: 18),
             label: const Text('Faire appel'),
             style: FilledButton.styleFrom(backgroundColor: Colors.deepOrange),
           ),
@@ -289,7 +290,7 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
       appBar: AppBar(
         title: Text('Dossier #${widget.disputeId}'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          IconButton(icon: const Icon(LucideIcons.refreshCw), onPressed: _load),
         ],
       ),
       bottomNavigationBar: _buildBottomBar(isAdmin),
@@ -498,13 +499,13 @@ class _StatusBanner extends StatelessWidget {
 
   (String, Color, IconData) _statusMeta(String s) {
     switch (s) {
-      case 'OPEN':            return ('Ouvert', Colors.orange, Icons.gavel_outlined);
-      case 'UNDER_REVIEW':    return ('En traitement', Colors.blue, Icons.manage_search_outlined);
-      case 'INSPECTION_PENDING': return ('Inspection en cours', Colors.purple, Icons.search_outlined);
-      case 'APPEAL_REQUESTED': return ('Appel en cours', Colors.deepOrange, Icons.balance_outlined);
-      case 'RESOLVED':        return ('Resolu', Colors.green, Icons.check_circle_outline);
-      case 'CLOSED_NO_ACTION': return ('Ferme sans action', Colors.grey, Icons.cancel_outlined);
-      default:                return (s, Colors.grey, Icons.info_outline);
+      case 'OPEN':            return ('Ouvert', Colors.orange, LucideIcons.gavel);
+      case 'UNDER_REVIEW':    return ('En traitement', Colors.blue, LucideIcons.searchCheck);
+      case 'INSPECTION_PENDING': return ('Inspection en cours', Colors.purple, LucideIcons.search);
+      case 'APPEAL_REQUESTED': return ('Appel en cours', Colors.deepOrange, LucideIcons.scale);
+      case 'RESOLVED':        return ('Resolu', Colors.green, LucideIcons.checkCircle2);
+      case 'CLOSED_NO_ACTION': return ('Ferme sans action', Colors.grey, LucideIcons.xCircle);
+      default:                return (s, Colors.grey, LucideIcons.info);
     }
   }
 }
@@ -600,7 +601,7 @@ class _SlaCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ListTile(
         leading: Icon(
-          Icons.timer_outlined,
+          LucideIcons.timer,
           color: expired ? Colors.red : Colors.blue,
         ),
         title: Text(
@@ -646,7 +647,7 @@ class _CustodySectionState extends State<_CustodySection> {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
-        leading: const Icon(Icons.route_outlined),
+        leading: const Icon(LucideIcons.navigation),
         title: const Text('Chaine de garde', style: TextStyle(fontWeight: FontWeight.w600)),
         onExpansionChanged: (v) => setState(() => _expanded = v),
         children: [
@@ -715,7 +716,7 @@ class _CustodyChainLoaderState extends State<_CustodyChainLoader> {
         final e = _events[i];
         return ListTile(
           dense: true,
-          leading: const Icon(Icons.circle, size: 10, color: Colors.blue),
+          leading: const Icon(LucideIcons.circle, size: 10, color: Colors.blue),
           title: Text(_eventLabel(e['event_type'] as String? ?? ''),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           subtitle: Text(
@@ -768,7 +769,7 @@ class _EvidenceSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ListTile(
-            leading: const Icon(Icons.attach_file_outlined),
+            leading: const Icon(LucideIcons.paperclip),
             title: Text('Preuves (${evidences.length})',
                 style: const TextStyle(fontWeight: FontWeight.w600)),
             trailing: !resolved
@@ -776,7 +777,7 @@ class _EvidenceSection extends StatelessWidget {
                     icon: uploading
                         ? const SizedBox(width: 16, height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.add_circle_outline),
+                        : const Icon(LucideIcons.plusCircle),
                     onPressed: uploading ? null : onAdd,
                     tooltip: 'Ajouter une preuve',
                   )
@@ -816,10 +817,10 @@ class _EvidenceSection extends StatelessWidget {
 
   Widget _typeIcon(String t) {
     switch (t) {
-      case 'PHOTO': return const Icon(Icons.image_outlined, color: Colors.blue);
-      case 'VIDEO': return const Icon(Icons.videocam_outlined, color: Colors.purple);
-      case 'INSPECTION_REPORT': return const Icon(Icons.fact_check_outlined, color: Colors.green);
-      default: return const Icon(Icons.insert_drive_file_outlined);
+      case 'PHOTO': return const Icon(LucideIcons.image, color: Colors.blue);
+      case 'VIDEO': return const Icon(LucideIcons.video, color: Colors.purple);
+      case 'INSPECTION_REPORT': return const Icon(LucideIcons.clipboardCheck, color: Colors.green);
+      default: return const Icon(LucideIcons.fileText);
     }
   }
 
@@ -860,7 +861,7 @@ class _AppealSection extends StatelessWidget {
           children: [
             const Row(
               children: [
-                Icon(Icons.balance_outlined, color: Colors.deepOrange),
+                Icon(LucideIcons.scale, color: Colors.deepOrange),
                 SizedBox(width: 8),
                 Text('Contester la decision',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -890,7 +891,7 @@ class _AppealSection extends StatelessWidget {
                 icon: loading
                     ? const SizedBox(width: 16, height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.send_outlined),
+                    : const Icon(LucideIcons.send),
                 label: const Text('Soumettre l\'appel'),
                 style: FilledButton.styleFrom(backgroundColor: Colors.deepOrange),
               ),
@@ -917,7 +918,7 @@ class _AppealStatusCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         leading: Icon(
-          resolved ? Icons.check_circle_outline : Icons.hourglass_empty_outlined,
+          resolved ? LucideIcons.checkCircle2 : LucideIcons.hourglass,
           color: resolved ? Colors.green : Colors.orange,
         ),
         title: Text(resolved ? 'Appel tranche' : 'Appel en attente d\'examen'),
@@ -970,7 +971,7 @@ class _AdminPanel extends StatelessWidget {
           children: [
             const Row(
               children: [
-                Icon(Icons.admin_panel_settings_outlined, color: Colors.blue),
+                Icon(LucideIcons.shieldCheck, color: Colors.blue),
                 SizedBox(width: 8),
                 Text('Panneau administrateur',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -1007,7 +1008,7 @@ class _AdminPanel extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: deciding ? null : () => onDecide('UNDER_REVIEW'),
-                    icon: const Icon(Icons.manage_search_outlined, size: 18),
+                    icon: const Icon(LucideIcons.searchCheck, size: 18),
                     label: const Text('En cours'),
                   ),
                 ),
@@ -1018,7 +1019,7 @@ class _AdminPanel extends StatelessWidget {
                     icon: deciding
                         ? const SizedBox(width: 14, height: 14,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.check, size: 18),
+                        : const Icon(LucideIcons.check, size: 18),
                     label: const Text('Resoudre'),
                   ),
                 ),
@@ -1032,7 +1033,7 @@ class _AdminPanel extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: dispute['inspection_required'] == true
                         ? null : onRequestInspection,
-                    icon: const Icon(Icons.search_outlined, size: 18),
+                    icon: const Icon(LucideIcons.search, size: 18),
                     label: const Text('Inspection', style: TextStyle(fontSize: 13)),
                   ),
                 ),
@@ -1041,7 +1042,7 @@ class _AdminPanel extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: dispute['guarantee_fund_activated'] == true
                         ? null : onActivateGuaranteeFund,
-                    icon: const Icon(Icons.shield_outlined, size: 18),
+                    icon: const Icon(LucideIcons.shield, size: 18),
                     label: const Text('Fonds garantie', style: TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(foregroundColor: Colors.green.shade700),
                   ),
@@ -1065,7 +1066,7 @@ class _AdminPanel extends StatelessWidget {
                   icon: resolvingAppeal
                       ? const SizedBox(width: 14, height: 14,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.balance_outlined, size: 18),
+                      : const Icon(LucideIcons.scale, size: 18),
                   label: const Text('Resoudre l\'appel'),
                   style: FilledButton.styleFrom(backgroundColor: Colors.deepOrange),
                 ),
@@ -1098,7 +1099,7 @@ class _ResolutionCard extends StatelessWidget {
           children: [
             const Row(
               children: [
-                Icon(Icons.check_circle_outline, color: Colors.green),
+                Icon(LucideIcons.checkCircle2, color: Colors.green),
                 SizedBox(width: 8),
                 Text('Resolution', style: TextStyle(fontWeight: FontWeight.bold)),
               ],

@@ -1,0 +1,41 @@
+# Surcharges PROD (NON sensibles). Copier en values-prod.yaml.
+# Les SECRETS ne vont PAS ici : utiliser External Secrets (SSM) ou --set-file
+# secret.data depuis un fichier hors-repo / CI.
+
+image:
+  # Sortie Terraform: ecr_repository_url
+  repository: 958924735829.dkr.ecr.eu-north-1.amazonaws.com/marche-cm
+  tag: "v1.0.0" # tag immuable (commit sha recommandé)
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: marche-cm
+  annotations:
+    # Sortie Terraform: app_irsa_role_arn
+    eks.amazonaws.com/role-arn: arn:aws:iam::958924735829:role/marche-cm-app
+
+config:
+  ALLOWED_HOSTS: "cm.digital-get.com"
+  BACKEND_PUBLIC_URL: "https://cm.digital-get.com"
+  CSRF_TRUSTED_ORIGINS: "https://cm.digital-get.com"
+  AWS_DEFAULT_REGION: "eu-north-1"
+
+# PROD : tirer les secrets depuis SSM via External Secrets Operator.
+secret:
+  create: false
+externalSecrets:
+  enabled: true
+  region: eu-north-1
+  ssmPrefix: "/marche-cm/prod"
+
+ingress:
+  enabled: true
+  className: alb
+  host: cm.digital-get.com
+  certificateArn: "" # ARN du certificat ACM (région du cluster)
+
+# Option : pointer vers ElastiCache au lieu du Redis in-cluster.
+# redis:
+#   enabled: false
+# (et fournir REDIS_URL/CACHE_URL ElastiCache via SSM)

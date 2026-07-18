@@ -67,3 +67,58 @@ class NotificationApiTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.user_notif.refresh_from_db()
         self.assertTrue(self.user_notif.is_read)
+
+
+class NotificationPreferenceTests(APITestCase):
+    """Doc 10 : catégories/priorités + préférences ; SECURITY jamais supprimée."""
+
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username="pref_user", email="pref_user@test.local",
+            password="TestPassword123!", role="BUYER", is_active=True,
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_preferences_get_and_update(self):
+        res = self.client.get("/api/notifications/preferences/")
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.data["promotions_enabled"])
+        res = self.client.put("/api/notifications/preferences/", {"promotions_enabled": False}, format="json")
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(res.data["promotions_enabled"])
+
+    def test_promotions_suppressed_when_disabled(self):
+        from .models import NotificationCategory, NotificationPreference
+        from .service import create_realtime_notification
+
+        NotificationPreference.objects.create(user=self.user, promotions_enabled=False)
+        result = create_realtime_notification(
+            user=self.user, title="Promo", body="-20%",
+            category=NotificationCategory.PROMOTIONS,
+        )
+        self.assertIsNone(result)
+        self.assertFalse(Notification.objects.filter(user=self.user, title="Promo").exists())
+
+    def test_security_never_suppressed(self):
+        from .models import NotificationCategory, NotificationPreference
+        from .service import create_realtime_notification
+
+        NotificationPreference.objects.create(user=self.user, promotions_enabled=False, push_enabled=False)
+        result = create_realtime_notification(
+            user=self.user, title="Alerte connexion", body="Nouvel appareil",
+            category=NotificationCategory.SECURITY,
+        )
+        self.assertIsNotNone(result)
+        self.assertEqual(result.category, NotificationCategory.SECURITY)
+
+    def test_category_filter(self):
+        from .models import NotificationCategory
+
+        Notification.objects.create(user=self.user, title="A", body="b", category=NotificationCategory.ORDERS)
+        Notification.objects.create(user=self.user, title="B", body="b", category=NotificationCategory.WALLET)
+        res = self.client.get("/api/notifications/?category=orders")
+        self.assertEqual(res.status_code, 200)
+        rows = res.data["results"] if isinstance(res.data, dict) and "results" in res.data else res.data
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["title"], "A")

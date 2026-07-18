@@ -158,6 +158,21 @@ if DEBUG:
     for host in ("127.0.0.1", "localhost", "10.0.2.2", "10.0.3.2", "[::1]"):
         if host not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(host)
+    # Auto-detect this machine's LAN IPs so a *physical* phone on the same WiFi
+    # can reach `runserver 0.0.0.0:8000` by IP without hand-editing this list.
+    try:
+        import socket as _socket
+
+        _lan_ips = {
+            addr[4][0]
+            for addr in _socket.getaddrinfo(_socket.gethostname(), None)
+            if addr[0] == _socket.AF_INET
+        }
+        for _ip in _lan_ips:
+            if _ip not in ALLOWED_HOSTS:
+                ALLOWED_HOSTS.append(_ip)
+    except OSError:
+        pass
 
 _render_external_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip().lower()
 if _render_external_hostname and _render_external_hostname not in ALLOWED_HOSTS:
@@ -248,6 +263,7 @@ INSTALLED_APPS = [
     "apps.compliance",
     "apps.realtime",
     "apps.appconfig",
+    "apps.rentals",
     "django_celery_beat",
     "django_celery_results",
     "drf_spectacular",
@@ -691,7 +707,24 @@ RECONCILIATION_REQUIRE_PROVIDER_BALANCE = _env_bool("RECONCILIATION_REQUIRE_PROV
 MAX_UPLOAD_IMAGE_MB = _env_int("MAX_UPLOAD_IMAGE_MB", 5)
 MAX_UPLOAD_VIDEO_MB = _env_int("MAX_UPLOAD_VIDEO_MB", 200)
 MAX_UPLOAD_DOCUMENT_MB = _env_int("MAX_UPLOAD_DOCUMENT_MB", 20)
+# Voice notes (chat) — short clips; a small cap keeps them cheap to store/stream.
+MAX_UPLOAD_AUDIO_MB = _env_int("MAX_UPLOAD_AUDIO_MB", 15)
 UPLOAD_SCRUB_IMAGE_METADATA = _env_bool("UPLOAD_SCRUB_IMAGE_METADATA", True)
+
+# ── Tarification livraison ───────────────────────────────────────────────────
+# L'acheteur ne choisit plus de transitaire ni de mode de transport. Le cout de
+# livraison est derive de la distance vendeur -> acheteur (Haversine) au tarif
+# ci-dessous, sequestre avec le prix produit. La plateforme preleve une
+# commission sur le montant verse au livreur lors de la liberation logistique.
+SHIPPING_RATE_PER_KM = os.getenv("SHIPPING_RATE_PER_KM", "150").strip() or "150"
+# Distance de repli quand l'une des parties n'a pas de coordonnees GPS.
+SHIPPING_DEFAULT_DISTANCE_KM = os.getenv("SHIPPING_DEFAULT_DISTANCE_KM", "5").strip() or "5"
+# Plancher de distance facturable (evite un frais nul pour vendeur ~ acheteur).
+SHIPPING_MIN_DISTANCE_KM = os.getenv("SHIPPING_MIN_DISTANCE_KM", "1").strip() or "1"
+# Commission plateforme prelevee sur le payout livreur (0.10 = 10%).
+LOGISTICS_PLATFORM_COMMISSION_RATE = os.getenv("LOGISTICS_PLATFORM_COMMISSION_RATE", "0.10").strip() or "0.10"
+# Commission plateforme prelevee sur le payout vendeur a la libération (0.10 = 10%).
+PLATFORM_COMMISSION_RATE = os.getenv("PLATFORM_COMMISSION_RATE", "0.10").strip() or "0.10"
 
 LOGGING = {
     "version": 1,
@@ -865,6 +898,9 @@ WEBHOOK_TIMESTAMP_WINDOW_SECONDS = _env_int("WEBHOOK_TIMESTAMP_WINDOW_SECONDS", 
 WALLET_PIN_MIN_LENGTH = _env_int("WALLET_PIN_MIN_LENGTH", 6)
 WALLET_PIN_VERIFY_MIN_LENGTH = _env_int("WALLET_PIN_VERIFY_MIN_LENGTH", 4)
 WS_ALLOW_TOKEN_QUERY_STRING = _env_bool("WS_ALLOW_TOKEN_QUERY_STRING", False)
+# Anti-désintermédiation : masquer aussi les numéros de téléphone dans le chat.
+# OFF par défaut car ambigu avec les montants FCFA (cf. core/text_sanitize._PHONE).
+CHAT_REDACT_PHONE_NUMBERS = _env_bool("CHAT_REDACT_PHONE_NUMBERS", False)
 UPLOAD_SCRUB_IMAGE_METADATA = _env_bool("UPLOAD_SCRUB_IMAGE_METADATA", True)
 LOADTEST_BYPASS_TOKEN = os.getenv("LOADTEST_BYPASS_TOKEN", "").strip()
 

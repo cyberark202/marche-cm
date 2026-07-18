@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../core/ui_kit.dart';
 import 'auth_api_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Forgot-password flow for the admin console (2 steps):
 ///   1. enter the account email → a 6-digit code is emailed;
@@ -116,7 +117,7 @@ class _AdminResetPasswordPageState extends State<AdminResetPasswordPage> {
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       labelText: 'E-mail professionnel',
-                      prefixIcon: Icon(Icons.mail_outline),
+                      prefixIcon: Icon(LucideIcons.mail),
                     ),
                   ),
                   if (_codeSent) ...[
@@ -126,7 +127,7 @@ class _AdminResetPasswordPageState extends State<AdminResetPasswordPage> {
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: 'Code de réinitialisation',
-                        prefixIcon: Icon(Icons.pin_outlined),
+                        prefixIcon: Icon(LucideIcons.mapPin),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -136,12 +137,12 @@ class _AdminResetPasswordPageState extends State<AdminResetPasswordPage> {
                       onSubmitted: (_) => _confirm(),
                       decoration: InputDecoration(
                         labelText: 'Nouveau mot de passe',
-                        prefixIcon: const Icon(Icons.lock_outline),
+                        prefixIcon: const Icon(LucideIcons.lock),
                         suffixIcon: IconButton(
                           onPressed: () => setState(() => _obscure = !_obscure),
                           icon: Icon(_obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
+                              ? LucideIcons.eye
+                              : LucideIcons.eyeOff),
                         ),
                       ),
                     ),

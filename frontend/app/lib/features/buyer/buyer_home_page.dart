@@ -9,6 +9,7 @@ import '../../core/app_theme.dart';
 import '../../core/security/secure_dio_client.dart';
 import '../auth/session_store.dart';
 import 'buyer_kyc_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class BuyerHomePage extends StatefulWidget {
   const BuyerHomePage({super.key});
@@ -24,14 +25,14 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
   bool _walletLoading = true;
 
   static const _categories = [
-    _Cat('Alimentation', Icons.restaurant, Color(0xFF16A34A)),
-    _Cat('Électronique', Icons.devices, Color(0xFF2563EB)),
-    _Cat('Vêtements', Icons.checkroom, Color(0xFF7C3AED)),
-    _Cat('Agriculture', Icons.grass, Color(0xFF15803D)),
-    _Cat('Beauté', Icons.spa, Color(0xFFDB2777)),
-    _Cat('Construction', Icons.construction, Color(0xFFCA8A04)),
-    _Cat('Auto-Moto', Icons.directions_car, Color(0xFFDC2626)),
-    _Cat('Services', Icons.handyman, Color(0xFF0891B2)),
+    _Cat('Alimentation', LucideIcons.utensils, Color(0xFF16A34A)),
+    _Cat('Électronique', LucideIcons.monitorSmartphone, Color(0xFF2563EB)),
+    _Cat('Vêtements', LucideIcons.shirt, Color(0xFF7C3AED)),
+    _Cat('Agriculture', LucideIcons.sprout, Color(0xFF15803D)),
+    _Cat('Beauté', LucideIcons.flower2, Color(0xFFDB2777)),
+    _Cat('Construction', LucideIcons.construction, Color(0xFFCA8A04)),
+    _Cat('Auto-Moto', LucideIcons.car, Color(0xFFDC2626)),
+    _Cat('Services', LucideIcons.wrench, Color(0xFF0891B2)),
   ];
 
   @override
@@ -126,7 +127,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
                     gradient: AppPalette.gradientPrimary,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.storefront,
+                  child: const Icon(LucideIcons.store,
                       color: Colors.white, size: 18),
                 ),
                 const SizedBox(width: 10),
@@ -147,7 +148,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
               ]),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.notifications_outlined,
+                  icon: const Icon(LucideIcons.bell,
                       color: Color(0xFF2D3D36)),
                   onPressed: () {},
                 ),
@@ -170,7 +171,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
                     Positioned(
                       right: -16,
                       top: -16,
-                      child: Icon(Icons.account_balance_wallet,
+                      child: Icon(LucideIcons.wallet,
                           size: 110,
                           color: Colors.white.withValues(alpha: 0.07)),
                     ),
@@ -205,19 +206,19 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
                         const SizedBox(height: 16),
                         Row(children: [
                           _WalletAction(
-                            icon: Icons.add,
+                            icon: LucideIcons.plus,
                             label: 'Recharger',
                             onTap: () {},
                           ),
                           const SizedBox(width: 10),
                           _WalletAction(
-                            icon: Icons.send_outlined,
+                            icon: LucideIcons.send,
                             label: 'Envoyer',
                             onTap: () {},
                           ),
                           const SizedBox(width: 10),
                           _WalletAction(
-                            icon: Icons.history,
+                            icon: LucideIcons.history,
                             label: 'Historique',
                             onTap: () {},
                           ),
@@ -244,7 +245,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
                     border: Border.all(color: AppPalette.border),
                   ),
                   child: const Row(children: [
-                    Icon(Icons.search,
+                    Icon(LucideIcons.search,
                         color: Color(0xFF8F9C96), size: 20),
                     SizedBox(width: 10),
                     Text(
@@ -277,7 +278,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
                             .withValues(alpha: 0.5)),
                   ),
                   child: const Row(children: [
-                    Icon(Icons.shield_outlined,
+                    Icon(LucideIcons.shield,
                         color: Color(0xFFC68F00), size: 18),
                     SizedBox(width: 10),
                     Expanded(
@@ -289,7 +290,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
                             fontWeight: FontWeight.w500),
                       ),
                     ),
-                    Icon(Icons.chevron_right,
+                    Icon(LucideIcons.chevronRight,
                         size: 16, color: Color(0xFFC68F00)),
                   ]),
                 ),
@@ -533,7 +534,7 @@ class _ProductCard extends StatelessWidget {
   Widget _imgPlaceholder() => Container(
         color: AppPalette.bgSoft,
         child: const Center(
-            child: Icon(Icons.image_outlined,
+            child: Icon(LucideIcons.image,
                 size: 38, color: Color(0xFF8F9C96))),
       );
 }
@@ -576,7 +577,7 @@ class _EmptyProducts extends StatelessWidget {
         padding: EdgeInsets.all(48),
         child: Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.storefront_outlined,
+            Icon(LucideIcons.store,
                 size: 56, color: Color(0xFF8F9C96)),
             SizedBox(height: 14),
             Text('Aucun produit disponible',

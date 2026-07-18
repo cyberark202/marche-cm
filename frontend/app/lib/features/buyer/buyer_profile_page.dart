@@ -5,6 +5,7 @@ import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
 import '../wallet/wallet_page.dart';
 import 'buyer_kyc_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class BuyerProfilePage extends StatelessWidget {
   const BuyerProfilePage({super.key});
@@ -28,26 +29,26 @@ class BuyerProfilePage extends StatelessWidget {
           SliverToBoxAdapter(child: _buildKycBanner(context)),
           SliverToBoxAdapter(child: _buildSection('Mon compte', [
             _MenuItem(
-              icon: Icons.shopping_bag_outlined,
+              icon: LucideIcons.shoppingBag,
               label: 'Mes commandes',
               color: const Color(0xFF4F46E5),
               onTap: () {},
             ),
             _MenuItem(
-              icon: Icons.account_balance_wallet_outlined,
+              icon: LucideIcons.wallet,
               label: 'Mon portefeuille',
               color: AppPalette.primary,
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const WalletPage())),
             ),
             _MenuItem(
-              icon: Icons.favorite_outline,
+              icon: LucideIcons.heart,
               label: 'Mes favoris',
               color: const Color(0xFFDB2777),
               onTap: () {},
             ),
             _MenuItem(
-              icon: Icons.location_on_outlined,
+              icon: LucideIcons.mapPin,
               label: 'Mes adresses',
               color: const Color(0xFFF59E0B),
               onTap: () {},
@@ -55,7 +56,7 @@ class BuyerProfilePage extends StatelessWidget {
           ])),
           SliverToBoxAdapter(child: _buildSection('Sécurité & Confidentialité', [
             _MenuItem(
-              icon: Icons.shield_outlined,
+              icon: LucideIcons.shield,
               label: 'Vérification d\'identité (KYC)',
               color: const Color(0xFF059669),
               onTap: () => Navigator.push(
@@ -63,7 +64,7 @@ class BuyerProfilePage extends StatelessWidget {
               trailing: const _KycBadge(verified: false),
             ),
             _MenuItem(
-              icon: Icons.lock_outline,
+              icon: LucideIcons.lock,
               label: 'Changer le mot de passe',
               color: const Color(0xFF64748B),
               onTap: () {},
@@ -71,13 +72,13 @@ class BuyerProfilePage extends StatelessWidget {
           ])),
           SliverToBoxAdapter(child: _buildSection('Aide & Support', [
             _MenuItem(
-              icon: Icons.help_outline,
+              icon: LucideIcons.helpCircle,
               label: 'Centre d\'aide',
               color: const Color(0xFF2563EB),
               onTap: () {},
             ),
             _MenuItem(
-              icon: Icons.info_outline,
+              icon: LucideIcons.info,
               label: 'À propos de Market CM',
               color: const Color(0xFF64748B),
               onTap: () {},
@@ -88,7 +89,7 @@ class BuyerProfilePage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               child: OutlinedButton.icon(
                 onPressed: () => session.logout(),
-                icon: const Icon(Icons.logout, size: 18),
+                icon: const Icon(LucideIcons.logOut, size: 18),
                 label: const Text('Se déconnecter'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFDC2626),
@@ -131,7 +132,7 @@ class BuyerProfilePage extends StatelessWidget {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.edit_outlined, color: Color(0xFF64748B)),
+              icon: const Icon(LucideIcons.pencil, color: Color(0xFF64748B)),
               onPressed: () {},
             ),
           ],
@@ -153,7 +154,7 @@ class BuyerProfilePage extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.verified_user_outlined, color: Colors.white, size: 24),
+              const Icon(LucideIcons.shieldCheck, color: Colors.white, size: 24),
               const SizedBox(width: 12),
               const Expanded(
                 child: Column(
@@ -255,7 +256,7 @@ class _MenuItem extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF0F172A))),
               ),
-              trailing ?? const Icon(Icons.chevron_right, size: 18, color: Color(0xFFCBD5E1)),
+              trailing ?? const Icon(LucideIcons.chevronRight, size: 18, color: Color(0xFFCBD5E1)),
             ],
           ),
         ),

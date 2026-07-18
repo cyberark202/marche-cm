@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/cm_form_widgets.dart';
 import 'auth_api_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Forgot-password flow (2 steps):
 ///   1. enter the account email → a 6-digit code is emailed;
@@ -137,13 +139,13 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline,
-                      size: 16, color: Color(0xFFDC2626)),
+                  const Icon(LucideIcons.alertCircle,
+                      size: 16, color: AppPalette.danger),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(_error!,
                         style: const TextStyle(
-                            color: Color(0xFFDC2626), fontSize: 13)),
+                            color: AppPalette.danger, fontSize: 13)),
                   ),
                 ],
               ),
@@ -156,7 +158,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
               labelText: "Email",
-              prefixIcon: Icon(Icons.alternate_email),
+              prefixIcon: Icon(LucideIcons.atSign),
             ),
           ),
           if (_codeSent) ...[
@@ -166,25 +168,27 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: "Code de réinitialisation",
-                prefixIcon: Icon(Icons.pin_outlined),
+                prefixIcon: Icon(LucideIcons.mapPin),
               ),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _passCtrl,
               obscureText: !_passVisible,
+              onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: "Nouveau mot de passe",
-                prefixIcon: const Icon(Icons.lock_outline),
+                prefixIcon: const Icon(LucideIcons.lock),
                 suffixIcon: IconButton(
                   icon: Icon(_passVisible
-                      ? Icons.visibility_off
-                      : Icons.visibility),
+                      ? LucideIcons.eyeOff
+                      : LucideIcons.eye),
                   onPressed: () =>
                       setState(() => _passVisible = !_passVisible),
                 ),
               ),
             ),
+            CmPasswordStrength(password: _passCtrl.text),
           ],
           const SizedBox(height: 24),
           SizedBox(

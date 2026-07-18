@@ -7,6 +7,7 @@ import '../../core/app_ui.dart';
 import '../auth/session_store.dart';
 import 'wallet_send_page.dart';
 import 'wallet_withdraw_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -79,11 +80,11 @@ class _WalletPageState extends State<WalletPage> {
         actions: [
           IconButton(
             onPressed: _load,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(LucideIcons.refreshCw),
           ),
           IconButton(
             onPressed: () {},
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(LucideIcons.moreVertical),
           ),
         ],
       ),
@@ -94,7 +95,7 @@ class _WalletPageState extends State<WalletPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.wifi_off_outlined,
+                      const Icon(LucideIcons.wifiOff,
                           size: 48, color: Colors.black38),
                       const SizedBox(height: 12),
                       Text(_error!,
@@ -129,7 +130,7 @@ class _WalletPageState extends State<WalletPage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F7A4F), Color(0xFF063D27)],
+          colors: [AppPalette.primary, Color(0xFF063D27)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -155,7 +156,7 @@ class _WalletPageState extends State<WalletPage> {
                 onPressed: () =>
                     setState(() => _balanceVisible = !_balanceVisible),
                 icon: Icon(
-                  _balanceVisible ? Icons.visibility : Icons.visibility_off,
+                  _balanceVisible ? LucideIcons.eye : LucideIcons.eyeOff,
                   color: Colors.white70,
                   size: 18,
                 ),
@@ -188,7 +189,7 @@ class _WalletPageState extends State<WalletPage> {
                   height: 44,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF5B400),
+                      backgroundColor: AppPalette.accent,
                       foregroundColor: Colors.black87,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -251,7 +252,7 @@ class _WalletPageState extends State<WalletPage> {
         children: [
           Expanded(
             child: _MiniCard(
-              icon: Icons.shield_outlined,
+              icon: LucideIcons.shield,
               iconColor: const Color(0xFF0EA5E9),
               title: "Séquestre",
               value: _balanceVisible ? "$blocked FCFA" : "••••",
@@ -261,7 +262,7 @@ class _WalletPageState extends State<WalletPage> {
           const SizedBox(width: 12),
           Expanded(
             child: _MiniCard(
-              icon: Icons.trending_up,
+              icon: LucideIcons.trendingUp,
               iconColor: AppPalette.primary,
               title: "Mai 2026",
               value: _balanceVisible
@@ -297,7 +298,7 @@ class _WalletPageState extends State<WalletPage> {
       ),
       _PaymentMethod(
         badge: "MC",
-        badgeColor: Color(0xFFDC2626),
+        badgeColor: AppPalette.danger,
         title: "Mastercard",
         subtitle: "3-D Secure",
       ),
@@ -437,8 +438,8 @@ class _WalletPageState extends State<WalletPage> {
             decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
             child: Icon(
                 isTopup
-                    ? Icons.south_west_outlined
-                    : Icons.north_east_outlined,
+                    ? LucideIcons.arrowDownLeft
+                    : LucideIcons.arrowUpRight,
                 color: iconColor,
                 size: 18),
           ),

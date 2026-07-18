@@ -64,6 +64,7 @@ def _redis_client():
             try:
                 return get_client()
             except Exception:
+                logger.debug("redis_client_discovery_failed backend=%s", type(cache_impl).__name__, exc_info=True)
                 return None
     # django-redis style: `.get_client(...)` may sit on a deeper object
     deeper = getattr(cache_impl, "_client", None)
@@ -73,6 +74,7 @@ def _redis_client():
             try:
                 return get_client(write=True)
             except Exception:
+                logger.debug("redis_client_discovery_failed backend=%s", type(cache_impl).__name__, exc_info=True)
                 return None
     return None
 

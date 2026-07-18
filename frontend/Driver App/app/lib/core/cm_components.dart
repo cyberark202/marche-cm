@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'network_quality_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
-/// Central Market — branded atoms ported faithfully from the authoritative
+/// Market CM — branded atoms ported faithfully from the authoritative
 /// design source (`central-market-ui-design/project/theme.jsx`).
 ///
 /// These complement the existing rich kit in `app_ui.dart` with the small
@@ -179,7 +181,7 @@ enum CmTone { primary, accent, cream, coral, sky }
 class CmImagePlaceholder extends StatelessWidget {
   const CmImagePlaceholder({
     super.key,
-    this.icon = Icons.inventory_2_outlined,
+    this.icon = LucideIcons.package,
     this.height = 120,
     this.radius = AppRadii.sm,
     this.tone = CmTone.primary,
@@ -311,7 +313,7 @@ class CmStars extends StatelessWidget {
       children: List.generate(5, (i) {
         final filled = (i + 1) <= rounded;
         return Icon(
-          filled ? Icons.star_rounded : Icons.star_outline_rounded,
+          LucideIcons.star,
           size: size,
           color: filled ? AppPalette.accent : AppPalette.bgDeep,
         );
@@ -350,7 +352,7 @@ class CmScreenHeader extends StatelessWidget {
         children: [
           if (onBack != null) ...[
             _HeaderIconBtn(
-              icon: Icons.arrow_back,
+              icon: LucideIcons.arrowLeft,
               onTap: onBack!,
               dark: dark,
             ),
@@ -442,7 +444,7 @@ class CmProductCard extends StatelessWidget {
     required this.price,
     this.currency = 'FCFA',
     this.tone = CmTone.primary,
-    this.icon = Icons.inventory_2_outlined,
+    this.icon = LucideIcons.package,
     this.imageUrl,
     this.badge,
     this.rating,
@@ -518,7 +520,7 @@ class CmProductCard extends StatelessWidget {
                 top: 8,
                 right: 8,
                 child: _RoundIconBtn(
-                  icon: Icons.favorite_border,
+                  icon: LucideIcons.heart,
                   onTap: onFavorite,
                 ),
               ),
@@ -532,7 +534,7 @@ class CmProductCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.check,
+                    const Icon(LucideIcons.check,
                         size: 11, color: AppPalette.primary),
                     const SizedBox(width: 3),
                     Expanded(
@@ -609,7 +611,7 @@ class CmProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    _SquareIconBtn(icon: Icons.add, onTap: onAdd),
+                    _SquareIconBtn(icon: LucideIcons.plus, onTap: onAdd),
                   ],
                 ),
               ],
@@ -671,7 +673,7 @@ class _SquareIconBtn extends StatelessWidget {
         child: const SizedBox(
           width: 30,
           height: 30,
-          child: Icon(Icons.add, size: 15, color: Colors.white),
+          child: Icon(LucideIcons.plus, size: 15, color: Colors.white),
         ),
       ),
     );
@@ -786,6 +788,111 @@ class CmBottomNav extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+/// Helpers responsive partages (web/tablette/desktop). Ajoute par le rollout
+/// responsive 2026-06-27 — voir RAPPORT_AMELIORATIONS_20260627.md.
+class CmResponsive {
+  CmResponsive._();
+  static const double phoneMax = 600;
+  static const double contentMaxWidth = 720;
+
+  static bool isLargeScreen(BuildContext context) =>
+      MediaQuery.of(context).size.width >= phoneMax;
+
+  static Widget center({
+    required Widget child,
+    double maxWidth = contentMaxWidth,
+    AlignmentGeometry alignment = Alignment.topCenter,
+  }) {
+    return Align(
+      alignment: alignment,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    );
+  }
+
+  static double dialogWidth(BuildContext context, {double max = 520}) {
+    final w = MediaQuery.of(context).size.width;
+    return w < max ? w : max;
+  }
+
+  /// Enveloppe globale a brancher sur MaterialApp.builder : centre/borne toute
+  /// l'app (ecrans, routes, dialogs) sur grand ecran, no-op sur mobile.
+  static Widget appWrap(
+    BuildContext context,
+    Widget? child, {
+    double maxWidth = 900,
+    Color background = const Color(0xFFE9ECF1),
+  }) {
+    final content = child ?? const SizedBox.shrink();
+    if (MediaQuery.of(context).size.width < phoneMax) return content;
+    return ColoredBox(
+      color: background,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: content,
+        ),
+      ),
+    );
+  }
+}
+
+/// Slim banner shown when connectivity drops. Place it at the top of a Scaffold
+/// body (above the content) so the driver knows why data may be stale. Collapses
+/// to zero height when online, so it costs nothing on the happy path.
+class CmOfflineBanner extends StatelessWidget {
+  const CmOfflineBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<NetworkQuality>(
+      stream: NetworkQualityService.instance.qualityStream,
+      initialData: NetworkQualityService.instance.current,
+      builder: (context, snapshot) {
+        final quality = snapshot.data ?? NetworkQuality.online;
+        if (quality == NetworkQuality.online) {
+          return const SizedBox.shrink();
+        }
+        final offline = quality == NetworkQuality.offline;
+        return Material(
+          color: offline ? AppPalette.secondary : Colors.orange.shade700,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    offline ? LucideIcons.wifiOff : LucideIcons.signalLow,
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      offline
+                          ? "Hors ligne — les donnees peuvent etre perimees"
+                          : "Connexion faible",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

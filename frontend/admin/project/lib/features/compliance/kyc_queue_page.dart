@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
 import 'document_review_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 35 — KYC compliance queue, grouped by user.
 class KycQueuePage extends StatefulWidget {
@@ -116,7 +117,7 @@ class _KycQueuePageState extends State<KycQueuePage> {
                     ? const AppEmptyState(
                         title: 'File vide',
                         subtitle: 'Aucun document pour ce filtre.',
-                        icon: Icons.fact_check_outlined,
+                        icon: LucideIcons.clipboardCheck,
                       )
                     : RefreshIndicator(
                         onRefresh: _refresh,
@@ -166,7 +167,7 @@ class _KycQueuePageState extends State<KycQueuePage> {
             '${group.documents.length} document(s) · soumis ${oldest != null ? Fmt.relative(oldest.toIso8601String()) : '—'}',
         trailing: urgent
             ? const StatusPill('URGENT', color: AppPalette.danger)
-            : const Icon(Icons.chevron_right, color: AppPalette.textMuted),
+            : const Icon(LucideIcons.chevronRight, color: AppPalette.textMuted),
       ),
     );
   }
@@ -189,10 +190,10 @@ class _KycQueuePageState extends State<KycQueuePage> {
             ),
             for (final doc in group.documents)
               ListTile(
-                leading: const Icon(Icons.description_outlined),
+                leading: const Icon(LucideIcons.fileText),
                 title: Text('${doc['doc_type'] ?? 'Document'}'),
                 subtitle: Text('Statut : ${doc['status']}'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(LucideIcons.chevronRight),
                 onTap: () {
                   Navigator.pop(context);
                   _openReview(doc, name);

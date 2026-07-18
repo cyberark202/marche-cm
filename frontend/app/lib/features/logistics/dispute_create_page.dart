@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_service.dart';
 import '../auth/session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // ---------------------------------------------------------------------------
 // Dispute type catalog — mirrors backend DisputeType
@@ -30,21 +31,21 @@ const _disputeTypes = [
     value: 'QUALITY_DEFECT',
     label: 'Mauvaise qualite',
     description: 'Marchandise non conforme aux photos ou specifications annoncees',
-    icon: Icons.warning_amber_rounded,
+    icon: LucideIcons.alertTriangle,
     color: Color(0xFFE67E22),
   ),
   DisputeTypeInfo(
     value: 'WRONG_QUANTITY',
     label: 'Quantite incomplete',
     description: 'Moins de produits recus que commandes',
-    icon: Icons.inventory_2_outlined,
+    icon: LucideIcons.package,
     color: Color(0xFF8E44AD),
   ),
   DisputeTypeInfo(
     value: 'COUNTERFEIT',
     label: 'Produit contrefait',
     description: 'Article presenté comme original mais identifie comme une copie',
-    icon: Icons.gpp_bad_outlined,
+    icon: LucideIcons.shieldOff,
     color: Color(0xFFC0392B),
   ),
   // Mauvaise foi
@@ -52,14 +53,14 @@ const _disputeTypes = [
     value: 'FALSE_NON_RECEIPT',
     label: 'Fausse non-reception',
     description: 'Le colis a ete livre mais l\'acheteur nie l\'avoir recu',
-    icon: Icons.block_outlined,
+    icon: LucideIcons.ban,
     color: Color(0xFFE74C3C),
   ),
   DisputeTypeInfo(
     value: 'USED_THEN_DISPUTED',
     label: 'Produit utilise puis conteste',
     description: 'Utilisation du produit avant d\'ouvrir un litige',
-    icon: Icons.history_outlined,
+    icon: LucideIcons.history,
     color: Color(0xFF7F8C8D),
   ),
   // Livraison
@@ -67,21 +68,21 @@ const _disputeTypes = [
     value: 'DELIVERY_DELAY',
     label: 'Retard de livraison',
     description: 'Livraison apres la date convenue causant une perte financiere',
-    icon: Icons.schedule_outlined,
+    icon: LucideIcons.clock,
     color: Color(0xFF2980B9),
   ),
   DisputeTypeInfo(
     value: 'LOST_PARCEL',
     label: 'Colis perdu',
     description: 'La marchandise a disparu pendant le transport',
-    icon: Icons.search_off_outlined,
+    icon: LucideIcons.searchX,
     color: Color(0xFF2C3E50),
   ),
   DisputeTypeInfo(
     value: 'WRONG_RECIPIENT',
     label: 'Mauvais destinataire',
     description: 'La commande a ete remise a une autre personne',
-    icon: Icons.person_off_outlined,
+    icon: LucideIcons.userX,
     color: Color(0xFF16A085),
   ),
   // Escrow
@@ -89,21 +90,21 @@ const _disputeTypes = [
     value: 'ESCROW_BLOCKED',
     label: 'Fonds bloques',
     description: 'Fonds en escrow bloques depuis plus de 14 jours sans raison',
-    icon: Icons.lock_clock_outlined,
+    icon: LucideIcons.lock,
     color: Color(0xFF1ABC9C),
   ),
   DisputeTypeInfo(
     value: 'PREMATURE_RELEASE',
     label: 'Liberation prematuree',
     description: 'Les fonds ont ete liberes avant la confirmation de livraison',
-    icon: Icons.lock_open_outlined,
+    icon: LucideIcons.unlock,
     color: Color(0xFFD35400),
   ),
   DisputeTypeInfo(
     value: 'WALLET_FROZEN',
     label: 'Wallet gele',
     description: 'Compte wallet suspendu sans notification ni motif clair',
-    icon: Icons.account_balance_wallet_outlined,
+    icon: LucideIcons.wallet,
     color: Color(0xFF2980B9),
   ),
   // Financiers
@@ -111,21 +112,21 @@ const _disputeTypes = [
     value: 'DOUBLE_CHARGE',
     label: 'Double debit Mobile Money',
     description: 'Compte debite deux fois pour un seul paiement',
-    icon: Icons.money_off_outlined,
+    icon: LucideIcons.coins,
     color: Color(0xFFE74C3C),
   ),
   DisputeTypeInfo(
     value: 'WITHDRAWAL_ERROR',
     label: 'Erreur de retrait',
     description: 'Retrait marque reussi mais aucun montant recu',
-    icon: Icons.sync_problem_outlined,
+    icon: LucideIcons.refreshCw,
     color: Color(0xFFF39C12),
   ),
   DisputeTypeInfo(
     value: 'CHARGEBACK',
     label: 'Chargeback bancaire',
     description: 'Annulation bancaire Visa apres livraison effective',
-    icon: Icons.credit_card_off_outlined,
+    icon: LucideIcons.creditCard,
     color: Color(0xFF8E44AD),
   ),
   // KYC
@@ -133,14 +134,14 @@ const _disputeTypes = [
     value: 'FAKE_DOCUMENTS',
     label: 'Faux documents',
     description: 'Vendeur utilisant une fausse identite ou un faux RCCM',
-    icon: Icons.badge_outlined,
+    icon: LucideIcons.badgeCheck,
     color: Color(0xFFC0392B),
   ),
   DisputeTypeInfo(
     value: 'UNJUST_SUSPENSION',
     label: 'Suspension injustifiee',
     description: 'Compte desactive sans explication ni procedure',
-    icon: Icons.person_remove_outlined,
+    icon: LucideIcons.userMinus,
     color: Color(0xFF7F8C8D),
   ),
   // Logistique
@@ -148,21 +149,21 @@ const _disputeTypes = [
     value: 'DAMAGED_GOODS',
     label: 'Marchandise endommagee',
     description: 'Produits endommages durant le transport',
-    icon: Icons.broken_image_outlined,
+    icon: LucideIcons.imageOff,
     color: Color(0xFFE67E22),
   ),
   DisputeTypeInfo(
     value: 'INTERNAL_THEFT',
     label: 'Vol interne',
     description: 'Disparition de marchandise avec scelles forces',
-    icon: Icons.security_outlined,
+    icon: LucideIcons.shieldCheck,
     color: Color(0xFF922B21),
   ),
   DisputeTypeInfo(
     value: 'FALSE_TRACKING',
     label: 'Fausse mise a jour suivi',
     description: 'Statut "arrive" mais colis introuvable physiquement',
-    icon: Icons.location_off_outlined,
+    icon: LucideIcons.mapPinOff,
     color: Color(0xFF2C3E50),
   ),
   // Publicite
@@ -170,14 +171,14 @@ const _disputeTypes = [
     value: 'MISLEADING_AD',
     label: 'Publicite trompeuse',
     description: 'Produits livres differents des images sponsorisees',
-    icon: Icons.ads_click_outlined,
+    icon: LucideIcons.mousePointerClick,
     color: Color(0xFFE67E22),
   ),
   DisputeTypeInfo(
     value: 'FAKE_STATS',
     label: 'Faux chiffres boost',
     description: 'Statistiques de campagne incoherentes avec le trafic reel',
-    icon: Icons.bar_chart_outlined,
+    icon: LucideIcons.barChart3,
     color: Color(0xFF7F8C8D),
   ),
   // Donnees
@@ -185,14 +186,14 @@ const _disputeTypes = [
     value: 'DATA_BREACH',
     label: 'Fuite de donnees KYC',
     description: 'Informations personnelles KYC utilisees de maniere suspecte',
-    icon: Icons.privacy_tip_outlined,
+    icon: LucideIcons.shieldAlert,
     color: Color(0xFFC0392B),
   ),
   DisputeTypeInfo(
     value: 'UNAUTHORIZED_ACCESS',
     label: 'Acces non autorise',
     description: 'Acces au compte par une personne non autorisee',
-    icon: Icons.no_accounts_outlined,
+    icon: LucideIcons.userX,
     color: Color(0xFF922B21),
   ),
   // Entre vendeurs
@@ -200,14 +201,14 @@ const _disputeTypes = [
     value: 'CATALOG_COPY',
     label: 'Copie de catalogue',
     description: 'Photos et descriptions copiees sans autorisation',
-    icon: Icons.copy_outlined,
+    icon: LucideIcons.copy,
     color: Color(0xFF1ABC9C),
   ),
   DisputeTypeInfo(
     value: 'FAKE_REVIEWS',
     label: 'Faux avis negatifs',
     description: 'Avis frauduleux pour nuire a la reputation',
-    icon: Icons.thumb_down_outlined,
+    icon: LucideIcons.thumbsDown,
     color: Color(0xFF7F8C8D),
   ),
   // Internes
@@ -215,14 +216,14 @@ const _disputeTypes = [
     value: 'MODERATION_BIAS',
     label: 'Favoritisme moderation',
     description: 'Decision admin suspected de traitement preferentiel',
-    icon: Icons.balance_outlined,
+    icon: LucideIcons.scale,
     color: Color(0xFF8E44AD),
   ),
   DisputeTypeInfo(
     value: 'HISTORY_TAMPER',
     label: 'Historique modifie',
     description: 'Messages du chat disparus apres l\'ouverture du litige',
-    icon: Icons.history_edu_outlined,
+    icon: LucideIcons.scrollText,
     color: Color(0xFF922B21),
   ),
   // Reglementaires
@@ -230,14 +231,14 @@ const _disputeTypes = [
     value: 'FINANCIAL_REGULATION',
     label: 'Activite non autorisee',
     description: 'Contestation reglementaire sur le systeme wallet/escrow',
-    icon: Icons.account_balance_outlined,
+    icon: LucideIcons.landmark,
     color: Color(0xFF2C3E50),
   ),
   DisputeTypeInfo(
     value: 'TAX_COMPLIANCE',
     label: 'Non-conformite fiscale',
     description: 'Contestation sur la declaration des commissions et transactions',
-    icon: Icons.receipt_long_outlined,
+    icon: LucideIcons.receipt,
     color: Color(0xFF7F8C8D),
   ),
   // Multi-acteurs
@@ -245,7 +246,7 @@ const _disputeTypes = [
     value: 'MULTI_ACTOR',
     label: 'Multi-acteurs',
     description: 'Aucun acteur n\'accepte la responsabilite — arbitrage necessaire',
-    icon: Icons.group_outlined,
+    icon: LucideIcons.users,
     color: Color(0xFF2C3E50),
   ),
   // Autre
@@ -253,7 +254,7 @@ const _disputeTypes = [
     value: 'OTHER',
     label: 'Autre',
     description: 'Probleme non liste ci-dessus — a preciser dans les details',
-    icon: Icons.help_outline,
+    icon: LucideIcons.helpCircle,
     color: Color(0xFF607D8B),
   ),
 ];
@@ -469,7 +470,7 @@ class _TypeStep extends StatelessWidget {
                   ),
                   title: Text(t.label, style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(t.description, style: const TextStyle(fontSize: 12)),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(LucideIcons.chevronRight),
                   onTap: () => onSelected(t),
                 ),
               );
@@ -579,13 +580,13 @@ class _DetailsStep extends StatelessWidget {
             children: [
               OutlinedButton.icon(
                 onPressed: onBack,
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(LucideIcons.arrowLeft),
                 label: const Text('Retour'),
               ),
               const Spacer(),
               FilledButton.icon(
                 onPressed: onNext,
-                icon: const Icon(Icons.arrow_forward),
+                icon: const Icon(LucideIcons.arrowRight),
                 label: const Text('Continuer'),
               ),
             ],
@@ -640,7 +641,7 @@ class _EvidenceStep extends StatelessWidget {
         const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: onPickFiles,
-          icon: const Icon(Icons.attach_file),
+          icon: const Icon(LucideIcons.paperclip),
           label: const Text('Ajouter des fichiers'),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -655,7 +656,7 @@ class _EvidenceStep extends StatelessWidget {
                 title: Text(files[i].name, style: const TextStyle(fontSize: 13)),
                 subtitle: Text(_formatSize(files[i].size)),
                 trailing: IconButton(
-                  icon: const Icon(Icons.close, size: 18),
+                  icon: const Icon(LucideIcons.x, size: 18),
                   onPressed: () => onRemoveFile(i),
                 ),
               ),
@@ -687,7 +688,7 @@ class _EvidenceStep extends StatelessWidget {
           children: [
             OutlinedButton.icon(
               onPressed: submitting ? null : onBack,
-              icon: const Icon(Icons.arrow_back),
+              icon: const Icon(LucideIcons.arrowLeft),
               label: const Text('Retour'),
             ),
             const Spacer(),
@@ -696,7 +697,7 @@ class _EvidenceStep extends StatelessWidget {
               icon: submitting
                   ? const SizedBox(width: 16, height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.gavel),
+                  : const Icon(LucideIcons.gavel),
               label: Text(submitting ? 'Envoi...' : 'Soumettre le litige'),
             ),
           ],
@@ -724,14 +725,14 @@ class _EvidenceStep extends StatelessWidget {
       case 'jpg':
       case 'jpeg':
       case 'png':
-        return const Icon(Icons.image_outlined, color: Colors.blue);
+        return const Icon(LucideIcons.image, color: Colors.blue);
       case 'pdf':
-        return const Icon(Icons.picture_as_pdf_outlined, color: Colors.red);
+        return const Icon(LucideIcons.fileText, color: Colors.red);
       case 'mp4':
       case 'mov':
-        return const Icon(Icons.videocam_outlined, color: Colors.purple);
+        return const Icon(LucideIcons.video, color: Colors.purple);
       default:
-        return const Icon(Icons.insert_drive_file_outlined);
+        return const Icon(LucideIcons.fileText);
     }
   }
 

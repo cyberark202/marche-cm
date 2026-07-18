@@ -141,7 +141,7 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                     child: SlideTransition(
                       position: _titleSlide,
                       child: const Text(
-                        "Central Market",
+                        "Market CM",
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,

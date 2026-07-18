@@ -6,6 +6,7 @@ import '../../core/app_i18n.dart';
 import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
 import 'buyer_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -109,19 +110,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.refresh),
+                : const Icon(LucideIcons.refreshCw),
           ),
           if (store.notifications.isNotEmpty)
             IconButton(
               tooltip: context.tr("notifications.mark_all"),
               onPressed: _markAllRead,
-              icon: const Icon(Icons.done_all),
+              icon: const Icon(LucideIcons.checkCheck),
             ),
           if (store.notifications.isNotEmpty)
             IconButton(
               tooltip: context.tr("notifications.clear"),
               onPressed: store.clearNotifications,
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(LucideIcons.trash2),
             ),
         ],
       ),
@@ -142,7 +143,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                               subtitle: _showOnlyUnread
                                   ? context.tr("notifications.all_read")
                                   : context.tr("notifications.new_hint"),
-                              icon: Icons.notifications_none,
+                              icon: LucideIcons.bell,
                             ),
                           ],
                         )
@@ -181,8 +182,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 onTap: () => _markRead(item, absoluteIndex),
                                 leading: Icon(
                                   item.read
-                                      ? Icons.notifications_none
-                                      : Icons.notifications_active_outlined,
+                                      ? LucideIcons.bell
+                                      : LucideIcons.bellRing,
                                   color: item.read
                                       ? Colors.black45
                                       : Theme.of(context).colorScheme.primary,

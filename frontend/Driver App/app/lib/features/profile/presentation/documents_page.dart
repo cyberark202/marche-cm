@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
+import '../../../core/network/upload_mime.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // Audit ref: [Front-Driver] backend exposes /api/compliance-documents/
 // (config/urls.py:65). The /api/accounts/compliance-documents/ path does
@@ -44,9 +46,13 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
 
     setState(() => _uploading = true);
     try {
+      // Le backend refuse un Content-Type manquant/octet-stream (UP-001) :
+      // on déclare un MIME concret sinon l'upload KYC 400.
+      final up = normalizeUpload(file.name);
       final form = FormData.fromMap({
         'doc_type': docType,
-        'file': await MultipartFile.fromFile(file.path!, filename: file.name),
+        'file': await MultipartFile.fromFile(file.path!,
+            filename: up.filename, contentType: up.mime),
       });
       await DriverDioClient.dio.post('/api/compliance-documents/', data: form);
       ref.invalidate(_docsProvider);
@@ -74,12 +80,12 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
       appBar: AppBar(
         title: const Text('Mes documents'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () => context.pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(LucideIcons.refreshCw),
             onPressed: () => ref.invalidate(_docsProvider),
           ),
         ],
@@ -114,7 +120,7 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _uploading ? null : () => _upload('CNI'),
-                icon: const Icon(Icons.add_card),
+                icon: const Icon(LucideIcons.creditCard),
                 label: const Text('Ajouter un document'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 48),
@@ -133,16 +139,16 @@ class _DocCard extends StatelessWidget {
   const _DocCard({required this.doc});
 
   static const _statusInfo = {
-    'PENDING': ('En attente', Color(0xFFF59E0B), Icons.hourglass_empty),
-    'APPROVED': ('Approuvé', Color(0xFF10B981), Icons.check_circle_outline),
-    'REJECTED': ('Rejeté', Color(0xFFDC2626), Icons.cancel_outlined),
+    'PENDING': ('En attente', Color(0xFFF59E0B), LucideIcons.hourglass),
+    'APPROVED': ('Approuvé', Color(0xFF10B981), LucideIcons.checkCircle2),
+    'REJECTED': ('Rejeté', Color(0xFFDC2626), LucideIcons.xCircle),
   };
 
   @override
   Widget build(BuildContext context) {
     final type = doc['doc_type'] as String? ?? '';
     final status = doc['status'] as String? ?? 'PENDING';
-    final info = _statusInfo[status] ?? ('Inconnu', DriverPalette.textMuted, Icons.help_outline);
+    final info = _statusInfo[status] ?? ('Inconnu', DriverPalette.textMuted, LucideIcons.helpCircle);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -173,7 +179,7 @@ class _DocCard extends StatelessWidget {
         if (doc['rejection_reason'] != null && status == 'REJECTED')
           Tooltip(
             message: doc['rejection_reason'].toString(),
-            child: const Icon(Icons.info_outline, size: 18, color: Color(0xFFDC2626)),
+            child: const Icon(LucideIcons.info, size: 18, color: Color(0xFFDC2626)),
           ),
       ]),
     );
@@ -191,7 +197,7 @@ class _EmptyDocs extends StatelessWidget {
       border: Border.all(color: DriverPalette.primary.withValues(alpha: 0.2)),
     ),
     child: const Row(children: [
-      Icon(Icons.badge_outlined, color: DriverPalette.primary, size: 28),
+      Icon(LucideIcons.badgeCheck, color: DriverPalette.primary, size: 28),
       SizedBox(width: 12),
       Expanded(
         child: Text('Aucun document soumis. Ajoutez votre CNI ou Passeport pour débloquer les missions.',

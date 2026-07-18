@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/cm_components.dart';
+import '../../core/ui_state_widgets.dart';
 import '../buyer/buyer_store.dart';
 import '../chat/chat_hub_page.dart';
 import '../feed/video_feed_tab.dart';
@@ -10,6 +11,7 @@ import '../home/home_tab.dart';
 import '../marketplace/marketplace_tab.dart';
 import '../profile/profile_tab.dart';
 import '../wallet/wallet_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -39,32 +41,39 @@ class _MainShellState extends State<MainShell> {
               statusBarIconBrightness: Brightness.dark,
             ),
       child: Scaffold(
-        body: IndexedStack(
-          index: _index,
-          children: const [
-            HomeTab(),
-            MarketplaceTab(),
-            VideoFeedTab(),
-            ChatHubPage(),
-            WalletPage(),
-            ProfileTab(),
+        body: Column(
+          children: [
+            const CmOfflineBanner(),
+            Expanded(
+              child: IndexedStack(
+                index: _index,
+                children: [
+                  const HomeTab(),
+                  const MarketplaceTab(),
+                  VideoFeedTab(active: _index == 2),
+                  const ChatHubPage(),
+                  const WalletPage(),
+                  const ProfileTab(),
+                ],
+              ),
+            ),
           ],
         ),
         bottomNavigationBar: CmBottomNav(
           currentIndex: _index,
           onSelect: (i) => setState(() => _index = i),
           items: [
-            const CmNavItem(icon: Icons.home_outlined, label: 'Accueil'),
-            const CmNavItem(icon: Icons.storefront_outlined, label: 'Marché'),
+            const CmNavItem(icon: LucideIcons.home, label: 'Accueil'),
+            const CmNavItem(icon: LucideIcons.store, label: 'Marché'),
             const CmNavItem(
-                icon: Icons.play_circle_outline_rounded, label: 'Vidéos'),
+                icon: LucideIcons.playCircle, label: 'Vidéos'),
             CmNavItem(
-                icon: Icons.chat_bubble_outline_rounded,
+                icon: LucideIcons.messageCircle,
                 label: 'Messages',
                 badge: unread),
             const CmNavItem(
-                icon: Icons.account_balance_wallet_outlined, label: 'Wallet'),
-            const CmNavItem(icon: Icons.person_outline_rounded, label: 'Profil'),
+                icon: LucideIcons.wallet, label: 'Wallet'),
+            const CmNavItem(icon: LucideIcons.user, label: 'Profil'),
           ],
         ),
       ),

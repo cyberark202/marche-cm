@@ -8,6 +8,9 @@ import '../auth/session_store.dart';
 import '../compliance/kyc_queue_page.dart';
 import '../data/admin_repository.dart';
 import '../disputes/arbitration_page.dart';
+import '../disputes/rental_disputes_page.dart';
+import '../moderation/moderation_page.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Screen 32 — Admin dashboard: GMV, KPIs, critical alerts.
 class AdminDashboardPage extends StatefulWidget {
@@ -166,7 +169,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         IconButton(
           tooltip: 'Rafraîchir',
           onPressed: _refresh,
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(LucideIcons.refreshCw),
         ),
       ],
     );
@@ -209,7 +212,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     foregroundColor: Colors.white,
                   ),
                   onPressed: () => widget.onNavigate(1),
-                  icon: const Icon(Icons.group_outlined, size: 18),
+                  icon: const Icon(LucideIcons.users, size: 18),
                   label: const Text('Comptes'),
                 ),
               ),
@@ -221,7 +224,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     foregroundColor: Colors.white,
                   ),
                   onPressed: widget.onOpenAudit,
-                  icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                  icon: const Icon(LucideIcons.receipt, size: 18),
                   label: const Text('Audit'),
                 ),
               ),
@@ -245,14 +248,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           label: 'Utilisateurs',
           value: Fmt.thousands(d.usersTotal),
           sub: '${Fmt.thousands(d.usersVerified)} vérifiés',
-          icon: Icons.group_outlined,
+          icon: LucideIcons.users,
           onTap: () => widget.onNavigate(1),
         ),
         KpiCard(
           label: 'Séquestre actif',
           value: Fmt.compactFcfa(d.escrowHeld),
           sub: '${d.escrowActive} commandes',
-          icon: Icons.lock_outline,
+          icon: LucideIcons.lock,
           accent: AppPalette.secondary,
           onTap: () => widget.onNavigate(3),
         ),
@@ -260,7 +263,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           label: 'Litiges ouverts',
           value: '${d.openDisputes.length}',
           sub: '${d.urgentDisputes} urgents',
-          icon: Icons.gavel_outlined,
+          icon: LucideIcons.gavel,
           accent: AppPalette.danger,
           onTap: () => widget.onNavigate(2),
         ),
@@ -268,9 +271,24 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           label: 'KYC à valider',
           value: '${d.openCompliance}',
           sub: 'en attente',
-          icon: Icons.fact_check_outlined,
+          icon: LucideIcons.clipboardCheck,
           accent: AppPalette.accent,
           onTap: _openKyc,
+        ),
+        KpiCard(
+          label: 'Modération',
+          value: 'Produits',
+          sub: 'suspendre / rétablir',
+          icon: LucideIcons.shieldAlert,
+          onTap: _openModeration,
+        ),
+        KpiCard(
+          label: 'Litiges location',
+          value: 'Cautions',
+          sub: 'arbitrage séquestre',
+          icon: LucideIcons.keyRound,
+          accent: AppPalette.secondary,
+          onTap: _openRentalDisputes,
         ),
       ],
     );
@@ -286,7 +304,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       final urgent = _isUrgent(dispute);
       alerts.add(_alertTile(
         color: AppPalette.danger,
-        icon: Icons.warning_amber_rounded,
+        icon: LucideIcons.alertTriangle,
         badge: urgent ? 'URGENT' : 'OUVERT',
         title: reason,
         subtitle: 'Litige #${_short(id)} · décision en attente',
@@ -298,7 +316,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     if (d.openCompliance > 0) {
       alerts.add(_alertTile(
         color: AppPalette.accent,
-        icon: Icons.fact_check_outlined,
+        icon: LucideIcons.clipboardCheck,
         badge: 'KYC',
         title: '${d.openCompliance} documents KYC en attente',
         subtitle: 'File de conformité à traiter',
@@ -309,7 +327,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
     alerts.add(_alertTile(
       color: AppPalette.info,
-      icon: Icons.account_balance_outlined,
+      icon: LucideIcons.landmark,
       badge: 'FINOPS',
       title: 'Réconciliation wallet',
       subtitle: 'Rapprocher NotchPay vs système',
@@ -389,6 +407,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   void _openKyc() => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const KycQueuePage()),
+      );
+
+  void _openModeration() => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ModerationPage()),
+      );
+
+  void _openRentalDisputes() => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const RentalDisputesPage()),
       );
 
   void _openArbitration(int? id) {

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // Audit ref: [Front-Driver] no /api/wallets/driver/earnings/ endpoint exists
 // server-side. Earnings are now aggregated client-side from the wallet
@@ -58,7 +59,7 @@ class EarningsPage extends ConsumerWidget {
             const Center(child: CircularProgressIndicator(color: T.primary)),
         error: (e, _) => Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off_outlined, size: 48, color: T.ink4),
+            const Icon(LucideIcons.cloudOff, size: 48, color: T.ink4),
             const SizedBox(height: 12),
             const Text('Erreur de chargement',
                 style: TextStyle(color: T.ink3, fontSize: 14)),
@@ -109,7 +110,7 @@ class EarningsPage extends ConsumerWidget {
                                       Colors.white.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: const Icon(Icons.arrow_back,
+                                child: const Icon(LucideIcons.arrowLeft,
                                     color: Colors.white, size: 20),
                               ),
                             ),
@@ -160,7 +161,7 @@ class EarningsPage extends ConsumerWidget {
                       child: _StatCard(
                         label: 'Total',
                         value: _fmt(total),
-                        icon: Icons.emoji_events_outlined,
+                        icon: LucideIcons.trophy,
                         iconBg: T.accentSoft,
                         iconFg: T.accentDark,
                       ),
@@ -170,7 +171,7 @@ class EarningsPage extends ConsumerWidget {
                       child: _StatCard(
                         label: 'Cette semaine',
                         value: _fmt(thisWeek),
-                        icon: Icons.date_range_outlined,
+                        icon: LucideIcons.calendarRange,
                         iconBg: T.primarySoft,
                         iconFg: T.primaryDark,
                       ),
@@ -301,7 +302,7 @@ class _EarningTile extends StatelessWidget {
             color: T.primarySoft,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.arrow_downward,
+          child: const Icon(LucideIcons.arrowDown,
               color: T.primary, size: 18),
         ),
         const SizedBox(width: 10),

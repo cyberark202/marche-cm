@@ -72,15 +72,21 @@ class FeedApiService {
         .map(
           (p) => VideoPostData(
             id: p.id,
-            coverUrl: p.imageUrl,
+            coverUrl: (p.posterUrl != null && p.posterUrl!.isNotEmpty)
+                ? p.posterUrl!
+                : p.imageUrl,
             publisherName: p.sellerDisplayName,
             publisherAvatar: p.sellerAvatarUrl.isEmpty
                 ? "https://i.pravatar.cc/200?u=${p.sellerReferenceCode}"
                 : p.sellerAvatarUrl,
             description: p.description.isEmpty ? p.title : p.description,
-            likes: 0,
-            comments: const [],
+            likes: p.videoLikesCount,
+            commentsCount: p.videoCommentsCount,
+            views: p.videoViewsCount,
+            isLiked: p.isVideoLiked,
+            isFollowingSeller: p.isFollowingSeller,
             sellerId: p.sellerId,
+            product: p,
             videoUrl: p.videoUrl,
           ),
         )
@@ -141,6 +147,10 @@ class FeedApiService {
       "allowsGrouping": product.allowsGrouping,
       "description": product.description,
       "videoUrl": product.videoUrl,
+      "posterUrl": product.posterUrl,
+      "videoLikesCount": product.videoLikesCount,
+      "videoCommentsCount": product.videoCommentsCount,
+      "videoViewsCount": product.videoViewsCount,
     };
   }
 
@@ -154,6 +164,8 @@ class FeedApiService {
     final rawSellerAvatarUrl = (json["sellerAvatarUrl"] ?? "").toString();
     final rawVideoUrl = (json["videoUrl"] ?? "").toString();
     final resolvedVideoUrl = _resolveMediaUrl(rawVideoUrl);
+    final rawPosterUrl = (json["posterUrl"] ?? "").toString();
+    final resolvedPosterUrl = _resolveMediaUrl(rawPosterUrl);
     return ProductCardData(
       id: id,
       referenceCode: (json["referenceCode"] ?? "").toString(),
@@ -180,6 +192,10 @@ class FeedApiService {
       allowsGrouping: (json["allowsGrouping"] ?? false) == true,
       description: (json["description"] ?? "").toString(),
       videoUrl: resolvedVideoUrl.isEmpty ? null : resolvedVideoUrl,
+      posterUrl: resolvedPosterUrl.isEmpty ? null : resolvedPosterUrl,
+      videoLikesCount: _toInt(json["videoLikesCount"]) ?? 0,
+      videoCommentsCount: _toInt(json["videoCommentsCount"]) ?? 0,
+      videoViewsCount: _toInt(json["videoViewsCount"]) ?? 0,
     );
   }
 
@@ -191,6 +207,7 @@ class FeedApiService {
     }
     final imagePath = (json["image"] ?? "").toString();
     final videoPath = (json["video"] ?? "").toString();
+    final posterPath = (json["video_poster"] ?? "").toString();
     final imageUrl = _resolveMediaUrl(imagePath);
     return ProductCardData(
       id: id,
@@ -219,6 +236,13 @@ class FeedApiService {
       allowsGrouping: (json["allows_group_campaign"] ?? false) == true,
       description: (json["description"] ?? "").toString(),
       videoUrl: videoPath.isEmpty ? null : _resolveMediaUrl(videoPath),
+      posterUrl: posterPath.isEmpty ? null : _resolveMediaUrl(posterPath),
+      videoLikesCount: _toInt(json["video_likes_count"]) ?? 0,
+      videoCommentsCount: _toInt(json["video_comments_count"]) ?? 0,
+      videoViewsCount: _toInt(json["video_views_count"]) ?? 0,
+      isVideoLiked: json["is_video_liked"] == true,
+      isFollowingSeller: json["is_following_seller"] == true,
+      isFavorited: json["is_favorited"] == true,
     );
   }
 

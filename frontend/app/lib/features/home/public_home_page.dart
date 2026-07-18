@@ -6,6 +6,7 @@ import '../../core/ui_state_widgets.dart';
 import '../common/support_center_page.dart';
 import '../feed/feed_api_service.dart';
 import '../feed/feed_models.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class PublicHomePage extends StatefulWidget {
   const PublicHomePage({
@@ -40,14 +41,14 @@ class _PublicHomePageState extends State<PublicHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Central Market"),
+        title: const Text("Market CM"),
         actions: [
           IconButton(
             tooltip: context.tr("public.support"),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SupportCenterPage()),
             ),
-            icon: const Icon(Icons.help_outline),
+            icon: const Icon(LucideIcons.helpCircle),
           ),
         ],
       ),
@@ -120,7 +121,7 @@ class _PublicHomePageState extends State<PublicHomePage> {
                   child: AppEmptyState(
                     title: context.tr("public.products.empty"),
                     subtitle: context.tr("public.products.empty_subtitle"),
-                    icon: Icons.store_mall_directory_outlined,
+                    icon: LucideIcons.store,
                   ),
                 )
               else
@@ -141,7 +142,7 @@ class _PublicHomePageState extends State<PublicHomePage> {
                               ),
                             ),
                             errorWidget: (context, _, __) =>
-                                const Icon(Icons.image_not_supported_outlined),
+                                const Icon(LucideIcons.imageOff),
                           ),
                         ),
                         title: Text(p.title),

@@ -118,7 +118,7 @@ class _ComplianceDocumentsPageState extends State<ComplianceDocumentsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text(
-                "Acces reserve aux fournisseurs, grossistes et livreurs.")),
+                "Acces reserve aux vendeurs et livreurs.")),
       );
       return;
     }
@@ -165,7 +165,7 @@ class _ComplianceDocumentsPageState extends State<ComplianceDocumentsPage> {
           child: Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-                "Cet espace est reserve aux fournisseurs, grossistes et livreurs."),
+                "Cet espace est reserve aux vendeurs et livreurs."),
           ),
         ),
       );

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class OtpValidationPage extends StatefulWidget {
   final String shipmentId;
@@ -77,11 +78,13 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
       if (mounted) {
         setState(() {
           _error = 'Code invalide. Vérifiez avec le client.';
-          _busy = false;
           for (final c in _controllers) { c.clear(); }
           _focusNodes.first.requestFocus();
         });
       }
+    } finally {
+      // Toujours relâcher le spinner (succès = navigation ; échec = ré-essai).
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -101,7 +104,7 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
       backgroundColor: DriverPalette.bg,
       appBar: AppBar(
         title: const Text('Code de validation'),
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+        leading: IconButton(icon: const Icon(LucideIcons.arrowLeft), onPressed: () => context.pop()),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),
@@ -114,7 +117,7 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
                 color: DriverPalette.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.pin_outlined, color: DriverPalette.primary, size: 36),
+              child: const Icon(LucideIcons.mapPin, color: DriverPalette.primary, size: 36),
             ),
             const SizedBox(height: 20),
             const Text('Entrez le code OTP', style: TextStyle(fontSize: 20,
@@ -135,7 +138,7 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
                   border: Border.all(color: const Color(0xFF6EE7B7)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.mark_email_read_outlined, size: 16, color: Color(0xFF059669)),
+                  const Icon(LucideIcons.mailCheck, size: 16, color: Color(0xFF059669)),
                   const SizedBox(width: 8),
                   Expanded(child: Text(_info!,
                       style: const TextStyle(color: Color(0xFF059669), fontSize: 13))),
@@ -152,7 +155,7 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
                   border: Border.all(color: const Color(0xFFFCA5A5)),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+                  const Icon(LucideIcons.alertCircle, size: 16, color: Color(0xFFDC2626)),
                   const SizedBox(width: 8),
                   Expanded(child: Text(_error!,
                       style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13))),
@@ -211,12 +214,12 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
               icon: _sending
                   ? const SizedBox(width: 14, height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.sms_outlined, size: 16),
+                  : const Icon(LucideIcons.messageSquare, size: 16),
               label: Text(_sending ? 'Envoi du code…' : 'Renvoyer le code au client'),
             ),
             TextButton.icon(
               onPressed: () => context.push('/active/proof/${widget.shipmentId}'),
-              icon: const Icon(Icons.camera_alt_outlined, size: 16),
+              icon: const Icon(LucideIcons.camera, size: 16),
               label: const Text('Problème ? Uploader une preuve photo'),
             ),
           ],

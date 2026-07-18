@@ -12,6 +12,7 @@ import 'auth_api_service.dart';
 import 'password_reset_page.dart';
 import 'seller_register_page.dart';
 import 'session_store.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -372,7 +373,7 @@ class _AuthPageState extends State<AuthPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
         inputDecoration: InputDecoration(
           labelText: "Rechercher un pays",
-          prefixIcon: Icon(Icons.search),
+          prefixIcon: Icon(LucideIcons.search),
         ),
       ),
       onSelect: (country) {
@@ -393,7 +394,7 @@ class _AuthPageState extends State<AuthPage> {
       child: InputDecorator(
         decoration: _fieldDecoration(
           label: "Pays de residence",
-          icon: Icons.public,
+          icon: LucideIcons.globe,
           hint: "Selectionner",
         ),
         child: Row(
@@ -404,7 +405,7 @@ class _AuthPageState extends State<AuthPage> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(Icons.arrow_drop_down),
+            const Icon(LucideIcons.chevronDown),
           ],
         ),
       ),
@@ -448,7 +449,7 @@ class _AuthPageState extends State<AuthPage> {
           keyboardType: TextInputType.emailAddress,
           decoration: _fieldDecoration(
             label: "Email",
-            icon: Icons.alternate_email,
+            icon: LucideIcons.atSign,
             hint: "exemple@email.com",
           ),
         ),
@@ -458,7 +459,7 @@ class _AuthPageState extends State<AuthPage> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _login(),
           decoration:
-              _fieldDecoration(label: "Mot de passe", icon: Icons.lock_outline),
+              _fieldDecoration(label: "Mot de passe", icon: LucideIcons.lock),
           obscureText: true,
         ),
         Align(
@@ -498,7 +499,7 @@ class _AuthPageState extends State<AuthPage> {
               side: const BorderSide(color: Color(0xFFD5DFD5)),
             ),
             onPressed: _busy ? null : _loginWithGoogle,
-            icon: const Icon(Icons.login),
+            icon: const Icon(LucideIcons.logIn),
             label: const Text("Continuer avec Google"),
           ),
         ),
@@ -507,9 +508,9 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Widget _roleSelector() {
+    // Compte « Vendeur » unifié : un seul type de compte professionnel.
     const roles = [
-      ('SUPPLIER', 'Fournisseur', Icons.factory_outlined),
-      ('WHOLESALER', 'Grossiste', Icons.store_outlined),
+      ('SUPPLIER', 'Vendeur', LucideIcons.store),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -578,7 +579,7 @@ class _AuthPageState extends State<AuthPage> {
         const SizedBox(height: 10),
         _QuickRegisterBtn(
           label: 'Inscription Vendeur / Pro détaillée',
-          icon: Icons.store_outlined,
+          icon: LucideIcons.store,
           colors: const [Color(0xFF4F46E5), Color(0xFF7C3AED)],
           onTap: () => Navigator.push(context,
               MaterialPageRoute(builder: (_) => const SellerRegisterPage())),
@@ -601,7 +602,7 @@ class _AuthPageState extends State<AuthPage> {
           textInputAction: TextInputAction.next,
           decoration: _fieldDecoration(
             label: "Nom complet",
-            icon: Icons.person_outline,
+            icon: LucideIcons.user,
             hint: "Ex: Jean Dupont",
           ),
         ),
@@ -612,7 +613,7 @@ class _AuthPageState extends State<AuthPage> {
           keyboardType: TextInputType.phone,
           decoration: _fieldDecoration(
             label: "Numero de telephone",
-            icon: Icons.phone_outlined,
+            icon: LucideIcons.phone,
             hint: "Ex: +2376XXXXXXXX",
           ),
         ),
@@ -623,7 +624,7 @@ class _AuthPageState extends State<AuthPage> {
           keyboardType: TextInputType.emailAddress,
           decoration: _fieldDecoration(
             label: "Email",
-            icon: Icons.alternate_email,
+            icon: LucideIcons.atSign,
             hint: "exemple@email.com",
           ),
         ),
@@ -635,7 +636,7 @@ class _AuthPageState extends State<AuthPage> {
           textInputAction: TextInputAction.next,
           decoration: _fieldDecoration(
             label: "Ville (optionnel)",
-            icon: Icons.location_city_outlined,
+            icon: LucideIcons.building2,
             hint: "Ex: Douala",
           ),
         ),
@@ -647,7 +648,7 @@ class _AuthPageState extends State<AuthPage> {
           textInputAction: TextInputAction.next,
           decoration: _fieldDecoration(
             label: "Nom de l'entreprise",
-            icon: Icons.business_outlined,
+            icon: LucideIcons.building2,
             hint: "Ex: Société Dupont SARL",
           ),
         ),
@@ -658,7 +659,7 @@ class _AuthPageState extends State<AuthPage> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _register(),
           decoration:
-              _fieldDecoration(label: "Mot de passe", icon: Icons.lock_outline),
+              _fieldDecoration(label: "Mot de passe", icon: LucideIcons.lock),
           obscureText: true,
         ),
         const SizedBox(height: 18),
@@ -709,7 +710,7 @@ class _AuthPageState extends State<AuthPage> {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.arrow_back),
+                        icon: const Icon(LucideIcons.arrowLeft),
                       ),
                       const SizedBox(width: 4),
                       const Expanded(

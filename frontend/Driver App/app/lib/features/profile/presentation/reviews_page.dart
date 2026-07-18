@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Avis acheteurs — driver reviews (PDF 30).
 final _reviewsProvider =
@@ -38,7 +39,7 @@ class ReviewsPage extends ConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.cloud_off_outlined,
+                      const Icon(LucideIcons.cloudOff,
                           size: 48, color: T.ink4),
                       const SizedBox(height: 12),
                       const Text("Erreur de chargement",
@@ -121,7 +122,7 @@ class _Header extends StatelessWidget {
           if (onBack != null)
             IconButton(
                 onPressed: onBack,
-                icon: const Icon(Icons.arrow_back, color: Colors.white))
+                icon: const Icon(LucideIcons.arrowLeft, color: Colors.white))
           else
             const SizedBox(width: 16),
           const Expanded(
@@ -185,7 +186,7 @@ class _RatingSummary extends StatelessWidget {
                 children: List.generate(5, (i) {
                   final filled = i < average.round();
                   return Icon(
-                    filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                    LucideIcons.star,
                     size: 14,
                     color: filled ? T.accent : T.ink4,
                   );
@@ -392,10 +393,8 @@ class _ReviewCard extends StatelessWidget {
               Row(
                 children: List.generate(5, (i) {
                   return Icon(
-                      i < rating
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      color: T.accent,
+                      LucideIcons.star,
+                      color: i < rating ? T.accent : T.line2,
                       size: 13);
                 }),
               ),
@@ -457,7 +456,7 @@ class _Empty extends StatelessWidget {
                 color: T.accentSoft,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.star_outline_rounded,
+              child: const Icon(LucideIcons.star,
                   size: 36, color: T.accent),
             ),
             const SizedBox(height: 12),

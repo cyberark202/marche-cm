@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 enum _RunsTab { quotes, active, delivered }
 
@@ -76,7 +77,7 @@ class _MyRunsPageState extends ConsumerState<MyRunsPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.cloud_off_outlined,
+                      const Icon(LucideIcons.cloudOff,
                           size: 48, color: T.ink4),
                       const SizedBox(height: 12),
                       const Text("Erreur de chargement",
@@ -148,7 +149,7 @@ class _Header extends StatelessWidget {
           if (onBack != null)
             IconButton(
                 onPressed: onBack,
-                icon: const Icon(Icons.arrow_back, color: Colors.white))
+                icon: const Icon(LucideIcons.arrowLeft, color: Colors.white))
           else
             const SizedBox(width: 16),
           const Expanded(
@@ -382,7 +383,7 @@ class _RunCard extends StatelessWidget {
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.arrow_forward, size: 14, color: T.ink3),
+                    child: Icon(LucideIcons.arrowRight, size: 14, color: T.ink3),
                   ),
                   Container(
                       width: 9,
@@ -412,7 +413,7 @@ class _RunCard extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.inventory_2_outlined,
+                      const Icon(LucideIcons.package,
                           size: 13, color: T.ink3),
                       const SizedBox(width: 5),
                       Expanded(
@@ -431,7 +432,7 @@ class _RunCard extends StatelessWidget {
                       ),
                       if (tab == _RunsTab.active && eta != "—") ...[
                         const SizedBox(width: 6),
-                        const Icon(Icons.schedule,
+                        const Icon(LucideIcons.clock,
                             size: 12, color: T.ink3),
                         const SizedBox(width: 3),
                         Text("ETA $eta",
@@ -464,9 +465,9 @@ class _Empty extends StatelessWidget {
       _RunsTab.delivered => "Pas encore de livraison historisée.",
     };
     final icon = switch (tab) {
-      _RunsTab.quotes => Icons.request_quote_outlined,
-      _RunsTab.active => Icons.local_shipping_outlined,
-      _RunsTab.delivered => Icons.history,
+      _RunsTab.quotes => LucideIcons.fileText,
+      _RunsTab.active => LucideIcons.truck,
+      _RunsTab.delivered => LucideIcons.history,
     };
     return Center(
       child: Padding(

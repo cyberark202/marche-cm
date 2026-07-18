@@ -1,6 +1,9 @@
+import logging
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import Count, Q, Sum
+from django.utils import timezone
 from rest_framework import decorators, permissions, response, status, viewsets
 from rest_framework.exceptions import ValidationError
 
@@ -8,9 +11,11 @@ from apps.accounts.models import User, UserRole
 from apps.accounts.security import write_audit_log
 from apps.notifications.realtime import broadcast_event
 from apps.notifications.service import create_realtime_notification
-from .models import Order, OrderReview, OrderStatus, OrderType
+from .models import CartItem, Order, OrderReview, OrderStatus, OrderType
 from .services import FraudRiskError, OrderFinanceService
-from .serializers import OrderReviewSerializer, OrderSerializer
+from .serializers import CartItemSerializer, OrderReviewSerializer, OrderSerializer
+
+logger = logging.getLogger(__name__)
 
 ORDER_STATUS_TRANSITIONS = {
     OrderStatus.PENDING: {OrderStatus.SOURCING, OrderStatus.SHIPPING, OrderStatus.DISPUTED, OrderStatus.CANCELLED},
@@ -84,7 +89,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 payload={"order_id": order.id},
             )
         except Exception:
-            pass
+            logger.exception("notif_order_created_failed order=%d", order.id)
         broadcast_event(
             "orders",
             "created",
@@ -97,6 +102,69 @@ class OrderViewSet(viewsets.ModelViewSet):
             },
         )
         broadcast_event("wallets", "order_debit", {"order_id": order.id, "amount": str(order.total_price)})
+
+    @decorators.action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        """Validation vendeur (doc 13) : accepte la commande avant la deadline.
+
+        L'acceptation déclenche le dispatch des livreurs (doc 03 R6 : aucun
+        livreur n'est sollicité avant l'accord du vendeur).
+        """
+        order = self.get_object()
+        if request.user.id != order.seller_id:
+            return response.Response({"detail": "Seul le vendeur peut accepter la commande."}, status=status.HTTP_403_FORBIDDEN)
+        with transaction.atomic():
+            locked = Order.objects.select_for_update().get(id=order.id)
+            if locked.status != OrderStatus.PENDING or locked.seller_accepted_at is not None:
+                return response.Response({"detail": "Commande deja traitee."}, status=status.HTTP_409_CONFLICT)
+            if locked.seller_response_deadline and locked.seller_response_deadline <= timezone.now():
+                return response.Response({"detail": "Delai de validation expire."}, status=status.HTTP_409_CONFLICT)
+            locked.seller_accepted_at = timezone.now()
+            locked.save(update_fields=["seller_accepted_at", "updated_at"])
+        write_audit_log(actor=request.user, action="Acceptation commande vendeur", action_key="orders.seller.accept", metadata={"order_id": order.id})
+        try:
+            create_realtime_notification(
+                user=order.buyer,
+                title="Commande acceptee",
+                body=f"Le vendeur a accepte votre commande #{order.id}. Recherche d'un livreur en cours.",
+                payload={"order_id": order.id},
+            )
+        except Exception:
+            logger.exception("notif_order_accept_failed order=%d", order.id)
+        try:
+            from apps.logistics.dispatch import start_dispatch
+            from apps.logistics.models import Shipment
+
+            start_dispatch(Shipment.objects.filter(order=order).first())
+        except Exception:
+            logger.exception("order_dispatch_failed order=%d", order.id)
+        broadcast_event("orders", "seller_accepted", {"id": order.id, "buyer_id": order.buyer_id, "seller_id": order.seller_id})
+        return response.Response(OrderSerializer(Order.objects.get(id=order.id)).data)
+
+    @decorators.action(detail=True, methods=["post"])
+    def refuse(self, request, pk=None):
+        """Refus vendeur (doc 13) : annule la commande et rembourse l'acheteur."""
+        order = self.get_object()
+        if request.user.id != order.seller_id:
+            return response.Response({"detail": "Seul le vendeur peut refuser la commande."}, status=status.HTTP_403_FORBIDDEN)
+        if order.seller_accepted_at is not None:
+            return response.Response({"detail": "Commande deja acceptee."}, status=status.HTTP_409_CONFLICT)
+        reason = str(request.data.get("reason") or "Refus vendeur").strip()[:200]
+        try:
+            refund_amount = OrderFinanceService.cancel_order(order=order, actor=request.user, reason=reason)
+        except ValidationError as exc:
+            return response.Response({"detail": str(exc.detail if hasattr(exc, "detail") else exc)}, status=status.HTTP_409_CONFLICT)
+        try:
+            create_realtime_notification(
+                user=order.buyer,
+                title="Commande refusee",
+                body=f"Le vendeur a refuse votre commande #{order.id}. Vous avez ete rembourse de {refund_amount:,.0f} XAF.",
+                payload={"order_id": order.id},
+            )
+        except Exception:
+            logger.exception("notif_order_refuse_failed order=%d", order.id)
+        broadcast_event("orders", "seller_refused", {"id": order.id, "buyer_id": order.buyer_id, "seller_id": order.seller_id})
+        return response.Response(OrderSerializer(Order.objects.get(id=order.id)).data)
 
     @decorators.action(detail=False, methods=["get"], url_path="sales-summary")
     def sales_summary(self, request):
@@ -167,17 +235,24 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
         if order.buyer_id != request.user.id:
             return response.Response({"detail": "Action reservee a l'acheteur."}, status=status.HTTP_403_FORBIDDEN)
-        if OrderStatus.COMPLETED not in ORDER_STATUS_TRANSITIONS.get(order.status, set()):
+        # Docs 03 R13 / 12 : services et produits numeriques n'ont pas de flux
+        # logistique — l'acheteur confirme la bonne execution des que le vendeur
+        # a accepte, ce qui libere l'escrow.
+        from apps.catalog.models import LISTING_TYPES_WITHOUT_LOGISTICS
+
+        is_non_physical_confirmable = (
+            order.product.listing_type in LISTING_TYPES_WITHOUT_LOGISTICS
+            and order.seller_accepted_at is not None
+            and order.status == OrderStatus.PENDING
+        )
+        if OrderStatus.COMPLETED not in ORDER_STATUS_TRANSITIONS.get(order.status, set()) and not is_non_physical_confirmable:
             return response.Response(
                 {"detail": f"Transition invalide: {order.status} -> {OrderStatus.COMPLETED}."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
-            if order.order_type == OrderType.INTERNATIONAL:
-                OrderFinanceService.release_logistics_escrow_after_buyer_confirmation(order=order, actor=request.user)
-            else:
-                OrderFinanceService.release_local_escrow_after_buyer_confirmation(order=order, actor=request.user)
+            OrderFinanceService.release_escrows_after_buyer_confirmation(order=order, actor=request.user)
             order.refresh_from_db(fields=["status", "escrow_status"])
         except (ValidationError, FraudRiskError) as exc:
             return response.Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -195,7 +270,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 payload={"order_id": order.id, "can_review": True},
             )
         except Exception:
-            pass
+            logger.exception("notif_order_completed_failed order=%d", order.id)
         write_audit_log(actor=request.user, action="Confirmation livraison commande", metadata={"order_id": order.id})
         broadcast_event(
             "orders",
@@ -233,6 +308,18 @@ class OrderViewSet(viewsets.ModelViewSet):
         if rating < 1 or rating > 5:
             return response.Response({"detail": "Note invalide (1 a 5)."}, status=status.HTTP_400_BAD_REQUEST)
         comment = str(request.data.get("comment") or "").strip()
+        photo = request.FILES.get("photo")
+        if photo is not None:
+            from apps.accounts.upload_security import scrub_image_metadata, validate_uploaded_file
+
+            validate_uploaded_file(
+                photo,
+                field_label="Photo d'avis",
+                allowed_extensions={".png", ".jpg", ".jpeg", ".webp"},
+                max_mb=5,
+                allowed_content_types={"image/png", "image/jpeg", "image/webp"},
+            )
+            photo = scrub_image_metadata(photo)
         review = OrderReview.objects.create(
             order=order,
             buyer=order.buyer,
@@ -240,6 +327,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             product=order.product,
             rating=rating,
             comment=comment,
+            photo=photo,
             is_verified_purchase=True,
         )
         write_audit_log(
@@ -256,5 +344,118 @@ class OrderViewSet(viewsets.ModelViewSet):
                 payload={"order_id": order.id, "rating": rating},
             )
         except Exception:
-            pass
-        return response.Response(OrderReviewSerializer(review).data, status=status.HTTP_201_CREATED)
+            logger.exception("notif_order_review_failed order=%d", order.id)
+        return response.Response(
+            OrderReviewSerializer(review, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @decorators.action(detail=True, methods=["post"], url_path="review-reply")
+    def review_reply(self, request, pk=None):
+        """Droit de reponse du vendeur a l'avis d'un acheteur."""
+        order = self.get_object()
+        if order.seller_id != request.user.id:
+            return response.Response(
+                {"detail": "Seul le vendeur peut repondre a cet avis."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not hasattr(order, "review"):
+            return response.Response(
+                {"detail": "Aucun avis a commenter pour cette commande."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        reply = str(request.data.get("reply") or "").strip()
+        if not reply:
+            return response.Response(
+                {"detail": "Reponse vide."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        review = order.review
+        review.seller_reply = reply
+        review.seller_reply_at = timezone.now()
+        review.save(update_fields=["seller_reply", "seller_reply_at"])
+        try:
+            create_realtime_notification(
+                user=order.buyer,
+                title="Reponse du vendeur",
+                body=f"Le vendeur a repondu a votre avis (commande #{order.id}).",
+                payload={"order_id": order.id},
+            )
+        except Exception:
+            logger.exception("notif_review_reply_failed order=%d", order.id)
+        return response.Response(
+            OrderReviewSerializer(review, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class CartItemViewSet(viewsets.ModelViewSet):
+    """Panier serveur de l'acheteur. Le checkout groupe cree une Order par
+    article via la logique de commande existante — jamais de code escrow ici."""
+
+    serializer_class = CartItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        return (
+            CartItem.objects.filter(buyer=self.request.user)
+            .select_related("product", "product__seller")
+        )
+
+    def create(self, request, *args, **kwargs):
+        # Upsert idempotent : le client envoie la quantite voulue (pas un delta),
+        # ce qui rend l'ajout au panier rejouable sans risque sur reseau faible.
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product = serializer.validated_data["product"]
+        quantity = serializer.validated_data.get("quantity", 1)
+        item, created = CartItem.objects.get_or_create(
+            buyer=request.user, product=product, defaults={"quantity": quantity}
+        )
+        if not created and item.quantity != quantity:
+            item.quantity = quantity
+            item.save(update_fields=["quantity", "updated_at"])
+        out = self.get_serializer(item)
+        return response.Response(
+            out.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
+
+    @decorators.action(detail=False, methods=["post"])
+    def remove(self, request):
+        """Retire un produit du panier (client indexe par produit, pas par id)."""
+        product_id = request.data.get("product")
+        CartItem.objects.filter(buyer=request.user, product_id=product_id).delete()
+        return response.Response(status=status.HTTP_204_NO_CONTENT)
+
+    @decorators.action(detail=False, methods=["post"])
+    def clear(self, request):
+        CartItem.objects.filter(buyer=request.user).delete()
+        return response.Response(status=status.HTTP_204_NO_CONTENT)
+
+    @decorators.action(detail=False, methods=["post"])
+    def checkout(self, request):
+        """Cree une commande par article du panier, puis vide le panier.
+
+        Atomique : si un article echoue (stock, fonds insuffisants), aucune
+        commande n'est creee. Reutilise OrderSerializer — aucune duplication
+        de la logique de prix/stock/escrow.
+        """
+        items = list(self.get_queryset())
+        if not items:
+            raise ValidationError("Votre panier est vide.")
+        created_orders = []
+        with transaction.atomic():
+            for item in items:
+                order_serializer = OrderSerializer(
+                    data={"product": item.product_id, "quantity": item.quantity},
+                    context={"request": request},
+                )
+                if not order_serializer.is_valid():
+                    raise ValidationError({item.product.title: order_serializer.errors})
+                order = order_serializer.save()
+                created_orders.append(order.id)
+            CartItem.objects.filter(buyer=request.user).delete()
+        return response.Response(
+            {"orders": created_orders, "count": len(created_orders)},
+            status=status.HTTP_201_CREATED,
+        )

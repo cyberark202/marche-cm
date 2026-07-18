@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_theme.dart';
 import 'auth_api_service.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 /// Forgot-password flow for the professional (seller) app:
 ///   1. enter the account email → a 6-digit code is emailed;
@@ -137,7 +138,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline,
+                  const Icon(LucideIcons.alertCircle,
                       size: 16, color: Color(0xFFDC2626)),
                   const SizedBox(width: 8),
                   Expanded(
@@ -156,7 +157,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
               labelText: "Email",
-              prefixIcon: Icon(Icons.alternate_email),
+              prefixIcon: Icon(LucideIcons.atSign),
             ),
           ),
           if (_codeSent) ...[
@@ -166,7 +167,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: "Code de réinitialisation",
-                prefixIcon: Icon(Icons.pin_outlined),
+                prefixIcon: Icon(LucideIcons.mapPin),
               ),
             ),
             const SizedBox(height: 14),
@@ -175,11 +176,11 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               obscureText: !_passVisible,
               decoration: InputDecoration(
                 labelText: "Nouveau mot de passe",
-                prefixIcon: const Icon(Icons.lock_outline),
+                prefixIcon: const Icon(LucideIcons.lock),
                 suffixIcon: IconButton(
                   icon: Icon(_passVisible
-                      ? Icons.visibility_off
-                      : Icons.visibility),
+                      ? LucideIcons.eyeOff
+                      : LucideIcons.eye),
                   onPressed: () =>
                       setState(() => _passVisible = !_passVisible),
                 ),

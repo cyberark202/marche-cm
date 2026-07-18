@@ -3,9 +3,12 @@ WebSocket consumers for Marché CM.
 
 Consumers:
   - NotificationConsumer: per-user notification stream
-  - ChatConsumer: real-time chat with typing indicators
   - TrackingConsumer: live delivery tracking stream
   - DashboardConsumer: admin dashboard live updates
+
+Le chat temps réel ne passe PAS par ici : envoi via REST (apps/chat/views.py),
+réception/typing via /ws/events/ (apps/notifications/consumers.EventsConsumer,
+événements ciblés user_<id>).
 
 All consumers use Redis channel layers for pub/sub.
 """
@@ -121,129 +124,6 @@ class NotificationConsumer(BaseAuthConsumer):
         Notification.objects.filter(pk=notification_id, user=self.scope["user"]).update(is_read=True)
 
 
-class ChatConsumer(BaseAuthConsumer):
-    """
-    Real-time chat consumer.
-    Group: chat_{room_id}
-    Supports: message send, typing indicators, read receipts.
-    """
-
-    async def connect(self):
-        self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
-        self.user = self.scope["user"]
-
-        # Verify user is a participant
-        is_participant = await self._check_participant()
-        if not is_participant:
-            await self.close(code=4003)
-            return
-
-        self.group_name = f"chat_{self.room_id}"
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
-        logger.info("ws_chat_connect", extra={"user_id": self.user.pk, "room_id": self.room_id})
-
-    async def disconnect(self, code):
-        if hasattr(self, "group_name"):
-            # Send stop-typing to peers
-            await self.channel_layer.group_send(
-                self.group_name,
-                {"type": "typing_indicator", "data": {"user_id": self.user.pk, "is_typing": False}},
-            )
-            await self.channel_layer.group_discard(self.group_name, self.channel_name)
-
-    # Audit ref: [WS-005/WS-006] strict validation on every inbound frame.
-    _CHAT_ALLOWED_TYPES = {"chat_message", "typing", "mark_read"}
-    _CHAT_ALLOWED_MESSAGE_TYPES = {"TEXT", "IMAGE", "VIDEO", "DOCUMENT"}
-    _CHAT_MAX_CONTENT_LEN = 4000
-    _CHAT_RATE_KEY_FMT = "ws:chat:rate:{user_id}:{room_id}"
-    _CHAT_RATE_WINDOW_SECONDS = 1
-
-    async def receive_json(self, content, **kwargs):
-        if not isinstance(content, dict):
-            return
-        msg_type = content.get("type", "")
-        if msg_type not in self._CHAT_ALLOWED_TYPES:
-            return
-
-        if msg_type == "chat_message":
-            if not await self._chat_rate_limit_ok():
-                return
-            raw_text = content.get("content", "")
-            if not isinstance(raw_text, str):
-                return
-            text = raw_text[: self._CHAT_MAX_CONTENT_LEN]
-            mtype = content.get("message_type", "TEXT")
-            if mtype not in self._CHAT_ALLOWED_MESSAGE_TYPES:
-                mtype = "TEXT"
-            message = await self._save_message(text, mtype)
-            await self.channel_layer.group_send(
-                self.group_name,
-                {
-                    "type": "chat_message",
-                    "data": {
-                        "id": message.pk,
-                        "sender_id": self.user.pk,
-                        "content": message.content,
-                        "type": message.type,
-                        "created_at": message.created_at.isoformat(),
-                    },
-                },
-            )
-        elif msg_type == "typing":
-            is_typing = bool(content.get("is_typing", False))
-            await self.channel_layer.group_send(
-                self.group_name,
-                {"type": "typing_indicator", "data": {"user_id": self.user.pk, "is_typing": is_typing}},
-            )
-        elif msg_type == "mark_read":
-            message_id = content.get("message_id")
-            if isinstance(message_id, int) and message_id > 0:
-                await self._mark_read(message_id)
-
-    async def _chat_rate_limit_ok(self) -> bool:
-        key = self._CHAT_RATE_KEY_FMT.format(
-            user_id=getattr(self.user, "pk", "anon"),
-            room_id=self.room_id,
-        )
-        added = await database_sync_to_async(cache.add)(
-            key, int(time.time()), self._CHAT_RATE_WINDOW_SECONDS,
-        )
-        return bool(added)
-
-    async def chat_message(self, event):
-        await self.send_json(event["data"])
-
-    async def typing_indicator(self, event):
-        if event["data"]["user_id"] != self.user.pk:
-            await self.send_json({"type": "typing", **event["data"]})
-
-    @database_sync_to_async
-    def _check_participant(self) -> bool:
-        from apps.chat.models import ChatRoom
-        return ChatRoom.objects.filter(pk=self.room_id, participants=self.scope["user"]).exists()
-
-    @database_sync_to_async
-    def _save_message(self, content: str, message_type: str = "TEXT"):
-        from apps.chat.models import ChatRoom, Message
-        room = ChatRoom.objects.get(pk=self.room_id)
-        return Message.objects.create(
-            room=room,
-            sender=self.scope["user"],
-            content=content,
-            type=message_type,
-        )
-
-    @database_sync_to_async
-    def _mark_read(self, message_id: int):
-        from apps.chat.models import DeliveryState, MessageReceipt
-        from django.utils import timezone
-        MessageReceipt.objects.filter(message_id=message_id, user=self.scope["user"]).update(
-            state=DeliveryState.READ,
-            read_at=timezone.now(),
-        )
-
-
 class TrackingConsumer(BaseAuthConsumer):
     """
     Live delivery tracking stream.
@@ -352,9 +232,18 @@ class TrackingConsumer(BaseAuthConsumer):
 
     @database_sync_to_async
     def _save_tracking_event(self, lat: float, lng: float):
+        from django.utils import timezone
         from apps.logistics.models import Shipment, ShipmentEvent
         try:
             shipment = Shipment.objects.get(pk=self.shipment_id)
+            # Position « derniere connue » : permet a l'acheteur/vendeur de voir
+            # le livreur des l'ouverture du suivi (REST), avant le prochain tick.
+            shipment.current_latitude = lat
+            shipment.current_longitude = lng
+            shipment.location_updated_at = timezone.now()
+            shipment.save(
+                update_fields=["current_latitude", "current_longitude", "location_updated_at"]
+            )
             ShipmentEvent.objects.create(
                 shipment=shipment,
                 actor=self.scope["user"],

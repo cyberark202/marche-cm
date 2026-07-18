@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Notes vocales du chat (enregistrement micro). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Android 13+ (API 33): runtime permission required to display FCM
          notifications. firebase_messaging does not declare it for the app. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

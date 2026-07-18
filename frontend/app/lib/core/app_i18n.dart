@@ -9,6 +9,14 @@ class AppI18n {
       "fr": "Une erreur est survenue",
       "en": "Something went wrong"
     },
+    "network.offline": {
+      "fr": "Hors ligne — les donnees peuvent etre perimees",
+      "en": "Offline — data may be out of date"
+    },
+    "network.weak": {
+      "fr": "Connexion faible",
+      "en": "Weak connection"
+    },
     "common.cancel": {"fr": "Annuler", "en": "Cancel"},
     "common.close": {"fr": "Fermer", "en": "Close"},
     "common.send": {"fr": "Envoyer", "en": "Send"},

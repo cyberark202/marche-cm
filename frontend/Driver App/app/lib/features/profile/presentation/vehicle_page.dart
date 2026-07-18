@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 // Audit ref: [Front-Driver] backend exposes TransportProfileViewSet at
 // /api/transport-profiles/ (filtered to current user). The /api/accounts/
@@ -36,12 +37,12 @@ class _VehiclePageState extends ConsumerState<VehiclePage> {
   String? _error;
 
   static const _vehicles = [
-    ('MOTO', 'Moto / Scooter', Icons.two_wheeler),
-    ('CAR', 'Voiture', Icons.directions_car),
-    ('VAN', 'Camionnette', Icons.airport_shuttle),
-    ('TRUCK', 'Camion', Icons.local_shipping),
-    ('BICYCLE', 'Vélo', Icons.pedal_bike),
-    ('FOOT', 'À pied', Icons.directions_walk),
+    ('MOTO', 'Moto / Scooter', LucideIcons.bike),
+    ('CAR', 'Voiture', LucideIcons.car),
+    ('VAN', 'Camionnette', LucideIcons.bus),
+    ('TRUCK', 'Camion', LucideIcons.truck),
+    ('BICYCLE', 'Vélo', LucideIcons.bike),
+    ('FOOT', 'À pied', LucideIcons.footprints),
   ];
 
   Future<void> _save() async {
@@ -89,7 +90,7 @@ class _VehiclePageState extends ConsumerState<VehiclePage> {
       appBar: AppBar(
         title: const Text('Mon véhicule'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () => context.pop(),
         ),
       ),
@@ -119,7 +120,7 @@ class _VehiclePageState extends ConsumerState<VehiclePage> {
                       border: Border.all(color: const Color(0xFFFCA5A5)),
                     ),
                     child: Row(children: [
-                      const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+                      const Icon(LucideIcons.alertCircle, size: 16, color: Color(0xFFDC2626)),
                       const SizedBox(width: 8),
                       Expanded(child: Text(_error!,
                           style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13))),

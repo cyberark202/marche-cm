@@ -68,6 +68,7 @@ def send_finops_alert(*, title: str, body: str, metadata: dict | None = None) ->
             )
             admin_notified += 1
         except Exception:
+            logger.exception("finops_alert_admin_notify_failed admin=%d", admin.id)
             continue
     delivered["in_app_admin_count"] = admin_notified
 
