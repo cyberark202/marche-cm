@@ -17,7 +17,6 @@ class LockExpiryLoggingAuditTests(TestCase):
 
         class _Capture(logging.Handler):
             def emit(self, record):
-                # Force le formatage : c'est là que le KeyError se déclenchait.
                 records.append(self.format(record))
 
         lock_logger = logging.getLogger("core.locks")
@@ -26,9 +25,6 @@ class LockExpiryLoggingAuditTests(TestCase):
         lock_logger.addHandler(handler)
         lock_logger.setLevel(logging.DEBUG)
         try:
-            # Le bloc se termine normalement ; le warning "lock_expired" se
-            # déclenche si le token a expiré, mais le simple fait de logger
-            # avec extra ne doit jamais lever, quel que soit le chemin.
             with acquire_lock("audit:locks:logging", ttl_seconds=5, retry_count=0):
                 lock_logger.warning(
                     "lock_expired",

@@ -28,8 +28,6 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Annotations « liste de conversations » (dernier message + non-lus),
-        # en sous-requêtes pour éviter la multiplication de lignes des joins.
         last_message = Message.objects.filter(room=OuterRef("pk")).order_by("-created_at")
         unread = (
             MessageReceipt.objects.filter(message__room=OuterRef("pk"), user=self.request.user)
@@ -85,8 +83,6 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # Audit ref: [CHAT-001] disallow PATCH/PUT/DELETE — rewriting another
-    # participant's message would destroy dispute evidence. Append-only chat.
     http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
@@ -97,17 +93,11 @@ class MessageViewSet(viewsets.ModelViewSet):
         room_id = self.request.query_params.get("room")
         if room_id:
             queryset = queryset.filter(room_id=room_id)
-        # Audit ref: [CHAT-002] q-filter hardening — bound length, escape SQL
-        # LIKE wildcards (% and _), require room_id when searching.
         raw_term = (self.request.query_params.get("q") or "").strip()
         if raw_term:
             if not room_id:
-                # Cross-room full-text search is forbidden: a single attacker
-                # in one room could otherwise harvest every message containing
-                # tokens like "password" across all their rooms.
                 raise PermissionDenied("Le parametre `room` est obligatoire pour rechercher.")
             if len(raw_term) < 3 or len(raw_term) > 80:
-                # Reject too-short (matches "all") and too-long (DoS) terms.
                 queryset = queryset.none()
             else:
                 term = raw_term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -136,16 +126,9 @@ class MessageViewSet(viewsets.ModelViewSet):
             action_key="chat.send",
             metadata={"room_id": message.room_id, "message_id": message.id},
         )
-        # Message COMPLET sérialisé vers chaque destinataire (groupe user_<id>) :
-        # le client l'insère dans le fil ouvert sans re-fetch REST.
         payload = MessageSerializer(message, context=self.get_serializer_context()).data
         for user_id in recipient_ids:
             broadcast_user_event(user_id=user_id, topic="chat", event_type="message_created", payload=payload)
-        # Real-time delivery when the recipient's app is backgrounded/closed:
-        # WebSocket (above) only reaches connected clients, so we also fire an
-        # async FCM push (push-only — no in-app Notification row, chat has its
-        # own unread tracking). Enqueued so a slow/absent broker never blocks
-        # the send request.
         self._push_new_message(message, recipient_ids)
 
     def _push_new_message(self, message, recipient_ids):

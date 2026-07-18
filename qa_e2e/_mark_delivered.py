@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-# Simule la livraison effectuee par le livreur (action UI Driver bloquee : app
-# principale derriere flag onboarding local non persistant). Met l'order + le
-# shipment en DELIVERED pour que l'acheteur puisse "Valider reception" en UI.
 import os
 from apps.orders.models import Order, OrderStatus
 from apps.logistics.models import ShipmentStatus

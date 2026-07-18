@@ -7,15 +7,10 @@ import 'package:http/http.dart' as http;
 
 import 'app_config.dart';
 
-// Shared storage keys — never change these; they're persisted on-device.
 const kTokenKeyAccess = 'sec.access_token';
 const kTokenKeyRefresh = 'sec.refresh_token';
 const kTokenKeyDeviceId = 'sec.device_id';
 
-/// Single source of truth for token storage (Android Keystore / iOS Keychain).
-///
-/// All layers (Dio, SessionStore, PushNotificationService) read/write through
-/// this class to avoid split-brain between multiple independent stores.
 class TokenRepository {
   TokenRepository._();
 
@@ -33,9 +28,6 @@ class TokenRepository {
   static Future<String?> getAccessToken() => _read(kTokenKeyAccess);
   static Future<String?> getRefreshToken() => _read(kTokenKeyRefresh);
 
-  // Web: a localStorage ciphertext that no longer matches the WebCrypto key
-  // (key regenerated, port reused by another app) throws OperationError on
-  // every read, blocking boot and all requests. Purge and treat as logged out.
   static Future<String?> _read(String key) async {
     try {
       return await _storage.read(key: key);
@@ -79,8 +71,6 @@ class TokenRepository {
     return id;
   }
 
-  /// Perform a token refresh against the backend.
-  /// Returns the new access token on success, null on failure.
   static Future<({String? access, String? refresh})> refresh() async {
     final storedRefresh = await getRefreshToken();
     if (storedRefresh == null || storedRefresh.isEmpty) {

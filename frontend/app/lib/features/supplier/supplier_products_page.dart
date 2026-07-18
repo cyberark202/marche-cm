@@ -51,9 +51,6 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
     _loadUiConfig();
     _load();
     _searchCtrl.addListener(_applySearch);
-    // Une activation/désactivation ou publication déclenchée depuis un autre
-    // écran (ex: page d'édition, vidéo) doit se refléter ici sans que le
-    // vendeur ait à quitter puis revenir sur l'onglet.
     _eventsSub = RealtimeEventsService.instance.events.listen((event) {
       if (!mounted) return;
       if (RealtimeEventsService.instance.matchesTopic(event, 'products')) {
@@ -128,13 +125,11 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
     final brand = TextEditingController();
     final category = TextEditingController();
     final description = TextEditingController();
-    // Forme « Vendeur » unifiée : quantité disponible + montant (prix unique).
     final availableQty = TextEditingController(
         text: (_defaultMaxQty > 0 ? _defaultMaxQty : 1).toString());
     final unitPrice = TextEditingController(
         text: (_defaultMaxPrice > 0 ? _defaultMaxPrice : 0).toString());
     final weightKg = TextEditingController(text: "1.000");
-    // Type d'annonce (docs 03/12) : service/numérique/emploi = sans logistique.
     String listingType = "PHYSICAL";
     const listingTypes = {
       "PHYSICAL": "Produit physique",
@@ -142,7 +137,6 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
       "DIGITAL": "Produit numérique",
       "JOB": "Offre d'emploi",
     };
-    // BUG-S1 — galerie multi-images (jusqu'a 10). La 1re image sert de vignette.
     final List<PlatformFile> galleryFiles = [];
     const int maxImages = 10;
 
@@ -361,7 +355,6 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Barre de recherche
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: TextField(
@@ -395,7 +388,6 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                   ),
                 ),
 
-                // Erreur
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -427,7 +419,6 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                     ),
                   ),
 
-                // Liste
                 Expanded(
                   child: _filtered.isEmpty
                       ? Center(
@@ -493,7 +484,6 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
                                 children: [
-                                  // Icône
                                   Container(
                                     width: 44,
                                     height: 44,
@@ -511,7 +501,6 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                                   ),
                                   const SizedBox(width: 12),
 
-                                  // Contenu
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -542,7 +531,6 @@ class _SupplierProductsPageState extends State<SupplierProductsPage> {
                                   ),
                                   const SizedBox(width: 8),
 
-                                  // Badge statut
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 4),

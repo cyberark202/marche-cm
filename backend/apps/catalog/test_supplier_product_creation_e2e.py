@@ -34,7 +34,6 @@ class SupplierProductCreationE2ETests(TestCase):
     def test_full_supplier_creation_flow(self):
         sup = APIClient()
         sup.force_authenticate(user=self.supplier)
-        # Forme unifiée « Vendeur » : montant + quantité disponible.
         payload = {
             "title": "Savon de Marseille", "description": "carton 48 pains", "brand": "Azur",
             "category_name": "Hygiene", "weight_kg": "12",
@@ -47,19 +46,16 @@ class SupplierProductCreationE2ETests(TestCase):
         self.assertEqual(Decimal(str(created.data["price_for_min_qty"])), Decimal("22000.00"))
         self.assertEqual(Decimal(str(created.data["price_for_max_qty"])), Decimal("22000.00"))
 
-        # Visible in the public (anonymous) catalogue.
         anon = APIClient()
         public = anon.get("/api/products/")
         self.assertEqual(public.status_code, 200)
         ids = [row["id"] for row in public.data["results"]]
         self.assertIn(pid, ids)
 
-        # Visible under the supplier's own listing.
         mine = sup.get("/api/products/mine/")
         self.assertEqual(mine.status_code, 200)
         self.assertIn(pid, [row["id"] for row in mine.data])
 
-        # A buyer still cannot create a product (role guard intact).
         buy = APIClient()
         buy.force_authenticate(user=self.buyer)
         denied = buy.post("/api/products/", payload, format="json")

@@ -39,16 +39,7 @@ def dispatch_pending(batch_size: int = 100) -> int:
     """
     now = timezone.now()
     processed = 0
-    # Audit ref: [INFRA-P0-003] select_for_update exige une transaction
-    # ouverte — en autocommit (worker Celery) chaque batch levait
-    # TransactionManagementError et AUCUN événement outbox n'était dispatché.
-    # skip_locked garde l'exclusion mutuelle entre workers concurrents ; un
-    # crash en cours de batch rollback les statuts → at-least-once préservé.
     with transaction.atomic():
-        # Audit ref: [INFRA-P0-005] event_bus.publish ne renseigne jamais
-        # next_retry_at (NULL) ; le filtre `next_retry_at__lte=now` excluait
-        # donc TOUT événement fraîchement publié — seuls les retries (qui
-        # datent le champ) étaient visibles. NULL = "dispatchable maintenant".
         events = list(
             OutboxEvent.objects
             .select_for_update(skip_locked=True)
@@ -66,7 +57,6 @@ def dispatch_pending(batch_size: int = 100) -> int:
 def _dispatch_single(event: OutboxEvent) -> None:
     handlers = _REGISTRY.get(event.event_type, [])
     if not handlers:
-        # No handlers — mark processed (don't block the queue)
         event.status = OutboxStatus.PROCESSED
         event.processed_at = timezone.now()
         event.save(update_fields=["status", "processed_at"])
@@ -99,6 +89,6 @@ def _dispatch_single(event: OutboxEvent) -> None:
             event.status = OutboxStatus.DEAD
         else:
             event.status = OutboxStatus.PENDING
-            delay = min(2 ** event.retry_count * 30, 3600)  # exponential backoff, max 1h
+            delay = min(2 ** event.retry_count * 30, 3600)
             event.next_retry_at = timezone.now() + timedelta(seconds=delay)
         event.save(update_fields=["status", "retry_count", "error_message", "next_retry_at"])

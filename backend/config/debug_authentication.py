@@ -22,8 +22,6 @@ class DebugBypassAuthentication(BaseAuthentication):
 
     def authenticate(self, request):
         if not getattr(settings, "DEBUG", False):
-            # Hard refusal: if this class is ever loaded with DEBUG=False
-            # (settings drift, hot-reload race, packaging bug), fail loudly.
             logger.error(
                 "debug_bypass_attempt_outside_debug",
                 extra={"path": request.path, "remote": request.META.get("REMOTE_ADDR", "")},

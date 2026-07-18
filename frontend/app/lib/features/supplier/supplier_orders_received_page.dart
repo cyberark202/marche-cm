@@ -7,7 +7,6 @@ import '../auth/session_store.dart';
 import 'supplier_order_detail_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Commandes reçues vendeur (PDF 17).
 class SupplierOrdersReceivedPage extends StatefulWidget {
   const SupplierOrdersReceivedPage({super.key});
 
@@ -21,7 +20,7 @@ class _SupplierOrdersReceivedPageState
   final ApiService _api = ApiService();
   List<Map<String, dynamic>> _orders = const [];
   bool _loading = true;
-  int _tab = 0; // 0 Nouvelles · 1 Préparer · 2 Expédiées
+  int _tab = 0;
 
   @override
   void initState() {

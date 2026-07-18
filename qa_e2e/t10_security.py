@@ -10,7 +10,6 @@ def main():
     anon = Client("anon")
     buy = Client("buyer"); buy.login(BUY, PWD)
 
-    # T10.1 Unauthenticated access to protected endpoints
     protected = ["/api/orders/", "/api/wallets/", "/api/auth/me/", "/api/notifications/", "/api/disputes/"]
     fails = []
     for ep in protected:
@@ -20,7 +19,6 @@ def main():
     record("T10.1", "Endpoints protégés refusent l'accès non authentifié", "critical",
            not fails, "401/403 partout", f"exceptions={fails or 'aucune'}", endpoint="(divers protégés)")
 
-    # T10.2 Expired JWT rejected
     import qa
     if qa.is_remote():
         expired = qa.remote_eval("""
@@ -46,24 +44,20 @@ val = str(tok)
     record("T10.2", "JWT expiré rejeté", "critical", S(r) == 401,
            "401", f"status={S(r)} body={B(r,120)}", endpoint="GET /api/auth/me/")
 
-    # T10.3 IDOR: buyer cannot read another user's record
     r = buy.req("GET", "/api/users/7/", note="idor user 7 (admin)")
     record("T10.3", "IDOR utilisateur: un acheteur ne voit pas un autre compte (ni l'admin)", "critical",
            S(r) == 404, "404", f"status={S(r)}", endpoint="GET /api/users/{id}/", be_file="apps/accounts/views.py:UserViewSet.get_queryset")
 
-    # T10.4 SQL injection in product search q
     inj = "' OR 1=1;-- "
     r = anon.req("GET", f"/api/products/?q={inj}", auth=False, note="sqli products q")
     no_crash = S(r) == 200
     record("T10.4", "Injection SQL dans la recherche produits neutralisée (ORM paramétré)", "critical",
            no_crash, "200 sans erreur ni dump", f"status={S(r)} body={B(r,80)}", endpoint="GET /api/products/?q=")
 
-    # T10.5 SQL injection via numeric id path
     r = anon.req("GET", "/api/products/1%20OR%201=1/", auth=False, note="sqli path")
     record("T10.5", "Injection SQL via id de chemin neutralisée", "major", S(r) in (404, 400),
            "404/400", f"status={S(r)}", endpoint="GET /api/products/{id}/")
 
-    # T10.6 Stored XSS payload in product title (supplier) — stored as data, JSON transport
     sup = Client("supplier"); sup.login(SUP, PWD)
     xss = "<script>alert('xss')</script>"
     import os
@@ -80,12 +74,10 @@ val = str(tok)
            f"status={S(r)} stored_title={stored_title!r} ctype={ctype}", endpoint="POST /api/products/",
            note="L'API ne fait pas de sanitisation HTML; le rendu sécurisé incombe au frontend Flutter (Text widget = sûr).")
 
-    # T10.7 Path traversal pattern blocked by SuspiciousRequestMiddleware
     r = anon.req("GET", "/api/../../etc/passwd", auth=False, note="path traversal")
     record("T10.7", "Tentative de path traversal non servie", "major", S(r) in (400, 403, 404),
            "400/403/404", f"status={S(r)}", endpoint="GET /api/../../etc/passwd", be_file="config/middleware.py:SuspiciousRequestMiddleware")
 
-    # T10.8 Security headers present
     r = anon.req("GET", "/api/health/", auth=False, note="headers")
     h = {k.lower(): v for k, v in (r.headers.items() if r is not None else [])}
     want = ["x-content-type-options", "x-frame-options"]
@@ -94,12 +86,10 @@ val = str(tok)
            len(present) == len(want), "tous présents", f"présents={present} manquants={[k for k in want if k not in h]}",
            endpoint="GET /api/health/", be_file="config/middleware.py:SecurityHeadersMiddleware")
 
-    # T10.9 Scanner User-Agent flagged/handled (no 500)
     r = anon.req("GET", "/api/products/", auth=False, extra_headers={"User-Agent": "sqlmap/1.5"}, note="scanner UA")
     record("T10.9", "Requête avec User-Agent de scanner gérée sans erreur serveur", "minor", S(r) in (200, 400, 403, 429),
            "200/400/403/429 (pas de 500)", f"status={S(r)}", endpoint="GET /api/products/ (UA=sqlmap)")
 
-    # T10.10 Mass assignment: try to set is_superuser/is_staff/role via profile update
     from qa import set_sensitive_otp
     buy.req("POST", "/api/auth/sensitive-action/request/", json_body={"action_key": "profile.update"}, note="req otp mass")
     tk, cd = set_sensitive_otp(BUY, "profile.update")

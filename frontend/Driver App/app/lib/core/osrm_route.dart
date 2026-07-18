@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
-/// Un itineraire route (suivant les routes) renvoye par OSRM.
 class RouteOption {
   const RouteOption({
     required this.points,
@@ -16,7 +15,6 @@ class RouteOption {
   final double distanceMeters;
   final double durationSeconds;
 
-  /// `true` si OSRM etait injoignable : on retombe sur une ligne droite.
   final bool isFallback;
 
   String get distanceLabel => distanceMeters >= 1000
@@ -32,9 +30,6 @@ class RouteOption {
   }
 }
 
-/// Calcule un (ou plusieurs) itineraire(s) routier(s) entre des points via le
-/// serveur public OSRM (OpenStreetMap, SANS cle API). Retombe sur une ligne
-/// droite si le service est injoignable, pour ne jamais bloquer la carte.
 Future<List<RouteOption>> fetchRouteOptions(
   List<LatLng> waypoints, {
   bool alternatives = false,
@@ -73,7 +68,6 @@ Future<List<RouteOption>> fetchRouteOptions(
       if (result.isNotEmpty) return result;
     }
   } catch (_) {
-    // ignore -> fallback ligne droite
   }
   return [
     RouteOption(

@@ -1,4 +1,3 @@
-# verify compliance documents for driver.e2e (BOM-safe via utf-8-sig loader)
 from apps.accounts.models import ComplianceDocument
 
 docs = ComplianceDocument.objects.filter(user_id=33).order_by("id")

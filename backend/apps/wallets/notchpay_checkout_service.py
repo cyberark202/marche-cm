@@ -10,9 +10,6 @@ from django.conf import settings
 class NotchPayCheckoutService:
     CREATE_PATH = "/payments"
     RETRIEVE_PATH = "/payments/{reference}"
-    # Direct Charge — completes a payment in-app (USSD push to the customer's
-    # phone) instead of redirecting to NotchPay's hosted checkout page.
-    # Ref: https://developer.notchpay.co/docs/payments/direct
     CHARGE_PATH = "/payments/{reference}"
 
     @classmethod
@@ -36,7 +33,7 @@ class NotchPayCheckoutService:
         encoded = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=encoded, headers=cls._headers(), method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - URL is NOTCHPAY_API_BASE (server-configured HTTPS)
+            with urllib.request.urlopen(req, timeout=20) as resp:
                 body = resp.read().decode("utf-8")
             return json.loads(body) if body else {}
         except urllib.error.HTTPError as exc:
@@ -57,7 +54,7 @@ class NotchPayCheckoutService:
     def _get_json(cls, url: str) -> dict:
         req = urllib.request.Request(url, headers=cls._headers(), method="GET")
         try:
-            with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - URL is NOTCHPAY_API_BASE (server-configured HTTPS)
+            with urllib.request.urlopen(req, timeout=20) as resp:
                 body = resp.read().decode("utf-8")
             return json.loads(body) if body else {}
         except urllib.error.HTTPError as exc:
@@ -94,10 +91,6 @@ class NotchPayCheckoutService:
             return True
         return code_str in {"200", "201", "202"}
 
-    # Audit ref: NotchPay channel routing — buyers selecting Orange Money were
-    # locked on the MTN payment page because locked_channel hard-coded to the
-    # first entry of NOTCHPAY_CHECKOUT_CHANNELS. The map below converts the
-    # caller-side `provider` ("mtn", "orange", ...) to NotchPay's channel id.
     _PROVIDER_TO_CHANNEL = {
         "mtn": "cm.mtn",
         "cm.mtn": "cm.mtn",
@@ -149,10 +142,6 @@ class NotchPayCheckoutService:
         if customer_payload:
             payload["customer"] = customer_payload
 
-        # Route to the channel that matches what the buyer picked. If the
-        # provider hint is unknown OR the configured list excludes that
-        # channel, we leave locked_channel out so NotchPay falls back to its
-        # own channel picker — that's safer than locking the wrong rail.
         channels = [channel for channel in settings.NOTCHPAY_CHECKOUT_CHANNELS if channel]
         if channels:
             mapped = cls._PROVIDER_TO_CHANNEL.get((provider or "").lower())
@@ -205,9 +194,6 @@ class NotchPayCheckoutService:
             "raw": result,
         }
 
-    # Maps the wallet-level PaymentProvider to NotchPay's Cameroon mobile-money
-    # direct-charge channel ids. Only mobile money supports the in-app USSD
-    # push; cards/PayPal still require the hosted checkout redirect.
     _PROVIDER_TO_CHARGE_CHANNEL = {
         "MOBILE_MONEY": "cm.mtn",
         "ORANGE_MONEY": "cm.orange",

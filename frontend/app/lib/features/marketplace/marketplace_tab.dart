@@ -51,9 +51,6 @@ class _MarketplaceTabState extends State<MarketplaceTab> {
     super.initState();
     _load(reset: true);
     _scrollController.addListener(_onScroll);
-    // Marché B2B : les autres vendeurs publient/retirent des annonces à tout
-    // moment. Sans cette écoute, la grille reste figée sur l'état du premier
-    // chargement jusqu'au prochain pull-to-refresh manuel.
     _eventsSub = RealtimeEventsService.instance.events.listen((event) {
       if (!mounted) return;
       if (RealtimeEventsService.instance.matchesTopic(event, 'products')) {
@@ -302,7 +299,6 @@ class _MarketplaceTabState extends State<MarketplaceTab> {
   }
 }
 
-// ─── Product Card ─────────────────────────────────────────────────────────────
 
 class _ProductCard extends StatelessWidget {
   const _ProductCard({required this.product});
@@ -333,7 +329,6 @@ class _ProductCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image area
               Expanded(
                 flex: 5,
                 child: Stack(
@@ -401,7 +396,6 @@ class _ProductCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Info area
               Expanded(
                 flex: 4,
                 child: Padding(
@@ -483,7 +477,6 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-// ─── Product Detail Sheet ─────────────────────────────────────────────────────
 
 class _ProductDetailSheet extends StatefulWidget {
   const _ProductDetailSheet({required this.product});

@@ -360,8 +360,6 @@ class _VideoPublishPageState extends State<VideoPublishPage> {
                   alignment: Alignment.center,
                   children: [
                     VideoPlayer(_previewController!),
-                    // Une seule pression sur la vidéo bascule lecture/pause ;
-                    // l'icône n'apparaît que lorsque la vidéo est en pause.
                     ValueListenableBuilder<VideoPlayerValue>(
                       valueListenable: _previewController!,
                       builder: (context, value, _) => AnimatedOpacity(

@@ -6,7 +6,6 @@ import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Avis acheteurs — driver reviews (PDF 30).
 final _reviewsProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final res = await DriverDioClient.dio.get("/api/driver/reviews/");

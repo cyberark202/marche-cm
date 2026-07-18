@@ -32,7 +32,6 @@ class _ClientShellState extends State<ClientShell> {
     _hydrateCart();
   }
 
-  /// Restaure le panier depuis le serveur (persistant, multi-appareils).
   Future<void> _hydrateCart() async {
     final token = context.read<SessionStore>().token;
     if (token == null || token.isEmpty) return;
@@ -48,7 +47,6 @@ class _ClientShellState extends State<ClientShell> {
       if (!mounted) return;
       context.read<BuyerStore>().hydrateCart(items);
     } catch (_) {
-      // Best-effort : un panier serveur inaccessible n'empêche pas d'acheter.
     }
   }
 

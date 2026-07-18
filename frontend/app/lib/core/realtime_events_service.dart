@@ -17,13 +17,10 @@ class RealtimeEventsService with WidgetsBindingObserver {
   WebSocketService? _ws;
   StreamSubscription<Map<String, dynamic>>? _subscription;
   bool _connected = false;
-  // Dernier token demandé (persiste pendant la mise en arrière-plan pour savoir
-  // quoi reconnecter au retour au premier plan). Remis à null par disconnect().
   String? _targetToken;
   bool _paused = false;
   List<String> _connectedTopics = const [];
 
-  // Reconnect state
   Timer? _reconnectTimer;
   Timer? _stabilityTimer;
   int _reconnectAttempts = 0;
@@ -52,11 +49,6 @@ class RealtimeEventsService with WidgetsBindingObserver {
       disconnect();
       return;
     }
-    // Idempotence stricte : appelé à chaque build() du shell. Tant qu'une
-    // connexion est établie OU en cours (socket vivant / backoff programmé)
-    // pour ce token, ne rien faire — sinon on annule le timer de backoff et on
-    // reconnecte immédiatement à chaque rebuild, d'où la boucle de resync
-    // « chaque seconde » visible côté vendeur.
     if (_targetToken == token &&
         (_connected || _ws != null || _reconnectTimer?.isActive == true)) {
       return;
@@ -81,8 +73,6 @@ class RealtimeEventsService with WidgetsBindingObserver {
         .replaceFirst("https://", "wss://");
     final topicQuery = Uri.encodeQueryComponent(topics.join(","));
 
-    // Token sent via Sec-WebSocket-Protocol subprotocol — never in query string.
-    // Backend (config/websocket_auth.py) expects: ['bearer', '<token>'].
     final url = "$base/ws/events/?topics=$topicQuery";
     _ws = WebSocketService(url, token: token);
 
@@ -96,20 +86,10 @@ class RealtimeEventsService with WidgetsBindingObserver {
     _connected = true;
     _targetToken = token;
 
-    // Le backoff n'est remis a zero qu'apres une connexion STABLE (et non a
-    // chaque message recu) : sans cela, un socket qui flappe (connecte -> 1
-    // message -> coupe) reconnecte toujours a 1s, donnant une boucle de
-    // reconnexion visible « chaque seconde ». Ici elle reste silencieuse et
-    // espacee (backoff exponentiel) tant que la connexion n'a pas tenu 20s.
     _stabilityTimer?.cancel();
     _stabilityTimer =
         Timer(const Duration(seconds: 20), () => _reconnectAttempts = 0);
 
-    // Gap recovery: a best-effort broadcast WS does NOT replay events missed
-    // while disconnected. On every *re*connection we emit a synthetic resync
-    // event per topic so each subscribed page re-fetches its REST state and
-    // closes the gap. The first connection is skipped — pages already load in
-    // initState.
     if (resync) {
       for (final topic in topics) {
         _controller.add({"topic": topic, "type": "resync", "payload": const {}});
@@ -123,17 +103,12 @@ class RealtimeEventsService with WidgetsBindingObserver {
     _connected = false;
     _cancelSubscription();
 
-    // En arrière-plan : on ne relance rien (économie batterie/réseau, pas de
-    // rechargement). La reconnexion + resync a lieu au retour au premier plan.
     if (_paused) return;
     if (_reconnectAttempts >= _maxReconnectAttempts) return;
 
-    // Exponential backoff: 2s, 4s, 8s … capped at 32s (jamais 1s).
     final delaySeconds = (1 << _reconnectAttempts).clamp(2, 32);
     _reconnectAttempts++;
 
-    // Always fetch the latest token from storage — it may have been refreshed
-    // by the REST client while the WebSocket was disconnected (e.g. 4401 expiry).
     _reconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
       final freshToken = await TokenRepository.getAccessToken();
       if (freshToken == null || freshToken.isEmpty) return;
@@ -152,22 +127,14 @@ class RealtimeEventsService with WidgetsBindingObserver {
     return (event["topic"] ?? "").toString() == topic;
   }
 
-  /// Envoie un message applicatif sur le socket événements (ex : signal
-  /// typing du chat). Silencieux si déconnecté — ces signaux sont éphémères,
-  /// jamais rejoués.
   void send(Map<String, dynamic> payload) {
     if (!_connected) return;
     try {
       _ws?.send(payload);
     } catch (_) {
-      // Socket en cours de fermeture : le prochain signal partira après resync.
     }
   }
 
-  /// Coupe le flux temps réel quand l'app passe en arrière-plan (aucune
-  /// reconnexion tant qu'elle y reste) et le rétablit une fois — avec resync —
-  /// au retour au premier plan. Évite la charge réseau et les rechargements
-  /// pendant que l'app n'est pas visible.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||

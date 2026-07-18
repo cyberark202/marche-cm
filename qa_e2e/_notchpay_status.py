@@ -15,7 +15,7 @@ for ref in ("trx.89vFSjHhvuszmu9tXL2MBmxn", "trx.E50Hk1WJd5DoadF16KoHrPTl"):
     url = f"{API}/payments/{ref}"
     req = urllib.request.Request(url, headers={"Authorization": KEY, "Accept": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=25) as resp:  # nosec B310
+        with urllib.request.urlopen(req, timeout=25) as resp:
             data = json.loads(resp.read().decode())
         tx = data.get("transaction", data)
         print(f"{ref}: status={tx.get('status')} amount={tx.get('amount')} "

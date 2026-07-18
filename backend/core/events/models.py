@@ -17,12 +17,12 @@ class OutboxEvent(models.Model):
     Never delete rows — they are the audit trail of all domain events.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    event_type = models.CharField(max_length=80, db_index=True)   # e.g. ORDER_CREATED
-    aggregate_type = models.CharField(max_length=60, db_index=True)  # e.g. Order
+    event_type = models.CharField(max_length=80, db_index=True)
+    aggregate_type = models.CharField(max_length=60, db_index=True)
     aggregate_id = models.CharField(max_length=80, db_index=True)
     payload = models.JSONField(default=dict)
     correlation_id = models.CharField(max_length=80, blank=True, db_index=True)
-    causation_id = models.UUIDField(null=True, blank=True)  # ID of the causing event
+    causation_id = models.UUIDField(null=True, blank=True)
     status = models.CharField(max_length=12, choices=OutboxStatus.choices, default=OutboxStatus.PENDING, db_index=True)
     retry_count = models.PositiveSmallIntegerField(default=0)
     max_retries = models.PositiveSmallIntegerField(default=5)

@@ -44,9 +44,6 @@ def _make_user(username="u1", role="BUYER") -> User:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave 5 — upload validator
-# ─────────────────────────────────────────────────────────────────────────────
 
 class UploadValidationTests(TestCase):
     def test_unknown_extension_now_rejected(self):
@@ -71,7 +68,7 @@ class UploadValidationTests(TestCase):
         fake = BytesIO(b"%PDF-1.4 mock")
         fake.name = "scan.pdf"
         fake.size = len(fake.getvalue())
-        fake.content_type = ""  # missing
+        fake.content_type = ""
         with self.assertRaises(DjangoValidationError):
             validate_uploaded_file(
                 fake,
@@ -89,7 +86,6 @@ class UploadValidationTests(TestCase):
         fake.name = "report.docx"
         fake.size = len(body)
         fake.content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        # Should NOT raise — docx is now in _MAGIC_SIGNATURES.
         validate_uploaded_file(
             fake,
             field_label="upload",
@@ -101,9 +97,6 @@ class UploadValidationTests(TestCase):
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave 5 — FCMToken hijack guard
-# ─────────────────────────────────────────────────────────────────────────────
 
 class FCMHijackTests(TestCase):
     def setUp(self):
@@ -113,7 +106,6 @@ class FCMHijackTests(TestCase):
         self.attacker = _make_user("attacker")
 
     def test_attacker_cannot_claim_existing_token(self):
-        # Victim registers a token.
         self.FCMToken.objects.create(
             user=self.victim, registration_id="abc-victim-token", type="android",
         )
@@ -125,14 +117,10 @@ class FCMHijackTests(TestCase):
             format="json",
         )
         self.assertEqual(resp.status_code, 409)
-        # Token still belongs to victim.
         tok = self.FCMToken.objects.get(registration_id="abc-victim-token")
         self.assertEqual(tok.user_id, self.victim.id)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave 5 — chat read-only writes
-# ─────────────────────────────────────────────────────────────────────────────
 
 class ChatMessageReadOnlyEditsTests(TestCase):
     def test_message_viewset_does_not_allow_patch(self):
@@ -142,9 +130,6 @@ class ChatMessageReadOnlyEditsTests(TestCase):
         self.assertNotIn("delete", MessageViewSet.http_method_names)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave 6 — Lua-atomic lock release
-# ─────────────────────────────────────────────────────────────────────────────
 
 class LockAtomicReleaseTests(TestCase):
     def test_release_uses_lua_when_redis_client_available(self):
@@ -155,7 +140,6 @@ class LockAtomicReleaseTests(TestCase):
         with patch.object(locks, "_redis_client", return_value=fake_client):
             with locks.acquire_lock("audit-test:lua", ttl_seconds=5) as token:
                 self.assertTrue(token)
-        # eval must have been called once with the release script.
         fake_client.eval.assert_called_once()
         args, _ = fake_client.eval.call_args
         self.assertIn("redis.call('get', KEYS[1])", args[0])
@@ -164,14 +148,10 @@ class LockAtomicReleaseTests(TestCase):
         from core import locks
 
         with patch.object(locks, "_redis_client", return_value=None):
-            # Should not raise.
             with locks.acquire_lock("audit-test:fallback", ttl_seconds=5):
                 pass
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave 6 — lock_funds_for_order deterministic idempotency
-# ─────────────────────────────────────────────────────────────────────────────
 
 class LockFundsDeterministicKeyTests(TestCase):
     def test_deterministic_key_when_caller_omits_it(self):
@@ -181,7 +161,7 @@ class LockFundsDeterministicKeyTests(TestCase):
 
         def fake_lock_from_available(*args, **kwargs):
             captured["idempotency_key"] = kwargs.get("idempotency_key")
-            raise RuntimeError("stop-here")  # short-circuit — we only need the kwargs
+            raise RuntimeError("stop-here")
 
         order = MagicMock(id=12345)
         with patch(
@@ -207,9 +187,6 @@ class LockFundsDeterministicKeyTests(TestCase):
         self.assertEqual(captured.get("idempotency_key"), "order:12345:lock_funds_v1")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave 6 — open_dispute auto-freezes order escrows
-# ─────────────────────────────────────────────────────────────────────────────
 
 class DisputeAutoFreezeTests(TestCase):
     def test_open_dispute_on_order_calls_freeze(self):
@@ -253,9 +230,6 @@ class DisputeAutoFreezeTests(TestCase):
         mock_freeze.assert_not_called()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave 6 — Fraud review writes audit
-# ─────────────────────────────────────────────────────────────────────────────
 
 class FraudReviewAuditTests(TestCase):
     def setUp(self):
@@ -307,9 +281,6 @@ class FraudReviewAuditTests(TestCase):
         self.assertEqual(resp.status_code, 403)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave 7 — Nominatim SSRF guard
-# ─────────────────────────────────────────────────────────────────────────────
 
 class NominatimSSRFGuardTests(TestCase):
     def setUp(self):
@@ -322,12 +293,10 @@ class NominatimSSRFGuardTests(TestCase):
 
     @override_settings(DEBUG=False)
     def test_loopback_rejected_in_production(self):
-        # 127.0.0.1 explicit resolution
         self.assertFalse(self.is_safe("https://127.0.0.1"))
 
     @override_settings(DEBUG=False)
     def test_link_local_rejected(self):
-        # AWS instance metadata.
         self.assertFalse(self.is_safe("https://169.254.169.254"))
 
     @override_settings(DEBUG=False)
@@ -339,9 +308,6 @@ class NominatimSSRFGuardTests(TestCase):
         self.assertTrue(self.is_safe("http://localhost"))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave 7 — wallet PIN removed (product decision): endpoint now retired (410)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class WalletPinRetiredTests(TestCase):
     def setUp(self):
@@ -350,7 +316,5 @@ class WalletPinRetiredTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_wallet_pin_endpoint_is_gone(self):
-        # The PIN was removed; money-out is protected by the emailed OTP. The
-        # endpoint is kept only so older app builds don't crash on a 404.
         resp = self.client.post("/api/auth/wallet-pin/", {"pin": "284931"}, format="json")
         self.assertEqual(resp.status_code, 410)

@@ -4,9 +4,6 @@ import '../../core/app_theme.dart';
 import 'auth_api_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Forgot-password flow for the professional (seller) app:
-///   1. enter the account email → a 6-digit code is emailed;
-///   2. enter the code + a new password.
 class PasswordResetPage extends StatefulWidget {
   const PasswordResetPage({super.key, this.initialEmail = ""});
 

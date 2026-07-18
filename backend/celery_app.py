@@ -89,14 +89,11 @@ app.conf.update(
             "schedule": 3600.0,
             "options": {"queue": "default"},
         },
-        # Audit ref: [NEW-005] verifier was missing — every 6 h.
         "verify-audit-chain-integrity": {
             "task": "apps.audit.tasks.verify_audit_chain_integrity",
             "schedule": 21600.0,
             "options": {"queue": "default"},
         },
-        # Audit ref: [FIN-001 follow-up] wallet ↔ ledger reconciliation
-        # every hour. Single-beat protected on the financial queue (c=1).
         "reconcile-wallet-ledger": {
             "task": "apps.ledger.tasks.reconcile_wallet_ledger",
             "schedule": 3600.0,

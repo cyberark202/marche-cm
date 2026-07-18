@@ -9,7 +9,6 @@ import '../../core/realtime_events_service.dart';
 import '../auth/session_store.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// RFQ entrantes vendeur (PDF 19).
 class RfqOffersPage extends StatefulWidget {
   const RfqOffersPage({super.key});
 

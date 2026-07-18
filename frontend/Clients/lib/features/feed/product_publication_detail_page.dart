@@ -40,10 +40,6 @@ class _ProductPublicationDetailPageState
   Future<void> _loadCertifications() async {
     final token = context.read<SessionStore>().token;
     try {
-      // Endpoint public non-PII : certifications business APPROUVÉES du vendeur
-      // seulement (jamais CNI/passeport/selfie). L'ancien
-      // /api/compliance-documents/?user_id= renvoyait 404 pour un acheteur
-      // (anti-IDOR), donc la carte restait toujours vide.
       final certs = await _api.getList(
           "/api/compliance-documents/public-certifications/?user_id=${widget.product.sellerId}",
           token: token);
@@ -68,8 +64,6 @@ class _ProductPublicationDetailPageState
     }
   }
 
-  /// Partage produit : ouvre WhatsApp pré-rempli (canal dominant au Cameroun),
-  /// avec repli sur le presse-papier si aucune app de partage n'est disponible.
   Future<void> _shareProduct() async {
     final p = widget.product;
     final message = "${p.title} — ${p.priceMin} FCFA sur Market CM.\n"
@@ -258,9 +252,6 @@ class _ProductPublicationDetailPageState
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HERO — image plein cadre + bouton retour rond + indicateur favori
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ProductHeroSliver extends StatelessWidget {
   const _ProductHeroSliver({required this.product, required this.onShare});
@@ -395,9 +386,6 @@ class _GlassIconButton extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CARTE FOURNISSEUR
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _SupplierCard extends StatelessWidget {
   const _SupplierCard({required this.product});
@@ -505,9 +493,6 @@ class _SupplierCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PALIERS DE PRIX B2B
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _PricingTiersCard extends StatelessWidget {
   const _PricingTiersCard({required this.product});
@@ -698,9 +683,6 @@ class _Tier {
   final int discount;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DESCRIPTION
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _DescriptionCard extends StatelessWidget {
   const _DescriptionCard({required this.description});
@@ -745,9 +727,6 @@ class _DescriptionCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CERTIFICATIONS (logique préservée, visuel raffiné)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _CertificationsCard extends StatelessWidget {
   const _CertificationsCard({required this.certifications});
@@ -917,9 +896,6 @@ class _CertificationsCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AVIS (logique préservée)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ReviewsCard extends StatelessWidget {
   const _ReviewsCard({required this.payload});
@@ -1084,9 +1060,6 @@ class _ReviewsCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CTA bottom
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _StickyBottomBar extends StatelessWidget {
   const _StickyBottomBar({
@@ -1211,9 +1184,6 @@ class _BuyEscrowNote extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// META PILLS
-// ─────────────────────────────────────────────────────────────────────────────
 
 enum _PillTone { primary, neutral, accent }
 
@@ -1280,9 +1250,6 @@ class _Bullet extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ORDER SHEET (logique 1:1 préservée, visuel raffiné)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _OrderSheet extends StatefulWidget {
   const _OrderSheet({required this.product});

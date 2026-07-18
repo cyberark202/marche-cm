@@ -5,21 +5,12 @@ import '../../core/security/secure_dio_client.dart';
 class AuthApiService {
   static Dio get _dio => SecureDioClient.dio;
 
-  /// Professional self-registration — SUPPLIER / WHOLESALER only.
-  ///
-  /// ISOLATION: this app never creates buyer, driver or admin accounts. The
-  /// backend endpoint `/api/auth/register/seller/` rejects any role outside
-  /// {SUPPLIER, WHOLESALER}, so the server is the source of truth even if the
-  /// client is tampered with.
-  /// Registers a SUPPLIER / WHOLESALER and returns the authenticated session
-  /// payload `{access, refresh, user}` so the caller logs the seller in
-  /// immediately (lands on the dashboard / pending-verification screen).
   Future<Map<String, dynamic>> registerSeller({
     required String name,
     required String phoneNumber,
     required String email,
     required String password,
-    required String role, // 'SUPPLIER' | 'WHOLESALER'
+    required String role,
     String countryCode = '',
     String city = '',
     String companyName = '',
@@ -75,8 +66,6 @@ class AuthApiService {
     throw Exception('Reponse profil invalide.');
   }
 
-  /// Forgot-password step 1 — request an emailed reset code (always 200,
-  /// anti-enumeration).
   Future<void> requestPasswordReset({required String email}) async {
     final response = await _dio.post(
       '/api/auth/password/reset/request/',
@@ -85,7 +74,6 @@ class AuthApiService {
     _assertOk(response, 'requestPasswordReset');
   }
 
-  /// Forgot-password step 2 — confirm the code and set a new password.
   Future<void> confirmPasswordReset({
     required String email,
     required String code,

@@ -18,12 +18,9 @@ class Wallet(models.Model):
     available_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     locked_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     pending_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    # Legacy fields kept for backward compatibility with existing API clients.
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     blocked_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     currency = models.CharField(max_length=3, default="XAF")
-    # Solde dormant (doc 05) : dernier avertissement « solde > seuil sans
-    # activité ». Remis à zéro dès qu'un retrait ou un achat est engagé.
     dormancy_notified_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -32,9 +29,6 @@ class Wallet(models.Model):
             models.CheckConstraint(check=models.Q(available_balance__gte=0), name="wallet_available_gte_zero"),
             models.CheckConstraint(check=models.Q(locked_balance__gte=0), name="wallet_locked_gte_zero"),
             models.CheckConstraint(check=models.Q(pending_balance__gte=0), name="wallet_pending_gte_zero"),
-            # [FIN-002] Balance invariants (migration 0012). Declared on the model
-            # so model ↔ migrations stay consistent (do not drop — these are
-            # enforced at the DB level and covered by tests_wave3).
             models.CheckConstraint(
                 condition=models.Q(blocked_balance=models.F("locked_balance")),
                 name="wallet_blocked_eq_locked",
@@ -73,15 +67,10 @@ class Wallet(models.Model):
         self.balance = self.total_balance
 
     def save(self, *args, **kwargs):
-        # Always re-derive legacy fields from modern fields (one-way mirror).
-        # The previous "legacy write" inference path is removed — see
-        # sync_legacy_balances docstring for the [FIN-002] rationale.
         self.sync_legacy_balances()
         update_fields = kwargs.get("update_fields")
         if update_fields:
             merged = set(update_fields)
-            # Whenever any balance moves we must also persist the derived
-            # legacy mirrors so they stay consistent on partial saves.
             if merged & {"available_balance", "locked_balance", "pending_balance"}:
                 merged.update({"balance", "blocked_balance"})
             kwargs["update_fields"] = list(merged)
@@ -99,7 +88,7 @@ class WalletTransaction(models.Model):
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name="transactions")
     provider = models.CharField(max_length=20, choices=PaymentProvider.choices, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    kind = models.CharField(max_length=30)  # TOPUP, WITHDRAWAL, ORDER_DEBIT, ESCROW_RELEASE
+    kind = models.CharField(max_length=30)
     status = models.CharField(max_length=10, choices=TransactionStatus.choices, default=TransactionStatus.PENDING)
     reference = models.CharField(max_length=120, blank=True)
     external_transaction_id = models.CharField(max_length=80, blank=True, db_index=True)
@@ -125,10 +114,6 @@ class WalletTransaction(models.Model):
                 name="uniq_wallet_external_transaction_id",
             ),
         ]
-        # Performance indexes (migration 0010) — declared on the model to keep
-        # model ↔ migrations consistent. The composite index is renamed to ≤30
-        # chars (the original name violated Django's models.E034 limit); a
-        # rename migration aligns the existing DB.
         indexes = [
             models.Index(fields=["wallet", "created_at"], name="idx_wallettx_wallet_created"),
             models.Index(fields=["status", "created_at"], name="idx_wallettx_status_created"),
@@ -288,9 +273,6 @@ class DailyReconciliationReport(models.Model):
         ordering = ["-report_date", "-created_at"]
 
 
-# ---------------------------------------------------------------------------
-# Fraud detection — persisted fraud events for audit trail
-# ---------------------------------------------------------------------------
 
 class FraudDecision(models.TextChoices):
     ALLOW = "allow", "Autorise"
@@ -309,8 +291,8 @@ class FraudEvent(models.Model):
         on_delete=models.CASCADE,
         related_name="fraud_events",
     )
-    event_type = models.CharField(max_length=40)        # withdraw, transfer, etc.
-    risk_score = models.PositiveSmallIntegerField()      # 0–100
+    event_type = models.CharField(max_length=40)
+    risk_score = models.PositiveSmallIntegerField()
     decision = models.CharField(max_length=10, choices=FraudDecision.choices)
     metadata = models.JSONField(default=dict, blank=True)
     resolved = models.BooleanField(default=False)
@@ -335,9 +317,6 @@ class FraudEvent(models.Model):
         return f"FraudEvent({self.user_id}, score={self.risk_score}, {self.decision})"
 
 
-# ---------------------------------------------------------------------------
-# Idempotency — dedicated request-level lock table (Phase 1)
-# ---------------------------------------------------------------------------
 
 class IdempotencyRecord(models.Model):
     """
@@ -369,7 +348,6 @@ class IdempotencyRecord(models.Model):
         related_name="idempotency_records",
     )
     endpoint = models.CharField(max_length=60)
-    # SHA-256 of request body with PIN/secrets stripped — prevents key reuse fraud.
     request_hash = models.CharField(max_length=64)
     response_snapshot = models.JSONField(null=True, blank=True)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_PROCESSING)
@@ -391,9 +369,6 @@ class IdempotencyRecord(models.Model):
         return f"IdempotencyRecord({self.endpoint}, {self.status})"
 
 
-# ---------------------------------------------------------------------------
-# Transaction state audit log (Phase 2)
-# ---------------------------------------------------------------------------
 
 class WalletTransactionStateLog(models.Model):
     """
@@ -412,9 +387,6 @@ class WalletTransactionStateLog(models.Model):
     )
     from_status = models.CharField(max_length=20, blank=True)
     to_status = models.CharField(max_length=20)
-    # Richer status detail that does not replace the API-visible status field.
-    # Examples: "provider_pending", "provider_confirmed", "settlement_pending",
-    #           "failed_retryable", "failed_final", "reconciliation_pending".
     extended_status = models.CharField(max_length=40, blank=True)
     reason = models.CharField(max_length=240, blank=True)
     actor_id = models.IntegerField(null=True, blank=True)

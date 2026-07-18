@@ -19,9 +19,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 class VideoFeedTab extends StatefulWidget {
   const VideoFeedTab({super.key, this.active = false});
 
-  /// `true` uniquement quand l'onglet Vidéos est celui affiché par le shell.
-  /// Tant qu'il est `false`, on ne charge NI le feed NI aucune vidéo : le
-  /// réseau/lecteur ne démarre qu'à la première entrée dans l'écran.
   final bool active;
 
   @override
@@ -35,10 +32,8 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
   List<Map<String, dynamic>> _posts = const [];
   bool _loading = true;
   String? _error;
-  // Vrai dès la première activation de l'onglet : rien ne se charge avant.
   bool _loadStarted = false;
   int _currentIndex = 0;
-  // Vue comptée une seule fois par vidéo et par session de feed.
   final Set<int> _viewedIds = {};
   StreamSubscription<Map<String, dynamic>>? _eventsSub;
 
@@ -47,9 +42,6 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
     super.initState();
     if (widget.active) _load();
     _pageController.addListener(_onPageChange);
-    // Nouvelle vidéo publiée par un autre vendeur : ne rafraîchir en direct
-    // que si l'utilisateur est encore sur la 1re vidéo, pour ne jamais
-    // couper une lecture en cours plus bas dans le feed.
     _eventsSub = RealtimeEventsService.instance.events.listen((event) {
       if (!mounted || !_loadStarted) return;
       if (RealtimeEventsService.instance.matchesTopic(event, 'products') &&
@@ -82,8 +74,6 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
     }
   }
 
-  /// Comptage de vue serveur (déduplication par session ; alimente aussi les
-  /// recommandations).
   void _trackView(Map<String, dynamic> post) {
     final id = post['id'];
     final productId = id is int ? id : int.tryParse('$id');
@@ -104,8 +94,6 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
     });
     final token = context.read<SessionStore>().token;
     try {
-      // Le filtre ?has_video=true est appliqué côté serveur (les produits sans
-      // vidéo n'entrent jamais dans le feed).
       final rows = await _api.getList(
         '/api/products/?has_video=true',
         token: token,
@@ -191,8 +179,6 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
                           itemBuilder: (context, index) {
                             return _VideoPage(
                               post: _posts[index],
-                              // Préchargement TikTok : la page active joue, les
-                              // voisines (±1) initialisent leur player en pause.
                               mountPlayer:
                                   (index - _currentIndex).abs() <= 1,
                               isActive:
@@ -208,7 +194,6 @@ class _VideoFeedTabState extends State<VideoFeedTab> {
   }
 }
 
-// ─── Individual Video Page ────────────────────────────────────────────────────
 
 class _VideoPage extends StatefulWidget {
   const _VideoPage({
@@ -230,9 +215,7 @@ class _VideoPage extends StatefulWidget {
 }
 
 class _VideoPageState extends State<_VideoPage> {
-  // Cle vers l'ActionBar pour declencher le like au double-tap sur la video.
   final GlobalKey<_ActionBarState> _actionBarKey = GlobalKey<_ActionBarState>();
-  // Coeur anime du double-tap like.
   bool _showHeart = false;
   Timer? _heartTimer;
 
@@ -268,13 +251,10 @@ class _VideoPageState extends State<_VideoPage> {
     final isVerified = post['seller_is_verified'] == true;
 
     return GestureDetector(
-      // Double-tap n'importe ou sur la video -> like (facon TikTok).
       onDoubleTap: _onDoubleTap,
       child: Stack(
         fit: StackFit.expand,
         children: [
-        // Video / cover background. Le player est monté pour la page active ET
-        // ses voisines (préchargement ±1, en pause) ; au-delà, cover statique.
         if (videoUrl.isNotEmpty && widget.mountPlayer)
           VideoPostPlayer(
             videoUrl: _fullUrl(videoUrl),
@@ -284,7 +264,6 @@ class _VideoPageState extends State<_VideoPage> {
         else
           _CoverBackground(imageUrl: coverUrl),
 
-        // Coeur du double-tap like.
         IgnorePointer(
           child: Center(
             child: AnimatedScale(
@@ -301,7 +280,6 @@ class _VideoPageState extends State<_VideoPage> {
           ),
         ),
 
-        // Gradient overlay bottom
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -320,14 +298,12 @@ class _VideoPageState extends State<_VideoPage> {
           ),
         ),
 
-        // Right action bar
         Positioned(
           right: 12,
           bottom: 120,
           child: _ActionBar(key: _actionBarKey, post: post),
         ),
 
-        // Bottom info
         Positioned(
           left: 16,
           right: 72,
@@ -341,7 +317,6 @@ class _VideoPageState extends State<_VideoPage> {
           ),
         ),
 
-        // Page indicator
         Positioned(
           right: 16,
           top: MediaQuery.of(context).padding.top + 64,
@@ -422,8 +397,6 @@ class _ActionBarState extends State<_ActionBar> {
   @override
   void initState() {
     super.initState();
-    // Hydratation depuis les annotations serveur du feed : compteurs réels et
-    // états « déjà liké / abonné / favori » persistants entre sessions.
     _likes = _toInt(widget.post['video_likes_count'] ?? widget.post['likes_count'] ?? 0);
     _liked = widget.post['is_video_liked'] == true ||
         widget.post['is_liked_by_me'] == true;
@@ -438,7 +411,6 @@ class _ActionBarState extends State<_ActionBar> {
     final id = widget.post['id'];
     if (id == null) return;
     setState(() => _likeLoading = true);
-    // Optimistic update
     setState(() {
       _liked = !_liked;
       _likes += _liked ? 1 : -1;
@@ -457,7 +429,6 @@ class _ActionBarState extends State<_ActionBar> {
         _likes = total is int ? total : int.tryParse('$total') ?? _likes;
       });
     } catch (_) {
-      // Revert optimistic update on failure
       if (mounted) {
         setState(() {
           _liked = !_liked;
@@ -469,7 +440,6 @@ class _ActionBarState extends State<_ActionBar> {
     }
   }
 
-  /// Double-tap sur la video : like (jamais unlike), facon TikTok.
   void likeViaDoubleTap() {
     if (!_liked) _toggleLike();
   }
@@ -522,8 +492,6 @@ class _ActionBarState extends State<_ActionBar> {
     }
   }
 
-  /// Partage WhatsApp (canal dominant au Cameroun) avec repli presse-papier —
-  /// même pattern que le partage produit de l'app Clients.
   Future<void> _share() async {
     final title = (widget.post['title'] ?? widget.post['name'] ?? 'Produit').toString();
     final ref = (widget.post['reference_code'] ?? '').toString();
@@ -547,7 +515,6 @@ class _ActionBarState extends State<_ActionBar> {
     }
   }
 
-  /// Commentaires en bottom sheet (la vidéo continue derrière, façon TikTok).
   Future<void> _openComments(BuildContext context) async {
     final id = widget.post['id'];
     final productId = id is int ? id : int.tryParse('$id') ?? 0;
@@ -789,7 +756,6 @@ class _PageIndicator extends StatelessWidget {
   }
 }
 
-// ─── States ───────────────────────────────────────────────────────────────────
 
 class _LoadingView extends StatelessWidget {
   const _LoadingView();

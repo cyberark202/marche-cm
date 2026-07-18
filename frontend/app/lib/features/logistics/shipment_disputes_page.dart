@@ -193,9 +193,6 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Dispute tile
-// ---------------------------------------------------------------------------
 class _DisputeTile extends StatelessWidget {
   final Map<String, dynamic> dispute;
   final VoidCallback onTap;
@@ -295,9 +292,6 @@ class _DisputeTile extends StatelessWidget {
       '${d.day}/${d.month}/${d.year} ${d.hour}:${d.minute.toString().padLeft(2, '0')}';
 }
 
-// ---------------------------------------------------------------------------
-// Shared display widgets
-// ---------------------------------------------------------------------------
 class _StatusPill extends StatelessWidget {
   final String label;
   final Color color;

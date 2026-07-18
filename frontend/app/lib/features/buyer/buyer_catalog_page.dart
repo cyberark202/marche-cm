@@ -139,7 +139,6 @@ class _BuyerCatalogPageState extends State<BuyerCatalogPage> {
         color: Colors.white,
         child: Column(
           children: [
-            // Search
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
               child: TextField(
@@ -176,7 +175,6 @@ class _BuyerCatalogPageState extends State<BuyerCatalogPage> {
                 ),
               ),
             ),
-            // Category chips
             SizedBox(
               height: 38,
               child: ListView.builder(

@@ -9,11 +9,6 @@ import '../../core/ui_kit.dart';
 import '../auth/auth_api_service.dart';
 import '../data/admin_repository.dart';
 
-/// Écran 41 — Configuration plateforme à chaud (doc 03/16).
-///
-/// Valeurs servies par /api/admin/platform-settings/ (registre + surcharges
-/// historisées). La modification exige le scope admin.settings.manage ET un
-/// step-up 2FA e-mail, comme la réconciliation wallet.
 class ConfigurationPage extends StatefulWidget {
   const ConfigurationPage({super.key});
 
@@ -98,7 +93,6 @@ class _ConfigurationPageState extends State<ConfigurationPage> {
     );
     if (newValue == null || newValue.isEmpty) return;
 
-    // Step-up 2FA : identique à la réconciliation wallet.
     String challengeToken;
     try {
       challengeToken = await _auth.requestSensitiveAction('admin.settings.manage');
@@ -167,7 +161,6 @@ class _ConfigurationPageState extends State<ConfigurationPage> {
     );
   }
 
-  /// JSON si possible (nombres, booléens, objets), sinon chaîne brute.
   static dynamic _parse(String raw) {
     try {
       return jsonDecode(raw);

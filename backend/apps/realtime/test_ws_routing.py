@@ -50,7 +50,6 @@ class WebSocketRoutingTests(TransactionTestCase):
         self.assertFalse(await self._connect("/ws/notifications/", with_token=False))
 
     async def test_unknown_driver_path_is_rejected_cleanly(self):
-        # The stale Driver App path: must NOT raise (no 500) and must NOT connect.
         self.assertFalse(await self._connect("/ws/driver/"))
 
     async def test_other_unknown_path_is_rejected_cleanly(self):

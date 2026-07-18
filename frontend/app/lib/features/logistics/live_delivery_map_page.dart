@@ -11,13 +11,6 @@ import '../../core/websocket_service.dart';
 import '../auth/session_store.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Suivi live du livreur sur une carte (OpenStreetMap, sans cle API).
-///
-/// LECTURE SEULE (acheteur/vendeur) : se connecte au `TrackingConsumer`
-/// (`ws/tracking/{id}/`), affiche la position du livreur rediffusee par le
-/// backend, les positions vendeur (enlevement) et acheteur (livraison), et
-/// trace l'itineraire routier livreur -> vendeur -> acheteur. Aucun controle :
-/// l'acheteur et le vendeur ne peuvent rien modifier.
 class LiveDeliveryMapPage extends StatefulWidget {
   const LiveDeliveryMapPage({
     super.key,
@@ -34,9 +27,9 @@ class LiveDeliveryMapPage extends StatefulWidget {
   final String shipmentId;
   final double? initialLat;
   final double? initialLng;
-  final double? pickupLat; // position du vendeur (enlevement)
+  final double? pickupLat;
   final double? pickupLng;
-  final double? dropoffLat; // position de l'acheteur (livraison)
+  final double? dropoffLat;
   final double? dropoffLng;
   final String title;
 
@@ -50,8 +43,8 @@ class _LiveDeliveryMapPageState extends State<LiveDeliveryMapPage> {
   StreamSubscription<Map<String, dynamic>>? _sub;
 
   LatLng? _driver;
-  LatLng? _pickup; // vendeur
-  LatLng? _dropoff; // acheteur
+  LatLng? _pickup;
+  LatLng? _dropoff;
   List<LatLng> _route = const [];
   DateTime? _updatedAt;
   DateTime? _lastRouteFetch;
@@ -74,8 +67,6 @@ class _LiveDeliveryMapPageState extends State<LiveDeliveryMapPage> {
     _refreshRoute(force: true);
   }
 
-  /// Trace l'itineraire routier livreur -> vendeur -> acheteur (OSRM). Throttle
-  /// a 1 calcul / 20s pour ne pas marteler le service public a chaque tick GPS.
   Future<void> _refreshRoute({bool force = false}) async {
     final now = DateTime.now();
     if (!force &&
@@ -116,7 +107,7 @@ class _LiveDeliveryMapPageState extends State<LiveDeliveryMapPage> {
     final lng = _toDouble(e['longitude']);
     if (lat == null || lng == null) return;
     if (!mounted) return;
-    _attempts = 0; // connexion fonctionnelle -> on repart d'un backoff neuf
+    _attempts = 0;
     final isFirstFix = _driver == null;
     setState(() {
       _driver = LatLng(lat, lng);
@@ -130,9 +121,6 @@ class _LiveDeliveryMapPageState extends State<LiveDeliveryMapPage> {
     unawaited(_refreshRoute());
   }
 
-  /// Reconnexion SILENCIEUSE en arriere-plan (backoff 2..30s, jamais 1s).
-  /// L'utilisateur ne voit aucune coupure : la carte garde la derniere
-  /// position connue et le socket se retablit tout seul.
   void _scheduleReconnect() {
     _sub?.cancel();
     _sub = null;
@@ -177,7 +165,7 @@ class _LiveDeliveryMapPageState extends State<LiveDeliveryMapPage> {
               initialCenter: _driver ??
                   _dropoff ??
                   _pickup ??
-                  const LatLng(3.848, 11.502), // Yaounde
+                  const LatLng(3.848, 11.502),
               initialZoom: _driver != null ? 14 : 12,
             ),
             children: [
@@ -302,8 +290,6 @@ class _StatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Pas d'etat « Hors ligne » : les reconnexions sont silencieuses et en
-    // arriere-plan. On indique seulement la fraicheur via l'horodatage.
     const color = Color(0xFF10B981);
     final label = hasFix ? 'Suivi en direct' : 'Connexion au suivi...';
     final time = updatedAt == null

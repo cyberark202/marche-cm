@@ -18,16 +18,8 @@ import '../../../core/realtime_events_service.dart';
 import '../../../core/theme/driver_theme.dart';
 import '../../auth/application/auth_notifier.dart';
 
-/// Palette de réactions rapides (long-press sur une bulle, façon WhatsApp).
 const List<String> kQuickReactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
-/// Conversation de coordination livraison (livreur ↔ acheteur).
-///
-/// Réutilise l'API chat partagée (`/api/chat/messages/`, receipts, réactions)
-/// et le flux temps réel `/ws/events/` (événements ciblés + typing) — aucun
-/// stack de messagerie parallèle. Ouverte depuis « Contacter l'acheteur »
-/// (via l'action backend `/api/shipments/{id}/contact/`) ou la liste des
-/// discussions.
 class DriverChatPage extends ConsumerStatefulWidget {
   const DriverChatPage({super.key, required this.roomId, required this.title});
 
@@ -43,8 +35,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
   final ScrollController _scroll = ScrollController();
   StreamSubscription<Map<String, dynamic>>? _eventsSub;
 
-  // Messages du salon, ordre ANTÉ-chronologique (index 0 = plus récent),
-  // aligné sur l'API et rendu par une ListView reverse (ouverture en bas).
   List<Map<String, dynamic>> _messages = const [];
   bool _loading = true;
   bool _showScrollDown = false;
@@ -54,13 +44,10 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
   int? _myId;
   Map<String, dynamic>? _peer;
   Map<String, dynamic>? _replyingTo;
-  // Envoi optimiste : ids locaux négatifs, remplacés par la réponse serveur.
   int _localIdSeq = -1;
-  // Typing : throttle d'émission + timer d'effacement de l'indicateur reçu.
   DateTime? _typingSentAt;
   bool _peerTyping = false;
   Timer? _typingClearTimer;
-  // Surbrillance temporaire après un saut vers le message cité.
   int? _highlightedId;
   Timer? _highlightTimer;
 
@@ -89,7 +76,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     super.dispose();
   }
 
-  // ── Temps réel incrémental ──────────────────────────────────────────────
 
   void _onChatEvent(Map<String, dynamic> event) {
     final type = (event['type'] ?? '').toString();
@@ -137,7 +123,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
           }
         }
       default:
-        // resync (reconnexion) ou événement inconnu : re-synchronisation REST.
         _load(reset: true);
     }
   }
@@ -169,7 +154,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     }).toList();
   }
 
-  /// Émission du signal typing, throttlée (max ~1 toutes les 2,5 s).
   void _sendTyping() {
     final now = DateTime.now();
     if (_typingSentAt != null &&
@@ -181,7 +165,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
         .send({'type': 'typing', 'room': widget.roomId, 'is_typing': true});
   }
 
-  // ── Chargements REST ─────────────────────────────────────────────────────
 
   Future<void> _load({required bool reset}) async {
     final nextPage = reset ? 1 : _page + 1;
@@ -198,8 +181,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
       setState(() {
         _page = nextPage;
         _hasMore = rows.length >= 20;
-        // API anté-chronologique : page 1 = plus récents, pages suivantes =
-        // historique, ajouté en FIN de liste (haut du fil en rendu inversé).
         _messages = reset ? rows : [..._messages, ...rows];
         _loading = false;
         _error = null;
@@ -214,7 +195,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     }
   }
 
-  /// Fiche de l'interlocuteur (présence incluse) depuis la liste des salons.
   Future<void> _loadPeer() async {
     try {
       final res = await DriverDioClient.dio.get('/api/chat/rooms/');
@@ -233,21 +213,16 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
         setState(() => _peer = Map<String, dynamic>.from(peer));
       }
     } catch (_) {
-      // Présence indisponible : le titre passé en paramètre reste affiché.
     }
   }
 
-  /// Marque TOUT le salon lu en un POST (remplace la boucle par message).
   void _markRoomRead() {
     DriverDioClient.dio
         .post('/api/chat/rooms/${widget.roomId}/mark_read/', data: {})
         .catchError((_) => Response(requestOptions: RequestOptions()));
   }
 
-  // ── Envois ───────────────────────────────────────────────────────────────
 
-  /// Envoi optimiste : la bulle apparaît immédiatement (horloge), puis est
-  /// remplacée par la version serveur ; en échec, état « renvoyer » au tap.
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty) return;
@@ -329,7 +304,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     final norm = normalizeUpload(file.name);
     try {
       final MultipartFile mf;
-      // Jamais fromStream : sur Android le flux file_picker peut bloquer l'envoi.
       if (!kIsWeb && (file.path ?? '').isNotEmpty) {
         mf = await MultipartFile.fromFile(file.path!,
             filename: norm.filename, contentType: norm.mime);
@@ -359,7 +333,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     }
   }
 
-  // ── Réactions ────────────────────────────────────────────────────────────
 
   Future<void> _react(Map<String, dynamic> message, String emoji) async {
     final id = message['id'];
@@ -380,7 +353,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     }
   }
 
-  /// Menu contextuel de bulle (long-press) : réactions rapides + actions.
   void _showMessageActions(Map<String, dynamic> message) {
     final content = (message['content'] ?? '').toString();
     showModalBottomSheet<void>(
@@ -443,15 +415,12 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // ── Scroll / navigation dans le fil ─────────────────────────────────────
 
   void _onScroll() {
     if (!_scroll.hasClients) return;
     final p = _scroll.position;
-    // ListView reverse : offset 0 = bas du fil (messages récents).
     final far = p.pixels > 400;
     if (far != _showScrollDown) setState(() => _showScrollDown = far);
-    // Près du HAUT (fin de l'offset) : charger l'historique plus ancien.
     if (_hasMore && !_loading && p.pixels >= p.maxScrollExtent - 180) {
       _load(reset: false);
     }
@@ -470,7 +439,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
         duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
   }
 
-  /// Saute (approximativement) vers le message cité et le surligne ~1 s.
   void _jumpToMessage(int messageId) {
     final index = _messages.indexWhere((m) => m['id'] == messageId);
     if (index < 0) {
@@ -493,7 +461,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     });
   }
 
-  // ── Helpers d'affichage ──────────────────────────────────────────────────
 
   bool _isImageName(String name) {
     final n = name.toLowerCase().split('?').first;
@@ -563,7 +530,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
   String _timeLabel(DateTime d) =>
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
-  /// Ligne de présence sous le titre (typing / en ligne / vu à HH:MM).
   String _presenceLabel() {
     if (_peerTyping) return 'écrit…';
     final peer = _peer;
@@ -578,8 +544,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     return 'vu le $day';
   }
 
-  /// Liste anté-chronologique rendue en reverse : le message ouvre sa journée
-  /// quand le message PLUS ANCIEN (index+1) est d'un autre jour.
   bool _needsDivider(int i) {
     final cur = _createdAt(_messages[i]);
     if (cur == null) return false;
@@ -687,8 +651,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
           key: ValueKey('driver-msg-${msg['id']}'),
           direction: DismissDirection.startToEnd,
           dismissThresholds: const {DismissDirection.startToEnd: 0.25},
-          // Swipe-to-reply : le geste n'écarte jamais la bulle, il arme la
-          // réponse et revient en place (confirmDismiss=false).
           confirmDismiss: (_) async {
             HapticFeedback.lightImpact();
             setState(() => _replyingTo = msg);
@@ -730,7 +692,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
     );
   }
 
-  /// Pastilles de réactions agrégées sous la bulle (tap = toggle si à moi).
   Widget _reactionPills(Map<String, dynamic> msg) {
     final raw = msg['reactions'];
     if (raw is! List || raw.isEmpty) return const SizedBox.shrink();
@@ -862,7 +823,6 @@ class _DriverChatPageState extends ConsumerState<DriverChatPage> {
   }
 }
 
-// ─── Widgets ─────────────────────────────────────────────────────────────────
 
 class _Bubble extends StatelessWidget {
   const _Bubble({
@@ -961,7 +921,6 @@ class _Bubble extends StatelessWidget {
     );
   }
 
-  /// Encart du message cité en tête de bulle. Tap → saut vers l'original.
   Widget _quote() {
     final preview = message['reply_preview'];
     if (preview is! Map) return const SizedBox.shrink();
@@ -1027,7 +986,6 @@ class _Bubble extends StatelessWidget {
           ],
         );
       }
-      // Vidéo ou document : chip cliquable, ouverture externe.
       final isVideo = type == 'VIDEO' || isVideoName(fileRaw);
       return InkWell(
         onTap: () => launchUrl(Uri.parse(url),
@@ -1052,7 +1010,6 @@ class _Bubble extends StatelessWidget {
   }
 }
 
-/// Bulle de lecture d'une note vocale (play/pause + progression + vitesse).
 class _AudioBubble extends StatefulWidget {
   const _AudioBubble({required this.url});
   final String url;
@@ -1064,7 +1021,6 @@ class _AudioBubble extends StatefulWidget {
 class _AudioBubbleState extends State<_AudioBubble> {
   final AudioPlayer _player = AudioPlayer();
   bool _loaded = false;
-  // Vitesse de lecture cyclique 1x → 1.5x → 2x (façon WhatsApp).
   static const List<double> _speeds = [1.0, 1.5, 2.0];
   double _speed = 1.0;
 
@@ -1103,7 +1059,6 @@ class _AudioBubbleState extends State<_AudioBubble> {
     try {
       await _player.setSpeed(next);
     } catch (_) {
-      // Certains codecs refusent setSpeed : on garde la lecture normale.
     }
   }
 

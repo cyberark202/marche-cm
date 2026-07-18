@@ -1,4 +1,3 @@
-# Spike Playwright v2 : boot-aware + SwiftShader WebGL + activation semantique.
 import sys
 import time
 from pathlib import Path
@@ -10,7 +9,7 @@ LABEL = sys.argv[2] if len(sys.argv) > 2 else "clients"
 OUT = Path(__file__).parent / "artifacts" / "pw"
 OUT.mkdir(parents=True, exist_ok=True)
 
-CHROME_ARGS = []  # rendu GPU headless par defaut (swiftshader cassait CanvasKit)
+CHROME_ARGS = []
 
 DUMP_JS = r"""
 () => {
@@ -53,21 +52,18 @@ with sync_playwright() as p:
     print(f"=== GOTO {URL} ===")
     page.goto(URL, wait_until="domcontentloaded", timeout=60000)
 
-    # 1) Attendre le boot Dart : le placeholder a11y apparait quand le 1er frame est pose
     ok = wait_for(page, "() => !!document.querySelector('flt-semantics-placeholder')",
                   timeout=45, label="flt-semantics-placeholder present")
     print("placeholder present:", ok)
     time.sleep(2)
     page.screenshot(path=str(OUT / f"{LABEL}_01_loaded.png"))
 
-    # 2) Activer la semantique
     clicked = page.evaluate("""() => {
       const ph = document.querySelector('flt-semantics-placeholder');
       if (ph) { ph.click(); return true; } return false;
     }""")
     print("semantics enable clicked:", clicked)
 
-    # 3) Attendre que l'arbre semantique se peuple (plus d'1 noeud avec role/aria)
     wait_for(page, "() => document.querySelectorAll('[role],[aria-label],input,textarea').length > 3",
              timeout=15, label="semantics tree populated")
     time.sleep(1.5)

@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Marché CM — Design tokens (fidèles à theme.jsx)
-/// Palette camerounaise : forest green + sunburst amber + coral flag-red
 class T {
-  // Brand
   static const Color primary     = Color(0xFF0F7A4F);
   static const Color primaryDark = Color(0xFF0A5A3A);
   static const Color primaryDeep = Color(0xFF063D27);
@@ -19,36 +16,30 @@ class T {
   static const Color coral       = Color(0xFFE5484D);
   static const Color coralSoft   = Color(0xFFFEECEC);
 
-  // Surfaces (warm cream — daylight africain)
   static const Color bg       = Color(0xFFFAF7F0);
   static const Color surface  = Color(0xFFFFFFFF);
   static const Color surface2 = Color(0xFFF1ECDE);
   static const Color surface3 = Color(0xFFE8E2D2);
 
-  // Ink
   static const Color ink  = Color(0xFF0E1F18);
   static const Color ink2 = Color(0xFF2D3D36);
   static const Color ink3 = Color(0xFF5C6B64);
   static const Color ink4 = Color(0xFF8F9C96);
 
-  // Lines
   static const Color line  = Color(0xFFE5DECC);
   static const Color line2 = Color(0xFFEDE7D6);
 
-  // Semantic
   static const Color success = Color(0xFF16A34A);
   static const Color warning = Color(0xFFD97706);
   static const Color info    = Color(0xFF2563EB);
   static const Color danger  = Color(0xFFDC2626);
 
-  // Gradients
   static const LinearGradient gradientPrimary = LinearGradient(
     colors: [primary, primaryDeep],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  /// Gradient spécifique livreur (amber chaud)
   static const LinearGradient gradientDriver = LinearGradient(
     colors: [Color(0xFFC68426), Color(0xFF8E5A00)],
     begin: Alignment.topLeft,
@@ -61,14 +52,12 @@ class T {
     end: Alignment(0.5, 1),
   );
 
-  // Radii
   static const double rSm  = 8;
   static const double r    = 12;
   static const double rLg  = 18;
   static const double rXl  = 24;
   static const double rFull = 999;
 
-  // Shadows
   static List<BoxShadow> shadowSm = [
     BoxShadow(
       color: const Color(0xFF0E1F18).withValues(alpha: 0.06),
@@ -102,7 +91,6 @@ class T {
   ];
 }
 
-/// Alias lisibles dans les widgets
 class DriverPalette {
   static const Color primary     = T.primary;
   static const Color primaryDark = T.primaryDark;

@@ -20,7 +20,6 @@ class ProfilePage extends ConsumerWidget {
       backgroundColor: T.bg,
       body: CustomScrollView(
         slivers: [
-          // ── Hero amber ─────────────────────────────────────────────────
           SliverToBoxAdapter(
             child: Container(
               decoration: const BoxDecoration(
@@ -36,7 +35,6 @@ class ProfilePage extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                   child: Column(
                     children: [
-                      // Avatar
                       Container(
                         width: 72,
                         height: 72,
@@ -68,7 +66,6 @@ class ProfilePage extends ConsumerWidget {
                               fontSize: 13,
                               color: Colors.white.withValues(alpha: 0.8))),
                       const SizedBox(height: 16),
-                      // Stats row
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 12),
@@ -96,7 +93,6 @@ class ProfilePage extends ConsumerWidget {
             ),
           ),
 
-          // ── Menu sections ───────────────────────────────────────────────
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
             sliver: SliverList(
@@ -150,7 +146,6 @@ class ProfilePage extends ConsumerWidget {
                   ),
                 ]),
                 const SizedBox(height: 20),
-                // Logout button
                 GestureDetector(
                   onTap: () async {
                     final ok = await showDialog<bool>(

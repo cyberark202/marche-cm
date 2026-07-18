@@ -27,7 +27,6 @@ from apps.wallets.services import WalletAccountingService
 
 User = get_user_model()
 
-# username -> (téléphone, ville, latitude, longitude)
 _PROFILES = {
     "admin_general": ("+237600000001", "Douala", Decimal("4.0511"), Decimal("9.7679")),
     "supplier_demo": ("+237600000002", "Douala", Decimal("4.0611"), Decimal("9.7079")),
@@ -38,7 +37,6 @@ _PROFILES = {
 
 _CATEGORIES = ["Électronique", "Alimentation", "Mode & Textile", "Maison & Cuisine"]
 
-# (seller_username, titre, marque, catégorie, prix_unitaire, qté, poids_kg, tags)
 _PRODUCTS = [
     ("vendeur_demo", "Smartphone X10 64Go", "NovaTech", "Électronique", 145000, 40, "0.35", "smartphone,android"),
     ("vendeur_demo", "Casque Bluetooth Pro", "SoundMax", "Électronique", 25000, 60, "0.25", "audio,casque"),
@@ -50,7 +48,6 @@ _PRODUCTS = [
     ("supplier_demo", "Robe pagne femme", "WaxHouse", "Mode & Textile", 15000, 70, "0.5", "pagne,femme"),
 ]
 
-# username -> montant XAF crédité (solde disponible).
 _FUNDING = {
     "buyer_demo": 5_000_000,
     "vendeur_demo": 150_000,
@@ -92,7 +89,6 @@ class Command(BaseCommand):
             user.location_label = f"{city}, Cameroun"
             user.location_latitude = lat
             user.location_longitude = lng
-            # KYC élevé + vérifié pour lever les plafonds/gates en test local.
             user.kyc_level = 2
             if user.role != UserRole.BUYER:
                 user.is_verified = True
@@ -139,7 +135,6 @@ class Command(BaseCommand):
             if user is None:
                 continue
             wallet = WalletAccountingService.get_wallet_for_update(user=user)
-            # Clé d'idempotence : ré-exécuter le seed ne recrédite pas.
             WalletAccountingService.credit_available(
                 wallet=wallet,
                 amount=Decimal(amount),

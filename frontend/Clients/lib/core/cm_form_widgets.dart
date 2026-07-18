@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// UI polish réutilisable inspiré de la référence b2c.
-///
-/// - [CmPasswordStrength] : jauge de robustesse du mot de passe en direct.
-/// - [CmShimmer]          : placeholder animé pour les états de chargement.
 
-/// Barre de force du mot de passe (faible → excellent) affichée sous le champ.
 class CmPasswordStrength extends StatelessWidget {
   const CmPasswordStrength({super.key, required this.password});
 
   final String password;
 
-  /// Score 0..4 selon longueur + variété de caractères.
   int get _score {
     final p = password;
     if (p.isEmpty) return 0;
@@ -69,7 +63,6 @@ class CmPasswordStrength extends StatelessWidget {
   }
 }
 
-/// Placeholder animé (effet « shimmer ») pour les listes/cartes en chargement.
 class CmShimmer extends StatefulWidget {
   const CmShimmer({
     super.key,

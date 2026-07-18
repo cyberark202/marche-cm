@@ -30,42 +30,19 @@ def quantize_money(value) -> Decimal:
     return amount.quantize(MONEY_QUANT)
 
 
-# Audit ref: [FIN-001] LedgerService was never branched in production.
-# This mapping wires the simplified wallet ledger (WalletLedgerEntry) to the
-# double-entry accounting ledger (LedgerService → LedgerTransaction +
-# LedgerEntry). The double-entry side is the auditable source for accounting,
-# regulator reporting and reconciliation. Failure to mirror rolls the WHOLE
-# wallet mutation back (we share the parent transaction), guaranteeing the
-# two ledgers never drift.
-#
-# Cases that have no equivalent double-entry transaction yet (commissions,
-# internal transfers, etc.) return None — the wallet mutation still commits
-# but no LedgerTransaction is created. A reconciliation job (Vague 6/7) will
-# detect any missing mirror and surface it for engineering review.
 def _mirror_wallet_entry_to_ledger(entry: WalletLedgerEntry):
     """Post a balanced LedgerTransaction matching a WalletLedgerEntry.
 
     Called from within mutate_wallet's atomic block — any exception raised
     here rolls back the wallet mutation as well.
     """
-    # Operators can disable the mirror in emergencies via env flag. The wallet
-    # operational ledger keeps working; the double-entry ledger pauses until
-    # the flag is removed. Default ON.
     if not getattr(settings, "LEDGER_DOUBLE_ENTRY_ENABLED", True):
         return None
 
-    # Lazy import — apps.ledger imports apps.wallets implicitly via models in
-    # some paths; defer to avoid bootstrap-order issues.
     from apps.ledger.services import ledger_service
 
     user = entry.wallet.owner
     amount = entry.amount
-    # Audit ref: [FIN-001-bis] LedgerTransaction.idempotency_key has a GLOBAL
-    # unique constraint, while WalletLedgerEntry.idempotency_key is unique
-    # only per wallet. Two users with the same wallet-level key (e.g.
-    # "tx-success:42") would collide on the ledger side and crash the second
-    # user's mutation. Scoping by (user_id, entry_type) eliminates cross-user
-    # interference while keeping intra-user idempotency.
     user_id = getattr(user, "id", None) or "anon"
     if entry.idempotency_key:
         idem = f"wle:{user_id}:{entry.entry_type}:{entry.idempotency_key}"
@@ -103,7 +80,6 @@ def _mirror_wallet_entry_to_ledger(entry: WalletLedgerEntry):
             idempotency_key=idem, order_reference=ref,
         )
 
-    # Unmapped entry types — log so reconciliation can pick them up.
     logger.info(
         "ledger_mirror_skip",
         extra={
@@ -188,11 +164,6 @@ class WalletAccountingService:
             if idempotency_key:
                 existing = WalletLedgerEntry.objects.filter(wallet=wallet, idempotency_key=idempotency_key).first()
                 if existing:
-                    # Audit ref: [NEW-001] replay-safe mirror — if the previous
-                    # mutate_wallet was killed between WalletLedgerEntry creation
-                    # and the ledger post, the entry exists but the
-                    # LedgerTransaction does NOT. Re-attempt the mirror so the
-                    # two ledgers converge instead of drifting permanently.
                     if getattr(settings, "LEDGER_DOUBLE_ENTRY_ENABLED", True):
                         _ensure_ledger_mirror_present(existing)
                     return existing
@@ -238,9 +209,6 @@ class WalletAccountingService:
                 metadata=metadata or {},
             )
 
-            # Audit ref: [FIN-001] mirror to double-entry ledger inside the
-            # same atomic block — if it raises, the wallet mutation rolls back
-            # and the two ledgers stay consistent.
             _mirror_wallet_entry_to_ledger(wallet_entry)
 
             return wallet_entry

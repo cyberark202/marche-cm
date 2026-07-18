@@ -12,9 +12,6 @@ from .models import FraudAssessment, UserRiskProfile, BlacklistEntry
 from .serializers import FraudAssessmentSerializer, UserRiskProfileSerializer, BlacklistEntrySerializer
 
 
-# Audit ref: [FIN-012] only these review outcomes are accepted — previously
-# the endpoint accepted any string, including outcomes that would later
-# blow up downstream serialization or analytics.
 _REVIEW_OUTCOMES = {"DISMISSED", "CONFIRMED", "ESCALATED", "FALSE_POSITIVE"}
 
 
@@ -28,7 +25,6 @@ class FraudAssessmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, v
         return super().get_permissions()
 
     def get_queryset(self):
-        # Audit ref: [FIN-020] role compared via enum, not literal string.
         user = self.request.user
         if getattr(user, "role", None) == UserRole.GENERAL_ADMIN:
             return FraudAssessment.objects.all().order_by("-created_at")
@@ -36,7 +32,6 @@ class FraudAssessmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, v
 
     @action(detail=True, methods=["post"], url_path="review")
     def review(self, request, pk=None):
-        # Permission enforced by get_permissions() above.
         outcome = (request.data.get("outcome") or "DISMISSED").upper()
         if outcome not in _REVIEW_OUTCOMES:
             return Response(
@@ -54,10 +49,6 @@ class FraudAssessmentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, v
             assessment.save(
                 update_fields=["reviewed", "reviewed_at", "reviewed_by_id", "review_outcome"]
             )
-            # Audit ref: [FIN-012] admin overrides on fraud decisions must be
-            # captured in the immutable audit trail. Without this, a
-            # compromised admin account could whitelist fraudulent activity
-            # invisibly. Now every override is signed into the chain hash.
             audit_service.log_fraud(
                 event_type="fraud.assessment.review",
                 user_id=str(getattr(assessment.user, "pk", "")),

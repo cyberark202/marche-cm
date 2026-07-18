@@ -34,12 +34,8 @@ class _PickupConfirmationPageState extends State<PickupConfirmationPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      // Audit ref: [Front-Driver] backend exposes ShipmentViewSet.update_status
-      // (logistics/views.py:384). The previous /confirm-pickup/ path was a 404.
-      // The status transition PICKED_UP is the canonical "pickup confirmed" event.
       final form = FormData.fromMap({
         'status': 'PICKED_UP',
-        // MIME explicite : le backend refuse octet-stream (UP-001).
         'photo': await MultipartFile.fromFile(_photo!.path,
             filename: 'pickup.jpg', contentType: DioMediaType('image', 'jpeg')),
       });

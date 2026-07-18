@@ -16,8 +16,6 @@ class DriverApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(driverRouterProvider);
 
-    // Connecte/déconnecte le flux temps réel (/ws/events/) selon l'auth. Alimente
-    // notamment l'AppGate (topic "system") pour un kill switch instantané.
     final isAuthenticated =
         ref.watch(authProvider.select((s) => s.isAuthenticated));
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -40,8 +38,6 @@ class DriverApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      // La porte enveloppe tout le routeur : forced-update / maintenance / kill
-      // switch s'affichent au-dessus de n'importe quelle route.
       builder: (context, child) => AppGate(
         systemEvents: RealtimeEventsService.instance.events,
         child: CmResponsive.appWrap(context, child),

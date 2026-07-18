@@ -24,8 +24,6 @@ from .notchpay_checkout_service import NotchPayCheckoutService
     NOTCHPAY_PUBLIC_KEY="pk_test_x",
     NOTCHPAY_PRIVATE_KEY="sk_test_x",
     SECURE_SSL_REDIRECT=False,
-    # Channel layer en mémoire : tests déterministes, sans dépendre d'un Redis
-    # local (sinon les diffusions WebSocket timeout pendant le marquage d'échec).
     CHANNEL_LAYERS={"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}},
 )
 class DirectChargeTopupTests(APITestCase):
@@ -73,12 +71,10 @@ class DirectChargeTopupTests(APITestCase):
         self.assertEqual(res.data["payment_mode"], "direct_charge")
         self.assertIsNone(res.data["checkout_url"])
         self.assertEqual(res.data["status"], TransactionStatus.PENDING)
-        # Charge routed to the MTN channel with the normalized phone.
         _, kwargs = charge_mock.call_args
         self.assertEqual(kwargs["channel"], "cm.mtn")
         self.assertEqual(kwargs["phone"], "+237699111222")
         self.assertEqual(kwargs["reference"], "NP-REF-1")
-        # Transaction stays PENDING until the webhook confirms.
         tx = WalletTransaction.objects.get(idempotency_key="dc-mtn-1")
         self.assertEqual(tx.status, TransactionStatus.PENDING)
         self.assertEqual(Wallet.objects.get(owner=self.user).balance, Decimal("0.00"))
@@ -114,7 +110,6 @@ class DirectChargeTopupTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
         self.assertEqual(res.data["payment_mode"], "redirect")
         self.assertEqual(res.data["checkout_url"], "https://pay.notchpay.co/NP-REF-3")
-        # No direct charge for cards.
         charge_mock.assert_not_called()
 
     def test_direct_charge_failure_marks_transaction_failed(self):
@@ -128,7 +123,6 @@ class DirectChargeTopupTests(APITestCase):
                 key="dc-fail-1",
             )
         self.assertEqual(res.status_code, status.HTTP_502_BAD_GATEWAY)
-        # The provider error is never leaked verbatim to the client.
         self.assertNotIn("402", res.data["detail"])
         tx = WalletTransaction.objects.get(idempotency_key="dc-fail-1")
         self.assertEqual(tx.status, TransactionStatus.FAILED)

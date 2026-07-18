@@ -30,8 +30,6 @@ from apps.accounts.models import ComplianceDocument
 
 User = get_user_model()
 
-# Minimal valid JPEG header so upload_security magic-byte validation passes
-# (the `file` field is a plain FileField — no full image decode required).
 FAKE_JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 32
 
 def _jpeg(name="doc.jpg"):
@@ -39,14 +37,11 @@ def _jpeg(name="doc.jpg"):
 
 
 def _png(name="signature.png"):
-    # The `signature` field is a DRF ImageField → requires a genuinely decodable
-    # image (matches the real PNG exported by the app). Generate one with Pillow.
     buf = io.BytesIO()
     Image.new("RGB", (8, 8), (255, 255, 255)).save(buf, format="PNG")
     return SimpleUploadedFile(name, buf.getvalue(), content_type="image/png")
 
 
-# ── 1. Pre-flight gate ─────────────────────────────────────────────────────────
 
 
 class PreflightCommandTests(APITestCase):
@@ -55,7 +50,6 @@ class PreflightCommandTests(APITestCase):
         call_command("preflight", "--warn-only", stdout=out)
         report = out.getvalue()
         self.assertIn("PRÉFLIGHT PRODUCTION", report)
-        # Core checks must always appear in the report.
         for check in ["DEBUG", "SECRET_KEY", "Database", "Email", "CORS", "JWT"]:
             self.assertIn(check, report)
 
@@ -68,12 +62,10 @@ class PreflightCommandTests(APITestCase):
 
     @override_settings(CORS_ALLOW_ALL_ORIGINS=True)
     def test_gate_raises_when_a_failure_is_present(self):
-        # Without --warn-only, any FAIL must make the command exit non-zero.
         with self.assertRaises(CommandError):
             call_command("preflight", stdout=StringIO())
 
 
-# ── 2. Critical business gates ─────────────────────────────────────────────────
 
 
 class _AuthMixin:
@@ -137,11 +129,9 @@ class BuyerKycSubmitTests(_AuthMixin, APITestCase):
             url, {"doc_type": "CNI", "file": _jpeg("a.jpg")}, format="multipart"
         )
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
-        # Reviewer rejects it…
         doc = ComplianceDocument.objects.get(user=self.buyer, doc_type="CNI")
         doc.status = "REJECTED"
         doc.save(update_fields=["status"])
-        # …user re-submits → single doc, back to PENDING.
         second = self.client.post(
             url, {"doc_type": "CNI", "file": _jpeg("b.jpg")}, format="multipart"
         )
@@ -215,7 +205,6 @@ class WalletReconcileGateTests(_AuthMixin, APITestCase):
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_admin_reconcile_blocked_without_step_up(self):
-        # A privileged admin still cannot move money without the 2FA step-up.
         self._auth_as(self.admin)
         res = self.client.post(
             reverse("wallet-reconcile"),

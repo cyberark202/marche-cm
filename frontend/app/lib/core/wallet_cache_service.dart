@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Schema version — bump whenever the cached shape changes to auto-invalidate.
 const int _kSchemaVersion = 1;
 
 const String _kVersionKey = 'wallet_cache_schema_v';
@@ -13,12 +12,6 @@ const String _kTxTsKey = 'wallet_cache_tx_ts';
 const int _kMaxTransactions = 50;
 const Duration _kStaleThreshold = Duration(hours: 1);
 
-/// Lightweight SharedPreferences-backed cache for wallet data.
-///
-/// Schema-versioned: any schema bump wipes stale data automatically.
-/// Max 50 transactions stored (most-recent wins on overflow).
-/// Stale after 1 hour — callers should always fetch fresh data
-/// and use cache only as a fallback when offline.
 class WalletCacheService {
   WalletCacheService._();
   static final WalletCacheService instance = WalletCacheService._();
@@ -41,7 +34,6 @@ class WalletCacheService {
     }
   }
 
-  // ── Wallet summary ────────────────────────────────────────────────────────
 
   Future<void> saveWallet(Map<String, dynamic> wallet) async {
     final prefs = await _getPrefs();
@@ -63,7 +55,6 @@ class WalletCacheService {
     }
   }
 
-  // ── Transaction list ──────────────────────────────────────────────────────
 
   Future<void> saveTransactions(List<Map<String, dynamic>> transactions) async {
     final prefs = await _getPrefs();
@@ -91,7 +82,6 @@ class WalletCacheService {
     }
   }
 
-  // ── Staleness helpers ─────────────────────────────────────────────────────
 
   bool _isStale(int? tsMs) {
     if (tsMs == null) return true;
@@ -100,7 +90,7 @@ class WalletCacheService {
     return age > _kStaleThreshold;
   }
 
-  bool get isWalletStale => true; // evaluated lazily — callers check prefs
+  bool get isWalletStale => true;
   Future<bool> isWalletDataStale() async {
     final prefs = await _getPrefs();
     return _isStale(prefs.getInt(_kWalletTsKey));
@@ -111,7 +101,6 @@ class WalletCacheService {
     return _isStale(prefs.getInt(_kTxTsKey));
   }
 
-  // ── Cache invalidation ────────────────────────────────────────────────────
 
   Future<void> invalidate() async {
     final prefs = await _getPrefs();

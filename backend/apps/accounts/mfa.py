@@ -24,24 +24,18 @@ from django.conf import settings
 
 logger = logging.getLogger("security.mfa")
 
-# ---------------------------------------------------------------------------
-# TOTP constants (RFC 6238 / RFC 4226)
-# ---------------------------------------------------------------------------
 
-TOTP_STEP_SECONDS = 30       # Standard 30-second window
-TOTP_DIGITS = 6              # 6-digit codes
-TOTP_ALGORITHM = "sha1"      # HOTP uses SHA-1 by default
-TOTP_WINDOW = 1              # Accept ±1 step (±30s clock skew tolerance)
-TOTP_SECRET_BYTES = 20       # 160-bit secret (standard for TOTP apps)
+TOTP_STEP_SECONDS = 30
+TOTP_DIGITS = 6
+TOTP_ALGORITHM = "sha1"
+TOTP_WINDOW = 1
+TOTP_SECRET_BYTES = 20
 
 BACKUP_CODE_COUNT = 8
-BACKUP_CODE_LENGTH = 10      # 10-char alphanumeric — ~50 bits of entropy
-BACKUP_CODE_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"  # Visually unambiguous
+BACKUP_CODE_LENGTH = 10
+BACKUP_CODE_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
 
-# ---------------------------------------------------------------------------
-# Core TOTP algorithm (no external deps)
-# ---------------------------------------------------------------------------
 
 def _hotp(secret_bytes: bytes, counter: int) -> int:
     """RFC 4226 HOTP implementation."""
@@ -82,7 +76,6 @@ class TOTPService:
         Compatible with Google Authenticator, Authy, 1Password, etc.
         """
         issuer = issuer or getattr(settings, "MFA_ISSUER_NAME", "Marche CM")
-        # URL-encode label components
         label = f"{issuer}:{username}".replace(" ", "%20")
         params = (
             f"secret={secret_b32}"
@@ -116,7 +109,6 @@ class TOTPService:
         for delta in range(-allow_window, allow_window + 1):
             expected_at = now + delta * TOTP_STEP_SECONDS
             expected = _totp(secret_bytes, at=expected_at)
-            # Constant-time comparison to prevent timing attacks.
             if hmac.compare_digest(f"{expected:0{TOTP_DIGITS}d}", code_clean):
                 return True
         return False
@@ -128,9 +120,6 @@ class TOTPService:
         return f"{_totp(secret_bytes):0{TOTP_DIGITS}d}"
 
 
-# ---------------------------------------------------------------------------
-# Backup codes
-# ---------------------------------------------------------------------------
 
 class BackupCodeService:
     """
@@ -175,9 +164,6 @@ class BackupCodeService:
         return [f"{c[:mid]}-{c[mid:]}" for c in codes]
 
 
-# ---------------------------------------------------------------------------
-# Step anti-replay — prevent code reuse
-# ---------------------------------------------------------------------------
 
 def mark_totp_step_used(user_id: int, step: int) -> bool:
     """
@@ -188,8 +174,7 @@ def mark_totp_step_used(user_id: int, step: int) -> bool:
     from django.core.cache import cache
     key = f"mfa:used_step:{user_id}:{step}"
     if cache.get(key):
-        return False  # already used
-    # Keep for 2× window + tolerance to be safe.
+        return False
     cache.set(key, 1, timeout=TOTP_STEP_SECONDS * (2 * TOTP_WINDOW + 1))
     return True
 

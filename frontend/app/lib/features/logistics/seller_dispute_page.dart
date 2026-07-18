@@ -11,9 +11,6 @@ import '../auth/session_store.dart';
 import 'dispute_detail_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// ---------------------------------------------------------------------------
-// Entry point for sellers (SUPPLIER / WHOLESALER)
-// ---------------------------------------------------------------------------
 class SellerDisputePage extends StatefulWidget {
   const SellerDisputePage({super.key});
 
@@ -174,9 +171,6 @@ class _SellerDisputePageState extends State<SellerDisputePage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Dispute tile — shows accused party label
-// ---------------------------------------------------------------------------
 class _SellerDisputeTile extends StatelessWidget {
   final Map<String, dynamic> dispute;
   final VoidCallback onTap;
@@ -215,7 +209,6 @@ class _SellerDisputeTile extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              // Accused party badge
               if (accusedName != null)
                 Row(
                   children: [
@@ -301,9 +294,6 @@ class _SellerDisputeTile extends StatelessWidget {
       '${d.day}/${d.month}/${d.year} ${d.hour}:${d.minute.toString().padLeft(2, '0')}';
 }
 
-// ---------------------------------------------------------------------------
-// Seller-specific dispute creation — grouped by accused party
-// ---------------------------------------------------------------------------
 class _SellerDisputeCreatePage extends StatefulWidget {
   final int shipmentId;
   const _SellerDisputeCreatePage({required this.shipmentId});
@@ -321,7 +311,6 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
   bool _loading = false;
   int _step = 0;
 
-  // Grouped dispute types for sellers
   static const _groupsVsBuyer = [
     ('FALSE_NON_RECEIPT',  'Fausse non-reception', LucideIcons.shieldOff),
     ('USED_THEN_DISPUTED', 'Produit utilise puis conteste', LucideIcons.arrowLeftRight),
@@ -602,9 +591,6 @@ class _SellerDisputeCreatePageState extends State<_SellerDisputeCreatePage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Group section widget
-// ---------------------------------------------------------------------------
 class _GroupSection extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -690,9 +676,6 @@ class _GroupSection extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Shared status pill
-// ---------------------------------------------------------------------------
 class _StatusPill extends StatelessWidget {
   final String label;
   final Color color;

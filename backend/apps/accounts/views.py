@@ -88,9 +88,6 @@ def _password_strength_error(new_password):
     return None
 
 
-# ---------------------------------------------------------------------------
-# Internal role helpers
-# ---------------------------------------------------------------------------
 
 def _is_general_admin(user: User) -> bool:
     return bool(user and user.is_authenticated and (user.is_superuser or user.role == UserRole.GENERAL_ADMIN))
@@ -128,9 +125,6 @@ def _sync_business_user_verification(user: User) -> bool:
     return has_approved_cert
 
 
-# ---------------------------------------------------------------------------
-# OWASP A01 — Relational authorization for KYC document access
-# ---------------------------------------------------------------------------
 
 def _has_business_relationship_with(actor: User, target_id: int) -> bool:
     """
@@ -144,13 +138,11 @@ def _has_business_relationship_with(actor: User, target_id: int) -> bool:
     """
     from apps.orders.models import Order  # noqa: PLC0415
 
-    # Supplier / Wholesaler: shared order (buyer ↔ seller)
     if Order.objects.filter(
         Q(buyer=actor, seller_id=target_id) | Q(seller=actor, buyer_id=target_id)
     ).exists():
         return True
 
-    # Transit agent: shipment where the agent is assigned to buyer/seller
     if actor.role == UserRole.TRANSIT_AGENT:
         from apps.logistics.models import Shipment  # noqa: PLC0415
 
@@ -161,7 +153,6 @@ def _has_business_relationship_with(actor: User, target_id: int) -> bool:
     return False
 
 
-# ---------------------------------------------------------------------------
 
 SENSITIVE_ACTION_LABELS = {
     "wallet.withdraw": "Retrait wallet",
@@ -172,9 +163,6 @@ SENSITIVE_ACTION_LABELS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Views
-# ---------------------------------------------------------------------------
 
 class UiConfigView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -293,15 +281,11 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.order_by("id")
 
     def get_queryset(self):
-        # Non-admins are hard-scoped to their own record (anti-IDOR).
         if not _is_general_admin(self.request.user):
             return self.queryset.filter(id=self.request.user.id)
 
         qs = self.queryset
 
-        # A-01 fix — server-side search so the admin directory is not capped at
-        # the first paginated page (PAGE_SIZE=20). Without this, any user past
-        # the first page was invisible and unsearchable. Admin only.
         q = (self.request.query_params.get("q") or "").strip()
         if q:
             qs = qs.filter(
@@ -311,8 +295,6 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                 | Q(reference_code__icontains=q)
             )
 
-        # Optional role filter (?role=BUYER|SUPPLIER|...) — server-side so the
-        # bucket chips work across the whole table, not just the loaded page.
         role = (self.request.query_params.get("role") or "").strip().upper()
         if role in dict(UserRole.choices):
             qs = qs.filter(role=role)
@@ -339,7 +321,6 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         broadcast_event("profiles", "managed_user_created", {"id": user.id, "role": user.role})
         return response.Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
-    # Audit ref: [M-6] Admin user suspension / reactivation.
     def _get_admin_target(self, request, pk):
         """Resolve the target user for an admin action, enforcing the suspend
         permission. Returns (user, error_response). The target is looked up on
@@ -406,7 +387,6 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         """
         actor = request.user
 
-        # Only compliance actors and admins may use this endpoint.
         if not _is_general_admin(actor) and not _is_compliance_actor(actor):
             raise Http404
 
@@ -415,10 +395,8 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         except (TypeError, ValueError):
             raise Http404
 
-        # Compliance actors must share a business relationship with the target.
         if not _is_general_admin(actor):
             if not _has_business_relationship_with(actor, target_id):
-                # Return 404 — not 403 — to prevent confirming the user exists.
                 raise Http404
 
         try:
@@ -460,18 +438,14 @@ class ComplianceDocumentViewSet(viewsets.ModelViewSet):
             try:
                 target_id = int(user_id_param)
             except (TypeError, ValueError):
-                # Malformed user_id → 404 (prevents probing)
                 raise Http404
 
-            # Self-access is always allowed
             if target_id == actor.id:
                 return self.queryset.filter(user_id=target_id).order_by("-created_at")
 
-            # Admin: unrestricted access to all documents
             if _is_general_admin(actor):
                 return self.queryset.filter(user_id=target_id).order_by("-created_at")
 
-            # Compliance actors: MUST have a real business relationship
             if _is_compliance_actor(actor) and _has_business_relationship_with(actor, target_id):
                 return (
                     self.queryset
@@ -479,10 +453,8 @@ class ComplianceDocumentViewSet(viewsets.ModelViewSet):
                     .order_by("-created_at")
                 )
 
-            # Deny: return 404 (not 403) — prevents user enumeration
             raise Http404
 
-        # No user_id filter: return own documents or admin view
         if _is_general_admin(actor):
             return self.queryset
         if not _is_compliance_actor(actor):
@@ -582,9 +554,6 @@ class BuyerKycSubmitView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    # Audit ref: [M-2][M-3] single source of truth — apps/accounts/kyc_constants.py.
-    # The serializer's ALLOWED_DOC_TYPES is derived from the same module, so the
-    # view can never again advertise a type the serializer rejects.
     IDENTITY_DOC_TYPES = BUYER_IDENTITY_DOC_TYPES
 
     def post(self, request):
@@ -609,7 +578,6 @@ class BuyerKycSubmitView(APIView):
         serializer.is_valid(raise_exception=True)
         document = serializer.save(user=request.user)
 
-        # Any (re)submission re-enters the review queue.
         document.status = "PENDING"
         document.reviewed_by = None
         document.reviewed_at = None
@@ -666,7 +634,6 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        # Audit: use user_id only — NEVER log phone_number, email, or any PII.
         write_audit_log(
             actor=user,
             action="Inscription utilisateur",
@@ -730,13 +697,11 @@ class LoginRequestView(APIView):
         serializer = LoginRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
-        # Audit ref: [M-6] suspended / deactivated accounts cannot obtain tokens.
         if getattr(user, "is_suspended", False) or not user.is_active:
             return response.Response(
                 {"detail": "Compte suspendu. Contactez le support."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        # Audit: user_id only — do not log the email address.
         write_audit_log(
             actor=user,
             action="Connexion email mot de passe",
@@ -782,19 +747,16 @@ class CustomTokenRefreshView(TokenRefreshView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Validate & decode the old refresh token
             old_refresh_token = RefreshToken(refresh)
             user = old_refresh_token.get('user_id')
 
-            # Blacklist the old refresh token immediately
             from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
             try:
                 outstanding = OutstandingToken.objects.get(token=old_refresh_token)
                 BlacklistedToken.objects.get_or_create(token=outstanding)
             except OutstandingToken.DoesNotExist:
-                pass  # Token not tracked, proceed
+                pass
 
-            # Issue new access + refresh tokens
             new_refresh = RefreshToken.for_user(request.user)
 
             write_audit_log(
@@ -934,9 +896,6 @@ class WalletPinView(APIView):
     throttle_scope = "wallet"
 
     def post(self, request):
-        # Wallet PIN removed (product decision). The endpoint is kept so older
-        # app builds don't crash, but it no longer sets anything. Money-out
-        # operations are protected by the emailed OTP (wallet.withdraw).
         return response.Response(
             {"detail": "Le PIN wallet a ete supprime. Aucune configuration n'est requise."},
             status=status.HTTP_410_GONE,
@@ -963,14 +922,11 @@ class SensitiveActionRequestView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Generate a cryptographically secure 6-digit OTP.
         code = f"{secrets.randbelow(1000000):06d}"
-        # PBKDF2-hash the OTP before storage — NEVER persist plaintext codes.
         code_hash = make_password(code)
         challenge_token = secrets.token_urlsafe(32)
         expires_at = timezone.now() + timedelta(minutes=max(1, settings.SENSITIVE_ACTION_CODE_TTL_MINUTES))
 
-        # Expire any pending challenge for this user + action (prevent accumulation).
         SensitiveActionChallenge.objects.filter(
             user=request.user,
             action_key=action_key,
@@ -982,7 +938,7 @@ class SensitiveActionRequestView(APIView):
             user=request.user,
             action_key=action_key,
             challenge_token=challenge_token,
-            code_hash=code_hash,   # hashed — plaintext code is discarded after email send
+            code_hash=code_hash,
             expires_at=expires_at,
         )
 
@@ -1008,7 +964,6 @@ class SensitiveActionRequestView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # Audit: log only the action key — the OTP itself must never be logged.
         write_audit_log(
             actor=request.user,
             action="Demande code action sensible",
@@ -1143,7 +1098,6 @@ class PasswordResetRequestView(APIView):
             return generic
 
         now = timezone.now()
-        # Invalidate any pending code for this user (one live code at a time).
         PasswordResetChallenge.objects.filter(
             user=user, used_at__isnull=True, expires_at__gt=now
         ).update(expires_at=now)
@@ -1152,7 +1106,7 @@ class PasswordResetRequestView(APIView):
         ttl = max(1, settings.PASSWORD_RESET_CODE_TTL_MINUTES)
         PasswordResetChallenge.objects.create(
             user=user,
-            code_hash=make_password(code),  # hashed — plaintext discarded after send
+            code_hash=make_password(code),
             expires_at=now + timedelta(minutes=ttl),
         )
         try:
@@ -1169,10 +1123,8 @@ class PasswordResetRequestView(APIView):
                 fail_silently=False,
             )
         except Exception:
-            # Never leak send failures — keep the response indistinguishable.
             return generic
 
-        # Audit: user_id only — NEVER log the code or the email address.
         write_audit_log(
             actor=user,
             action="Demande reinitialisation mot de passe",
@@ -1191,10 +1143,6 @@ class PasswordResetConfirmView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
-    # No tight per-IP throttle here: the per-challenge attempt cap already bounds
-    # brute-force (a burned code forces a fresh, throttled request), so a user
-    # mistyping the code is not locked out by the request limiter. The global
-    # anon throttle still applies as a backstop.
     throttle_classes = [GlobalAnonThrottle]
 
     _INVALID = "Code invalide ou expire. Recommencez la procedure."
@@ -1231,7 +1179,7 @@ class PasswordResetConfirmView(APIView):
 
         max_attempts = max(1, settings.PASSWORD_RESET_MAX_ATTEMPTS)
         if challenge.attempts >= max_attempts:
-            challenge.expires_at = now  # burn an over-tried code
+            challenge.expires_at = now
             challenge.save(update_fields=["expires_at"])
             return response.Response({"detail": self._INVALID}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1244,12 +1192,10 @@ class PasswordResetConfirmView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Success — consume the challenge and rotate the password.
         challenge.used_at = now
         challenge.save(update_fields=["used_at"])
         user.set_password(new_password)
         user.save(update_fields=["password"])
-        # Revoke every existing session — the old password is no longer trusted.
         for token in OutstandingToken.objects.filter(user=user):
             BlacklistedToken.objects.get_or_create(token=token)
         write_audit_log(
@@ -1361,8 +1307,6 @@ class GoogleAuthView(APIView):
                 "is_verified": True,
             },
         )
-        # Audit ref: [M-6] a suspended account must not be silently reactivated
-        # by signing in with Google.
         if not created and getattr(user, "is_suspended", False):
             return response.Response(
                 {"detail": "Compte suspendu. Contactez le support."},
@@ -1379,7 +1323,6 @@ class GoogleAuthView(APIView):
             if updates:
                 user.save(update_fields=updates)
         update_user_location(user, force=created)
-        # Audit: user_id only — no email in logs.
         write_audit_log(
             actor=user,
             action="Connexion Google",
@@ -1419,12 +1362,6 @@ class FCMTokenView(APIView):
         if device_type not in ("android", "ios", "web"):
             device_type = "android"
 
-        # Audit ref: [NOTIF-002] previously `update_or_create(registration_id=)`
-        # silently REASSIGNED a token to whoever called the endpoint — letting
-        # an attacker with a victim's FCM registration id hijack their push
-        # notifications (incl. 2FA codes, password resets). We now reject any
-        # attempt to claim a token already bound to a different user. The
-        # legitimate device holder can DELETE first then re-register.
         existing = FCMToken.objects.filter(registration_id=registration_id).first()
         if existing and existing.user_id != request.user.id:
             security_logger.warning(

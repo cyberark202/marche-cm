@@ -4,8 +4,6 @@ import 'package:dio/dio.dart';
 
 import 'security/secure_dio_client.dart';
 
-/// Thin REST helper over the shared [SecureDioClient]. All admin screens go
-/// through this so error handling and payload coercion stay consistent.
 class ApiService {
   static Dio get _dio => SecureDioClient.dio;
 

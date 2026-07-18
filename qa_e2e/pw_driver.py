@@ -10,7 +10,6 @@ from pathlib import Path
 ART = Path(__file__).parent / "artifacts" / "pw"
 ART.mkdir(parents=True, exist_ok=True)
 
-# JS qui PERCE les shadow roots (pour journaliser l'arbre semantique).
 PIERCE_JS = r"""
 () => {
   const hits = []; const tags = {}; let n = 0;
@@ -45,7 +44,6 @@ class FlutterApp:
     def boot(self, url, timeout=60):
         print(f"[{self.label}] GOTO {url}")
         self.page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
-        # Attendre le 1er frame Flutter : le placeholder a11y apparait (shadow-pierced via locator)
         end = time.time() + timeout
         while time.time() < end:
             if self.page.locator("flt-semantics-placeholder").count() > 0:
@@ -85,7 +83,6 @@ class FlutterApp:
         print(f"[{self.label}] shot -> {fn.name}")
         return str(fn)
 
-    # --- interactions (locators Playwright = shadow-piercing) ---
     def tap_label(self, label, exact=False, timeout=8000):
         loc = self.page.get_by_label(label, exact=exact)
         loc.first.click(timeout=timeout, force=True)

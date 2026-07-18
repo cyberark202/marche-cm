@@ -27,7 +27,7 @@ class _OrdersPageState extends State<OrdersPage> {
   List<String> _orderTimelineSteps = const [];
   int _defaultTransitRatingScore = 0;
   bool _loading = true;
-  int _selectedTab = 0; // 0=En cours, 1=Livrées, 2=Litiges
+  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -277,23 +277,16 @@ class _OrdersPageState extends State<OrdersPage> {
 
   List<Map<String, dynamic>> get _filteredOrders {
     if (_selectedTab == 0) {
-      // En cours: tout sauf COMPLETED, CANCELLED et DISPUTED.
-      // Audit ref: [BUG-10] DISPUTED ne doit plus apparaître ici mais sous
-      // l'onglet "Litiges".
       return _orders.where((o) {
         final s = (o["status"] ?? "").toString().toUpperCase();
         return s != "COMPLETED" && s != "CANCELLED" && s != "DISPUTED";
       }).toList();
     } else if (_selectedTab == 1) {
-      // Livrées: COMPLETED ou DELIVERED
       return _orders.where((o) {
         final s = (o["status"] ?? "").toString().toUpperCase();
         return s == "COMPLETED" || s == "DELIVERED";
       }).toList();
     } else {
-      // Litiges & annulées: DISPUTED (litige réel) ou CANCELLED.
-      // Audit ref: [BUG-10] l'onglet filtrait uniquement CANCELLED, donc une
-      // commande en litige (DISPUTED) n'apparaissait nulle part comme telle.
       return _orders.where((o) {
         final s = (o["status"] ?? "").toString().toUpperCase();
         return s == "DISPUTED" || s == "CANCELLED";
@@ -346,7 +339,6 @@ class _OrdersPageState extends State<OrdersPage> {
       ),
       body: Column(
         children: [
-          // Tabs chips scrollable
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: SingleChildScrollView(
@@ -374,7 +366,6 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
             ),
           ),
-          // Contenu
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -427,7 +418,6 @@ class _OrdersPageState extends State<OrdersPage> {
         ? const <Map<String, dynamic>>[]
         : _pendingQuotesForShipment(shipmentId);
 
-    // Couleur du badge statut
     Color badgeColor;
     if (statusUpper == "CONFIRMED" || statusUpper == "SHIPPED") {
       badgeColor = AppPalette.accent;
@@ -480,7 +470,6 @@ class _OrdersPageState extends State<OrdersPage> {
               children: [
                 Row(
                   children: [
-                    // Icône produit
                     Container(
                       width: 44,
                       height: 44,
@@ -521,7 +510,6 @@ class _OrdersPageState extends State<OrdersPage> {
           const SizedBox(height: 12),
           Row(
             children: [
-              // Badge statut
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -548,7 +536,6 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
             ],
           ),
-          // Actions
           if (isSeller && pendingQuotes.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(
@@ -596,7 +583,6 @@ class _OrdersPageState extends State<OrdersPage> {
               child: const Text("Valider réception"),
             ),
           ],
-          // Timeline
           if (_orderTimelineSteps.isNotEmpty) ...[
             const SizedBox(height: 8),
             _OrderTimeline(
@@ -613,7 +599,6 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 }
 
-// ── Widgets helpers ───────────────────────────────────────────────────────────
 
 class _TabChip extends StatelessWidget {
   const _TabChip({

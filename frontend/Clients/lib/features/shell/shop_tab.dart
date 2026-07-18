@@ -65,8 +65,6 @@ class _ShopTabState extends State<ShopTab> {
     _restoreFilterDraft();
     _loadPersonalizationData();
     _feedFuture = _feedApi.loadFeed(token: context.read<SessionStore>().token);
-    // Nouvelle publication/désactivation produit par un vendeur : la boutique
-    // doit se mettre à jour sans que l'acheteur ait à tirer pour rafraîchir.
     _eventsSub = RealtimeEventsService.instance.events.listen((event) {
       if (!mounted) return;
       if (RealtimeEventsService.instance.matchesTopic(event, 'products')) {

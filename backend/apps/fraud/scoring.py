@@ -156,7 +156,6 @@ class FraudScorer:
                         "detail": "Unknown device",
                     })
         except Exception:
-            # Verification device impossible = signal fraude potentiellement perdu.
             logger.exception("fraud_device_check_failed user=%s", getattr(ctx.user, "id", None))
         return signals
 
@@ -187,7 +186,6 @@ class FraudScorer:
             metadata={"amount": str(ctx.amount), **ctx.metadata},
         )
 
-        # Update rolling profile
         profile, _ = UserRiskProfile.objects.get_or_create(user=ctx.user)
         total = profile.overall_score * profile.assessment_count + score
         profile.assessment_count += 1

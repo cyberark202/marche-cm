@@ -33,8 +33,6 @@ from django.core.exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
 _PROBE_TIMEOUT_SECONDS = 30
-# Au-dela, le conteneur est probablement tronque/corrompu : un vrai clip pese
-# bien plus que quelques Ko (le dummy QA faisait 2088 octets).
 _MIN_PLAUSIBLE_BYTES = 8 * 1024
 
 _DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d{2}):(\d{2})(?:\.(\d+))?")
@@ -116,18 +114,18 @@ def _iso_bmff_has_video_moov(path: str) -> bool:
                     break
                 box_size = int.from_bytes(header[0:4], "big")
                 box_type = header[4:8]
-                if box_size == 1:  # 64-bit extended size
+                if box_size == 1:
                     ext = fp.read(8)
                     if len(ext) < 8:
                         break
                     box_size = int.from_bytes(ext, "big")
                 if box_type == b"moov" and box_size > 8:
                     return True
-                if box_size <= 0:  # box s'etend jusqu'a EOF : pas de moov apres
+                if box_size <= 0:
                     break
                 offset += box_size
     except OSError:
-        return True  # I/O douteux : ne pas bloquer sur le repli
+        return True
     return False
 
 
@@ -162,7 +160,6 @@ def validate_video_stream(uploaded_file, *, field_label: str = "Video produit") 
                     f"{field_label}: video de duree nulle ou illisible."
                 )
             return duration
-        # ffmpeg indisponible -> repli structurel.
         ext = os.path.splitext(getattr(uploaded_file, "name", "") or "")[1].lower()
         if ext in {".mp4", ".mov", ".m4v"} and not _iso_bmff_has_video_moov(path):
             raise ValidationError(

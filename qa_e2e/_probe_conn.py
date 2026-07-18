@@ -22,7 +22,6 @@ print(f"PG host={p.hostname} port={p.port} db={(p.path or '').lstrip('/')}")
 rp = urlparse(redis_url)
 print(f"REDIS scheme={rp.scheme} host={rp.hostname} port={rp.port}")
 
-# ── Postgres ───────────────────────────────────────────────────────────────
 try:
     import psycopg
     t = __import__("time").time()
@@ -32,7 +31,6 @@ try:
             ver = cur.fetchone()[0]
             cur.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")
             ntables = cur.fetchone()[0]
-            # row counts on key tables, tolerant of missing tables
             counts = {}
             for tbl in ("accounts_user", "catalog_product", "orders_order",
                         "wallets_wallet", "escrow_escrowhold", "disputes_disputecase"):
@@ -50,7 +48,6 @@ try:
 except Exception as e:
     print(f"PG FAIL: {type(e).__name__}: {e}")
 
-# ── Redis ──────────────────────────────────────────────────────────────────
 try:
     import redis
     t = __import__("time").time()

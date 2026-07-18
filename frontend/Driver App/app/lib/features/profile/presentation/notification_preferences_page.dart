@@ -5,8 +5,6 @@ import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Préférences de notifications (doc 10). Les alertes de sécurité et les
-/// notifications critiques (nouvelle course, litige) restent toujours actives.
 final _prefsProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final res =

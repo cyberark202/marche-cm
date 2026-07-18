@@ -22,8 +22,6 @@ class Message(models.Model):
     type = models.CharField(max_length=10, choices=MessageType.choices, default=MessageType.TEXT)
     content = models.TextField(blank=True)
     file = models.FileField(upload_to="chat/", blank=True, null=True)
-    # Reply-to (quote) — points at an earlier message in the SAME room. SET_NULL
-    # so deleting/withholding the quoted message never cascades away replies.
     reply_to = models.ForeignKey(
         "self",
         null=True,
@@ -34,11 +32,6 @@ class Message(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Ordre anté-chronologique : la page 1 de l'API contient les messages
-        # les PLUS RÉCENTS (ouverture de conversation « en bas » façon WhatsApp,
-        # l'historique se charge en remontant). Avant : ASC → la page 1
-        # renvoyait les 20 plus anciens et un fil long s'ouvrait sur son début.
-        # -id départage les créations dans la même milliseconde (ordre stable).
         ordering = ["-created_at", "-id"]
 
 

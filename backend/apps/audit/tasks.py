@@ -74,8 +74,6 @@ def verify_audit_chain_integrity(*, sample_limit: int | None = None) -> dict:
                         "expected": recomputed,
                     }
                 )
-                # Only flag the FIRST divergence per cohort — everything
-                # after the fork inherits the bad prev_hash.
                 break
             prev_hash = evt["chain_hash"]
 

@@ -1,8 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Centralised icon registry using Lucide (feather-style) icons across the app.
-/// Replaces Material Icons for a more modern, consistent look.
 class AppIcons {
   AppIcons._();
 

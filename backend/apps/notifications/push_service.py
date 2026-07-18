@@ -48,7 +48,6 @@ def send_push_notification(*, user, title: str, body: str, data: dict | None = N
         )
         result = messaging.send_each_for_multicast(message)
 
-        # Prune tokens the FCM service says are no longer valid.
         if result.failure_count > 0:
             invalid = [
                 tokens[i]

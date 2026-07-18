@@ -103,7 +103,6 @@ def offer_to_next_driver(shipment):
             {"shipment_id": shipment.id, "offer_id": offer.id, "driver_id": driver.id},
         )
         return offer
-    # Liste épuisée : diffusion large pour que les livreurs proposent un devis.
     logger.info("dispatch_exhausted shipment=%s -> fallback broadcast", shipment.id)
     notify_available_drivers(shipment)
     return None

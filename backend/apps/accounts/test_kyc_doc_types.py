@@ -87,6 +87,5 @@ class BuyerKycDocTypeTests(TestCase):
         self.assertIn(again.status_code, (200, 201), again.content)
         doc.refresh_from_db()
         self.assertEqual(doc.status, "PENDING")
-        # Still a single row (unique per user+doc_type).
         self.assertEqual(
             ComplianceDocument.objects.filter(user=self.buyer, doc_type="CNI").count(), 1)

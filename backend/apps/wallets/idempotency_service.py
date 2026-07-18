@@ -36,8 +36,6 @@ from django.utils import timezone
 
 logger = logging.getLogger("wallets.idempotency")
 
-# Sensitive fields stripped from the hash so they can change across retries
-# without causing a conflict (e.g. a fresh OTP code on a PIN-locked retry).
 _STRIP_FROM_HASH = frozenset({"pin", "verification_code", "challenge_token"})
 
 _DEFAULT_TTL = timedelta(hours=24)
@@ -114,13 +112,11 @@ class IdempotencyService:
                     .first()
                 )
             except Exception:
-                # Redis/DB unavailable — degrade gracefully, skip idempotency.
                 logger.exception("idempotency_service_unavailable endpoint=%s", endpoint)
                 return None, None
 
             if record is not None:
                 if record.expires_at < now:
-                    # Expired record: tombstone it and proceed as a new request.
                     record.delete()
                     record = None
                 elif record.request_hash != request_hash:
@@ -134,7 +130,6 @@ class IdempotencyService:
                         "Cette cle d'idempotence a ete utilisee avec un payload different."
                     )
                 elif record.status == IdempotencyRecord.STATUS_COMPLETE and record.response_snapshot:
-                    # Clean idempotent replay.
                     logger.info(
                         "idempotency_replay user=%d endpoint=%s",
                         user_id,
@@ -142,11 +137,8 @@ class IdempotencyService:
                     )
                     return record, record.response_snapshot
                 else:
-                    # Still processing (concurrent request) or previous attempt
-                    # failed: let this request proceed to retry.
                     return record, None
 
-            # No record — create a new slot.
             try:
                 record = IdempotencyRecord.objects.create(
                     key=key,
@@ -158,9 +150,6 @@ class IdempotencyService:
                     expires_at=expires_at,
                 )
             except IntegrityError:
-                # Lost race with a concurrent request for the exact same key.
-                # Re-fetch and return the concurrent record's cached response
-                # if it already completed, or return None to retry.
                 record = (
                     IdempotencyRecord.objects
                     .filter(key=key, user_id=user_id, endpoint=endpoint)

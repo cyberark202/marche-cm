@@ -83,7 +83,6 @@ class _MarcheLogoPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Background Shield (rounded square)
     final bgGradient = LinearGradient(
       colors: mono
           ? [const Color(0xFF0E1F18), Colors.black]
@@ -99,21 +98,18 @@ class _MarcheLogoPainter extends CustomPainter {
     canvas.drawRRect(bgRect, paint);
     paint.shader = null;
 
-    // Sunrise Halo (circle)
     final sunColor = mono
         ? Colors.white.withValues(alpha: 0.18)
         : const Color(0xFFF5B400).withValues(alpha: 0.22);
     paint.color = sunColor;
     canvas.drawCircle(Offset(w * 24 / 48, h * 34 / 48), w * 16 / 48, paint);
 
-    // Peak Gradient (Snow)
     final peakGradient = LinearGradient(
       colors: [Colors.white, Colors.white.withValues(alpha: 0.88)],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
     );
 
-    // M Mountains path
     final peakPath = Path()
       ..moveTo(w * 5 / 48, h * 40 / 48)
       ..lineTo(w * 5 / 48, h * 23 / 48)
@@ -128,7 +124,6 @@ class _MarcheLogoPainter extends CustomPainter {
     canvas.drawPath(peakPath, paint);
     paint.shader = null;
 
-    // Valley shadow (depth)
     final shadowColor = mono
         ? Colors.black.withValues(alpha: 0.22)
         : const Color(0xFF063D27).withValues(alpha: 0.22);
@@ -143,7 +138,6 @@ class _MarcheLogoPainter extends CustomPainter {
       ..close();
     canvas.drawPath(shadowPath, paint);
 
-    // Snow caps detail (semi-transparent overlays)
     paint.color = Colors.white.withValues(alpha: 0.6);
     final cap1 = Path()
       ..moveTo(w * 11 / 48, h * 18 / 48)
@@ -163,7 +157,6 @@ class _MarcheLogoPainter extends CustomPainter {
       ..close();
     canvas.drawPath(cap2, paint);
 
-    // Cameroon Flag 5-point Star
     final starColor = mono ? Colors.white : const Color(0xFFF5B400);
     paint.color = starColor;
     paint.style = PaintingStyle.fill;
@@ -182,7 +175,6 @@ class _MarcheLogoPainter extends CustomPainter {
       ..close();
     canvas.drawPath(starPath, paint);
 
-    // Star stroke outline
     final strokePaint = Paint()
       ..color = mono ? Colors.white : const Color(0xFFC68F00)
       ..style = PaintingStyle.stroke

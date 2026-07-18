@@ -59,10 +59,7 @@ class ProductCardData {
   final bool allowsGrouping;
   final String description;
   final String? videoUrl;
-  // Poster (vignette) extrait de la video cote backend ; image d'attente.
   final String? posterUrl;
-  // Compteurs + états utilisateur du feed vidéo, embarqués par le backend
-  // (annotations serveur) — évite un appel HTTP par vidéo affichée.
   final int videoLikesCount;
   final int videoCommentsCount;
   final int videoViewsCount;
@@ -99,7 +96,6 @@ class VideoPostData {
   final bool isLiked;
   final bool isFollowingSeller;
   final int sellerId;
-  // Fiche produit liée : CTA « voir le produit » du feed (pattern TikTok Shop).
   final ProductCardData product;
   final String? videoUrl;
 }

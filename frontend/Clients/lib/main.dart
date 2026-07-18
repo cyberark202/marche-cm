@@ -29,7 +29,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Surveillance connectivité (bannière hors-ligne + garde-fou écritures).
   NetworkQualityService.instance.init();
 
   final sessionStore = SessionStore();
@@ -49,16 +48,8 @@ void main() async {
       ),
     ),
   );
-  // Restore a persisted session (secure storage) so a returning user is not
-  // forced to log in again after closing the app. Must run after the token
-  // manager is configured (silent refresh of an expired access token).
   await sessionStore.restoreFromStorage();
 
-  // Firebase (push notifications). Disabled on web: the firebase_messaging web
-  // init can HANG (no VAPID configured / unreachable push endpoints), and a
-  // hanging await — unlike an exception — is not caught by try/catch, so it
-  // would block runApp() and blank the app. Mobile keeps Firebase. Matches the
-  // guard already used by the Pro app.
   if (!kIsWeb) {
     try {
       await Firebase.initializeApp(
@@ -70,8 +61,6 @@ void main() async {
     }
   }
 
-  // Panier serveur : synchro best-effort des mutations locales (persistant,
-  // multi-appareils). L'hydratation au démarrage se fait dans ClientShell.
   final cartApi = ApiService();
   final buyerStore = BuyerStore();
   buyerStore.configureCartSync(
@@ -244,9 +233,6 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
     }
     final topic = (event["topic"] ?? "").toString();
     final type = (event["type"] ?? "").toString();
-    // "resync" est un signal interne émis par RealtimeEventsService après
-    // reconnexion pour déclencher un rechargement silencieux des pages — ce
-    // n'est jamais une notification destinée à l'utilisateur.
     if (type == "resync") return;
     final payload = event["payload"] is Map<String, dynamic>
         ? event["payload"] as Map<String, dynamic>

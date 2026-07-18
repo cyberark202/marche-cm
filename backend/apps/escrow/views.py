@@ -22,7 +22,6 @@ class EscrowHoldViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin, viewse
         return super().get_permissions()
 
     def get_queryset(self):
-        # Audit ref: [FIN-020] role compared via enum, not literal string.
         user = self.request.user
         if getattr(user, "role", None) == UserRole.GENERAL_ADMIN:
             return EscrowHold.objects.all().order_by("-created_at")

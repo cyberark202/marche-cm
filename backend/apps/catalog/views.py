@@ -95,10 +95,6 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = self.queryset
         if self.action in {"list", "retrieve", "image_search"}:
-            # Audit ref: [BUG-03] hide products of suspended/deactivated sellers
-            # so a buyer cannot order from an account that can no longer operate.
-            # Docs 12/22 : seuls les produits PUBLISHED sont visibles au public.
-            # File de moderation : l'admin peut lister par statut arbitraire.
             user = self.request.user
             is_admin = user.is_authenticated and (user.is_superuser or user.role == UserRole.GENERAL_ADMIN)
             status_param = (self.request.query_params.get("status") or "").strip().upper()
@@ -106,8 +102,6 @@ class ProductViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(status=status_param)
             else:
                 queryset = queryset.filter(is_active=True, status=ProductStatus.PUBLISHED, seller__is_active=True)
-        # Feed vidéo : ne servir que les produits portant une vidéo (le client
-        # vendeur envoyait déjà ce filtre, il était ignoré côté serveur).
         if (self.request.query_params.get("has_video") or "").lower() in {"1", "true"}:
             queryset = queryset.exclude(video="").exclude(video__isnull=True)
         search_query = (self.request.query_params.get("q") or "").strip().lower()
@@ -124,8 +118,6 @@ class ProductViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         if self.request.user.role not in {UserRole.SUPPLIER, UserRole.WHOLESALER}:
             raise PermissionDenied("Seuls fournisseur et grossiste peuvent publier.")
-        # Audit ref: [BUG-S1] atomicite produit + galerie : si la persistance des
-        # images echoue, le produit ne doit pas rester orphelin.
         with transaction.atomic():
             product = serializer.save(seller=self.request.user)
         broadcast_event(
@@ -199,11 +191,6 @@ class ProductViewSet(viewsets.ModelViewSet):
         return Response({"id": product.id, "status": product.status, "is_active": product.is_active})
 
     def perform_destroy(self, instance):
-        # R-01 — SOFT delete only. `Order.product` is on_delete=CASCADE: a hard
-        # `instance.delete()` would cascade-delete every order (incl. paid /
-        # escrowed ones) referencing the product, destroying financial history.
-        # Deactivating hides it from the public catalogue (get_queryset filters
-        # is_active=True) while preserving all relational/financial records.
         is_admin = self.request.user.is_superuser or self.request.user.role == UserRole.GENERAL_ADMIN
         if not is_admin and instance.seller_id != self.request.user.id:
             raise PermissionDenied("Suppression reservee au vendeur proprietaire.")
@@ -291,9 +278,6 @@ class ProductViewSet(viewsets.ModelViewSet):
             "tags": tags,
             "is_active": True,
         }
-        # Compte « Vendeur » unifié : forme simple (quantité dispo + montant).
-        # Tarif placeholder pour une annonce vidéo ; le serializer dérive les
-        # gammes internes min/max.
         payload.update(
             {
                 "available_qty": 1,
@@ -522,7 +506,6 @@ class ProductViewSet(viewsets.ModelViewSet):
     def reviews(self, request, pk=None):
         product = self.get_object()
         base = OrderReview.objects.filter(product=product)
-        # Moyenne + total sur TOUS les avis (pas seulement les 50 affiches).
         stats = base.aggregate(value=Avg("rating"), total=Count("id"))
         rows = base.select_related("buyer").order_by("-created_at")[:50]
         payload = {
@@ -718,7 +701,6 @@ class VideoCommentViewSet(viewsets.ModelViewSet):
         product_id = self.request.query_params.get("product_id")
         parent_id = self.request.query_params.get("parent_id")
         if parent_id:
-            # Fil de réponses (1 niveau, façon TikTok), du plus ancien au plus récent.
             queryset = queryset.filter(parent_id=parent_id).order_by("created_at")
         elif product_id:
             queryset = queryset.filter(product_id=product_id, parent__isnull=True)
@@ -750,7 +732,6 @@ class VideoCommentViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Produit introuvable.")
         parent = serializer.validated_data.get("parent")
         if parent is not None and (parent.product_id != product.id or parent.parent_id is not None):
-            # Même produit obligatoire, et pas de réponse à une réponse (1 niveau).
             raise PermissionDenied("Reponse invalide pour ce commentaire.")
         serializer.save(user=self.request.user, product=product)
 
@@ -768,7 +749,6 @@ class VideoCommentViewSet(viewsets.ModelViewSet):
         return Response({"liked": liked, "total_likes": total}, status=status.HTTP_200_OK)
 
     def perform_destroy(self, instance):
-        # Audit ref: [NEW-004] enum comparison instead of string literal.
         from apps.accounts.models import UserRole
         if instance.user_id != self.request.user.id and not (
             self.request.user.is_superuser

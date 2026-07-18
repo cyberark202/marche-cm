@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 
-/// Backend role enum → human label + accent colour, shared across screens.
 class Roles {
   const Roles._();
 
@@ -39,7 +38,6 @@ class Roles {
     }
   }
 
-  /// The catalogue's coarse filter buckets (screen 33).
   static bool matchesBucket(String bucket, String? rawRole) {
     switch (bucket) {
       case 'Acheteur':

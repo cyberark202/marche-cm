@@ -72,15 +72,12 @@ class TrackingWebSocketFlowTest(TransactionTestCase):
             transport_mode=TransportMode.SEA, shipping_fee=Decimal("100000.00"),
             status=ShipmentStatus.IN_TRANSIT,
         )
-        # Les JWT sont generes ICI (contexte SYNC) — `RefreshToken.for_user`
-        # touche la DB et ne peut pas etre appele depuis le coroutine de test.
         self.tokens = {u.id: str(RefreshToken.for_user(u).access_token)
                        for u in (self.buyer, self.seller, self.driver, self.outsider)}
 
     def tearDown(self):
         field_crypto.clear_crypto_cache()
 
-    # ---- helpers -----------------------------------------------------------
 
     def _app(self):
         return URLRouter(websocket_urlpatterns)
@@ -94,7 +91,6 @@ class TrackingWebSocketFlowTest(TransactionTestCase):
         connected, _ = await comm.connect()
         return comm, connected
 
-    # ---- tests -------------------------------------------------------------
 
     def test_driver_position_reaches_buyer_and_seller_and_persists(self):
         async_to_sync(self._flow)()
@@ -152,14 +148,11 @@ class TrackingWebSocketFlowTest(TransactionTestCase):
         try:
             self.assertTrue(bconn)
             self.assertTrue(dconn)
-            # L'acheteur (autorise a VOIR) tente d'injecter une fausse position.
             await buyer_comm.send_json_to({
                 "type": "location_update",
                 "latitude": 0.0, "longitude": 0.0, "timestamp": "x",
             })
-            # Le spoof est ignore : aucune rediffusion -> le livreur ne recoit rien.
             self.assertTrue(await driver_comm.receive_nothing(timeout=1))
-            # Et rien n'a ete persiste.
             shipment = await database_sync_to_async(Shipment.objects.get)(pk=self.shipment.id)
             self.assertIsNone(shipment.current_latitude)
         finally:

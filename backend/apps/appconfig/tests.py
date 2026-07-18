@@ -94,5 +94,4 @@ class RuntimeConfigViewTests(APITestCase):
             is_active=False,
         )
         resp = self.client.get(URL, {"app": "driver", "platform": "android", "version": "1.0.0"})
-        # Release inactive => fail-open, pas de blocage.
         self.assertFalse(resp.data["update_required"])

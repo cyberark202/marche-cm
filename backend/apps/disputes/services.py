@@ -72,10 +72,6 @@ class DisputeService:
                 to_state=DisputeState.OPEN,
                 description=f"Litige ouvert: {title}",
             )
-            # Audit ref: [FIN-021] when a buyer opens a dispute on an Order
-            # we must IMMEDIATELY freeze all associated escrow rows so the
-            # auto-release timer cannot release funds to the seller while
-            # the case is pending review.
             if entity_type == "Order":
                 self._freeze_order_escrows_safe(entity_id=entity_id, actor=opened_by, reference=reference)
         return case
@@ -132,7 +128,6 @@ class DisputeService:
         Idempotency: a second call with the same outcome on a terminal-state
         case is rejected by the state machine.
         """
-        # ── 1. Validate inputs as Decimal — no float() anywhere ────────────
         buyer_refund_d = _to_decimal(buyer_refund, "buyer_refund_amount")
         seller_release_d = _to_decimal(seller_release, "seller_release_amount")
         if buyer_refund_d < 0 or seller_release_d < 0:
@@ -147,14 +142,12 @@ class DisputeService:
         target = state_map.get(outcome, DisputeState.CLOSED_NO_ACTION)
 
         with transaction.atomic():
-            # ── 2. Lock the case row to serialize concurrent decisions ─────
             case_locked = DisputeCase.objects.select_for_update().get(pk=case.pk)
             machine = DisputeStateMachine(case_locked)
             machine.transition_to(
                 target, actor=decided_by, reason=f"Decision: {outcome}",
             )
 
-            # ── 3. Execute the financial action ────────────────────────────
             executed = self._execute_financial_action(
                 case=case_locked,
                 outcome=outcome,
@@ -164,7 +157,6 @@ class DisputeService:
                 reasoning=reasoning,
             )
 
-            # ── 4. Persist the decision + event timeline ───────────────────
             decision = DisputeDecision.objects.create(
                 dispute=machine.case,
                 decided_by=decided_by,
@@ -186,7 +178,6 @@ class DisputeService:
                 },
             )
 
-            # ── 5. Immutable financial audit trail ─────────────────────────
             audit_service.log_dispute(
                 event_type="dispute.decision.executed",
                 dispute_id=str(machine.case.pk),
@@ -216,17 +207,14 @@ class DisputeService:
         Map a decision outcome to a concrete monetary operation. Returns a
         machine-readable summary that gets persisted in the event + audit log.
         """
-        # NO_ACTION still needs to record an explicit "no movement" trace.
         if outcome == "NO_ACTION":
             return {"action": "none"}
 
-        # Only Order-typed disputes have a settlement path today.
         if case.entity_type != "Order":
             raise ValidationError(
                 f"Type d'entite '{case.entity_type}' non supporte pour le settlement automatique."
             )
 
-        # Lazy import to avoid a hard cross-app cycle.
         from apps.orders.models import Order
         from apps.orders.services import OrderFinanceService
 

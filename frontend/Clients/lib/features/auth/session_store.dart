@@ -19,14 +19,6 @@ class SessionStore extends ChangeNotifier {
   bool get isAuthenticated => token != null && token!.isNotEmpty;
   String? get authNotice => _authNotice;
 
-  /// Restores a persisted session on cold start so the user is not forced to
-  /// log in again after closing the app. Reads tokens from secure storage and
-  /// reloads the profile (role/userId/username) via `/api/auth/me/`.
-  ///
-  /// - Valid token  → profile loaded, session active.
-  /// - Expired token → one silent refresh is attempted before giving up.
-  /// - Network down  → tokens are kept optimistically (the first authenticated
-  ///   screen will retry); we do NOT wipe a possibly-valid session offline.
   Future<void> restoreFromStorage() async {
     final stored = await TokenRepository.getAccessToken();
     if (stored == null || stored.isEmpty) return;
@@ -38,13 +30,10 @@ class SessionStore extends ChangeNotifier {
       _applyUser(data);
       notifyListeners();
     } on http.ClientException {
-      // Server unreachable — keep the stored tokens optimistically.
       notifyListeners();
     } catch (_) {
-      // Likely an expired/invalid access token — attempt a single refresh.
       final newAccess = await AuthTokenManager.instance.refreshAccessToken();
       if (newAccess == null || newAccess.isEmpty) {
-        // refreshAccessToken already invoked onAuthFailed -> logout() (cleared).
         return;
       }
       token = newAccess;
@@ -52,7 +41,6 @@ class SessionStore extends ChangeNotifier {
         final data = await AuthApiService().me(newAccess);
         _applyUser(data);
       } catch (_) {
-        // Keep the freshly refreshed token; profile will load on next call.
       }
       notifyListeners();
     }

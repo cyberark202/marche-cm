@@ -75,7 +75,6 @@ def reconcile_wallet_ledger(*, sample_limit: int | None = None) -> dict:
             .first()
         )
         if last_entry is None:
-            # No ledger activity yet — only acceptable when wallet is empty.
             if quantize_money(wallet.available_balance) != Decimal("0.00"):
                 missing_ledger_entry += 1
                 drifts.append({
@@ -106,7 +105,6 @@ def reconcile_wallet_ledger(*, sample_limit: int | None = None) -> dict:
         "missing_ledger_entry": missing_ledger_entry,
     }
     if drifts:
-        # Critical — every drift is a potential lost or phantom XAF.
         security_logger.error(
             "wallet_ledger_drift_detected",
             extra={"summary": summary, "first_offenders": drifts[:10]},

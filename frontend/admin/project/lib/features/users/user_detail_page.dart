@@ -7,7 +7,6 @@ import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 34 — User profile: identity, KYC, audit-relevant facts.
 class UserDetailPage extends StatefulWidget {
   const UserDetailPage({super.key, required this.userId});
   final int userId;
@@ -35,7 +34,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
           .where((d) =>
               '${d['user'] ?? d['user_id'] ?? ''}' == '${widget.userId}')
           .toList();
-    } catch (_) {/* compliance list is best-effort */}
+    } catch (_) {}
     return _UserBundle(user: user, documents: docs);
   }
 
@@ -110,7 +109,6 @@ class _UserDetailPageState extends State<UserDetailPage> {
   Widget _moderation(Map<String, dynamic> u) {
     final role = '${u['role']}';
     final suspended = u['is_suspended'] == true;
-    // The backend forbids suspending an admin; hide the control for those.
     final isAdmin = role == 'GENERAL_ADMIN';
     if (isAdmin) return const SizedBox.shrink();
     final reason = '${u['suspension_reason'] ?? ''}'.trim();

@@ -481,7 +481,6 @@ class _WalletPageState extends State<WalletPage> {
 
 }
 
-// ── Widgets helpers ───────────────────────────────────────────────────────────
 
 class _MiniCard extends StatelessWidget {
   const _MiniCard({

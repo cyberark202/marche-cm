@@ -45,9 +45,6 @@ from .models import (
 
 User = get_user_model()
 
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
 
 CHECKOUT_SECRET = "test-checkout-hmac-secret"
 DISBURSE_SECRET = "test-disburse-hmac-secret"
@@ -73,13 +70,10 @@ def _make_admin(username="admin1", email="admin1@test.local"):
     return user
 
 
-# ---------------------------------------------------------------------------
-# H3 — Webhook auth: HMAC always required
-# ---------------------------------------------------------------------------
 
 @override_settings(
     NOTCHPAY_ENABLED=False,
-    NOTCHPAY_CHECKOUT_WEBHOOK_SECRET="",  # Not configured
+    NOTCHPAY_CHECKOUT_WEBHOOK_SECRET="",
     NOTCHPAY_DISBURSE_WEBHOOK_SECRET="",
     NOTCHPAY_WEBHOOK_TOKEN="",
     DEBUG=False,
@@ -130,7 +124,6 @@ class H3WebhookAuthNoSecretTests(APITestCase):
                 content_type="application/json",
                 HTTP_X_NOTCH_SIGNATURE=sig,
             )
-            # 404 is fine — tx not found but auth passed
             self.assertNotEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_debug_mode_still_requires_hmac_when_secret_set(self):
@@ -141,7 +134,6 @@ class H3WebhookAuthNoSecretTests(APITestCase):
                 reverse("wallet-notchpay-checkout-webhook"),
                 data=payload,
                 content_type="application/json",
-                # No signature header
             )
             self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -156,20 +148,15 @@ class H3WebhookAuthNoSecretTests(APITestCase):
                 separators=(",", ":"),
             ).encode()
             sig = _sign(CHECKOUT_SECRET, payload_bytes)
-            # Token supplied in query string — must NOT be trusted
             res = self.client.post(
                 reverse("wallet-notchpay-checkout-webhook") + "?token=secret-token",
                 data=payload_bytes,
                 content_type="application/json",
                 HTTP_X_NOTCH_SIGNATURE=sig,
             )
-            # Without X-NotchPay-Token header, the token check fails → 403
             self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
 
-# ---------------------------------------------------------------------------
-# H2 — Disburse webhook: amount validation for WITHDRAW
-# ---------------------------------------------------------------------------
 
 @override_settings(
     NOTCHPAY_ENABLED=False,
@@ -181,8 +168,6 @@ class H2DisburseAmountValidationTests(APITestCase):
     def setUp(self):
         self.user = _make_user()
         self.wallet, _ = Wallet.objects.get_or_create(owner=self.user)
-        # Pre-fund the wallet to reflect real withdrawal initiation state:
-        # money is held in pending_balance while the withdrawal is in-flight.
         self.wallet.pending_balance = Decimal("50000.00")
         self.wallet.save(update_fields=["pending_balance", "updated_at"])
         self.tx = WalletTransaction.objects.create(
@@ -211,13 +196,12 @@ class H2DisburseAmountValidationTests(APITestCase):
             "data": {
                 "reference": f"WITHDRAW-{self.tx.id}",
                 "status": "complete",
-                # amount intentionally absent
             },
         }
         res = self._post_disburse(payload)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.tx.refresh_from_db()
-        self.assertEqual(self.tx.status, TransactionStatus.PENDING)  # Not changed
+        self.assertEqual(self.tx.status, TransactionStatus.PENDING)
 
     def test_disburse_rejected_with_wrong_amount(self):
         """Forged webhook with mismatched amount must not mark transaction SUCCESS."""
@@ -226,7 +210,7 @@ class H2DisburseAmountValidationTests(APITestCase):
             "data": {
                 "reference": f"WITHDRAW-{self.tx.id}",
                 "status": "complete",
-                "amount": "1",  # Wrong — tx is 50000
+                "amount": "1",
             },
         }
         res = self._post_disburse(payload)
@@ -250,9 +234,6 @@ class H2DisburseAmountValidationTests(APITestCase):
         self.assertEqual(self.tx.status, TransactionStatus.SUCCESS)
 
 
-# ---------------------------------------------------------------------------
-# H1 — Provider error must never reach the client
-# ---------------------------------------------------------------------------
 
 @override_settings(NOTCHPAY_ENABLED=True, NOTCHPAY_ONLY_MTN=False)
 class H1ErrorSanitizationTests(APITestCase):
@@ -279,14 +260,11 @@ class H1ErrorSanitizationTests(APITestCase):
         self.assertNotIn("SECRET_KEY", response_text)
         self.assertNotIn("sk_live", response_text)
         self.assertNotIn(sensitive_error, response_text)
-        # Must contain a safe user-facing message
         self.assertIn("detail", res.data)
 
     def test_withdraw_provider_error_not_exposed(self):
         """Raw NotchPay disburse error must not appear in the withdraw response."""
         self.wallet, _ = Wallet.objects.get_or_create(owner=self.user)
-        # Withdraw debits available_balance; fund it (and keep balance consistent
-        # with the balance==components invariant).
         self.wallet.available_balance = Decimal("10000.00")
         self.wallet.balance = Decimal("10000.00")
         self.wallet.save(update_fields=["available_balance", "balance", "updated_at"])
@@ -324,9 +302,6 @@ class H1ErrorSanitizationTests(APITestCase):
         self.assertNotIn(sensitive_error, response_text)
 
 
-# ---------------------------------------------------------------------------
-# M1 — Public registration restricted to BUYER
-# ---------------------------------------------------------------------------
 
 @override_settings(
     NOMINATIM_ENABLED=False,
@@ -351,7 +326,6 @@ class M1RoleEscalationTests(APITestCase):
             },
             format="json",
         )
-        # May succeed (role override) or fail gracefully — must NEVER create SUPPLIER
         if res.status_code == status.HTTP_201_CREATED:
             user = User.objects.get(email="supplier.attempt@test.local")
             from apps.accounts.models import UserRole
@@ -396,9 +370,6 @@ class M1RoleEscalationTests(APITestCase):
         self.assertEqual(user.role, UserRole.BUYER)
 
 
-# ---------------------------------------------------------------------------
-# M2 — Timing attack on login + email enumeration
-# ---------------------------------------------------------------------------
 
 class M2TimingAttackTests(TestCase):
     def setUp(self):
@@ -417,7 +388,6 @@ class M2TimingAttackTests(TestCase):
 
         iterations = 5
 
-        # Warm up
         client.post(reverse("auth-login-request"), {"email": "warmup@x.com", "password": "x"}, format="json")
 
         t_missing = []
@@ -443,7 +413,6 @@ class M2TimingAttackTests(TestCase):
         avg_missing = sum(t_missing) / iterations
         avg_existing = sum(t_existing) / iterations
 
-        # Neither path should be more than 10x faster — both run PBKDF2.
         ratio = max(avg_missing, avg_existing) / max(min(avg_missing, avg_existing), 0.001)
         self.assertLess(
             ratio, 10,
@@ -459,7 +428,7 @@ class M2TimingAttackTests(TestCase):
             reverse("auth-register"),
             {
                 "name": "Duplicate",
-                "email": "existing@test.local",  # Already registered
+                "email": "existing@test.local",
                 "phone_number": "+237699000010",
                 "password": "StrongPass1!",
             },
@@ -467,26 +436,21 @@ class M2TimingAttackTests(TestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         response_text = json.dumps(res.data).lower()
-        # Must NOT say "already used" / "deja utilise" in a way that confirms existence
         self.assertNotIn("deja utilise", response_text)
 
 
-# ---------------------------------------------------------------------------
-# M4 — KYC daily limit must include PENDING transactions
-# ---------------------------------------------------------------------------
 
 @override_settings(NOTCHPAY_ENABLED=False, NOTCHPAY_ONLY_MTN=False)
 class M4KYCPendingLimitTests(APITestCase):
     def setUp(self):
         self.user = _make_user(username="kyc_user", email="kyc@test.local")
-        self.user.kyc_level = 0  # per_day limit = 150000 XAF (kyc.limits niveau 0)
+        self.user.kyc_level = 0
         self.user.save(update_fields=["kyc_level"])
         self.client.force_authenticate(self.user)
 
     def test_pending_counted_toward_kyc_daily_limit(self):
         """A PENDING transaction must count toward the daily KYC limit."""
         wallet, _ = Wallet.objects.get_or_create(owner=self.user)
-        # Create a PENDING topup that fills the daily limit
         WalletTransaction.objects.create(
             wallet=wallet,
             amount=Decimal("150000.00"),
@@ -496,7 +460,6 @@ class M4KYCPendingLimitTests(APITestCase):
             external_transaction_id="pending-limit-test",
             created_at=timezone.now(),
         )
-        # Another topup must now be rejected
         res = self.client.post(
             reverse("wallet-topup"),
             {
@@ -511,9 +474,6 @@ class M4KYCPendingLimitTests(APITestCase):
         self.assertIn("journaliere", res.data.get("detail", ""))
 
 
-# ---------------------------------------------------------------------------
-# M5 — Minimum transaction amount
-# ---------------------------------------------------------------------------
 
 @override_settings(NOTCHPAY_ENABLED=False, NOTCHPAY_ONLY_MTN=False)
 class M5MinAmountTests(APITestCase):
@@ -560,7 +520,6 @@ class M5MinAmountTests(APITestCase):
             },
             format="json",
         )
-        # 200 (simulated) or 502 (provider error) — must NOT be 400
         self.assertNotEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_topup_above_hard_cap_rejected(self):
@@ -578,9 +537,6 @@ class M5MinAmountTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-# ---------------------------------------------------------------------------
-# M6 — Cursor ISO validation (log injection + poisoning)
-# ---------------------------------------------------------------------------
 
 @override_settings(NOTCHPAY_ENABLED=False)
 class M6CursorValidationTests(APITestCase):
@@ -600,7 +556,7 @@ class M6CursorValidationTests(APITestCase):
         """Cursor without timezone info must be rejected."""
         res = self.client.get(
             reverse("wallet-transactions"),
-            {"before": "2024-01-01T00:00:00"},  # No timezone
+            {"before": "2024-01-01T00:00:00"},
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -630,9 +586,6 @@ class M6CursorValidationTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-# ---------------------------------------------------------------------------
-# M7 — Reconcile requires step-up authentication
-# ---------------------------------------------------------------------------
 
 @override_settings(NOTCHPAY_ENABLED=False, SENSITIVE_ACTION_2FA_ENABLED=True)
 class M7ReconcileStepUpTests(APITestCase):
@@ -658,13 +611,10 @@ class M7ReconcileStepUpTests(APITestCase):
                 "transaction_id": "reconcile-test-tx",
                 "status": "SUCCESS",
                 "reason": "Manual fix",
-                # No challenge_token / verification_code
             },
             format="json",
         )
-        # Must require step-up — 403 expected
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
-        # Transaction must remain PENDING
         self.tx.refresh_from_db()
         self.assertEqual(self.tx.status, TransactionStatus.PENDING)
 
@@ -712,9 +662,6 @@ class M7ReconcileStepUpTests(APITestCase):
         self.assertEqual(self.tx.status, TransactionStatus.PENDING)
 
 
-# ---------------------------------------------------------------------------
-# M9 — checkout_url must not expose internal reference metadata
-# ---------------------------------------------------------------------------
 
 @override_settings(NOTCHPAY_ENABLED=False)
 class M9CheckoutUrlIsolationTests(APITestCase):
@@ -756,9 +703,6 @@ class M9CheckoutUrlIsolationTests(APITestCase):
             self.assertIsNone(url)
 
 
-# ---------------------------------------------------------------------------
-# H5 — Race condition: IntegrityError on duplicate idempotency_key is handled
-# ---------------------------------------------------------------------------
 
 @override_settings(NOTCHPAY_ENABLED=False, NOTCHPAY_ONLY_MTN=False)
 class H5RaceConditionTests(APITestCase):
@@ -772,7 +716,6 @@ class H5RaceConditionTests(APITestCase):
         not 500 (unhandled IntegrityError).
         """
         idem_key = "race-idem-key-001"
-        # First request
         res1 = self.client.post(
             reverse("wallet-topup"),
             {
@@ -786,7 +729,6 @@ class H5RaceConditionTests(APITestCase):
         )
         self.assertIn(res1.status_code, [status.HTTP_200_OK, status.HTTP_202_ACCEPTED])
 
-        # Second request with same key
         res2 = self.client.post(
             reverse("wallet-topup"),
             {
@@ -798,7 +740,6 @@ class H5RaceConditionTests(APITestCase):
             },
             format="json",
         )
-        # Must not be 500 — must be 200 (idempotent) or 409 (conflict)
         self.assertIn(res2.status_code, [status.HTTP_200_OK, status.HTTP_409_CONFLICT])
         self.assertNotEqual(res2.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -821,7 +762,7 @@ class H5RaceConditionTests(APITestCase):
         res2 = self.client.post(
             reverse("wallet-topup"),
             {
-                "amount": "9999",  # Different amount → different payload hash
+                "amount": "9999",
                 "source_phone": "+237699000051",
                 "provider": "MOBILE_MONEY",
                 "pin": "1234",

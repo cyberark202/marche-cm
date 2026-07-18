@@ -68,8 +68,6 @@ class WalletFlowTests(APITestCase):
 
     def test_withdraw_paypal_accepts_email_destination(self):
         wallet, _ = Wallet.objects.get_or_create(owner=self.user)
-        # Withdraw debits available_balance; fund it (and keep balance consistent
-        # with the balance==components invariant).
         wallet.available_balance = Decimal("5000.00")
         wallet.balance = Decimal("5000.00")
         wallet.blocked_balance = Decimal("0.00")
@@ -104,9 +102,6 @@ class WalletFlowTests(APITestCase):
         self.assertEqual(wallet.balance, Decimal("4000.00"))
         self.assertEqual(wallet.blocked_balance, Decimal("0.00"))
 
-    # Removed: test_wallet_pin_lockout_after_invalid_attempts — the wallet PIN
-    # was removed (product decision). Top-up/withdraw no longer verify a PIN;
-    # withdrawals remain protected by the emailed OTP (wallet.withdraw).
 
     @override_settings(
         NOTCHPAY_WEBHOOK_TOKEN="test-webhook-token",

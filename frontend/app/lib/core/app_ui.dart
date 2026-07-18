@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'app_icons.dart';
 import 'app_theme.dart';
 
-/// Animated, gradient-aware page background.
 class AppPageBackground extends StatelessWidget {
   const AppPageBackground({
     super.key,
@@ -91,7 +90,6 @@ class _GlowBlob extends StatelessWidget {
   }
 }
 
-/// Modern card with soft shadow, optional gradient, and tap handling.
 class AppSectionCard extends StatelessWidget {
   const AppSectionCard({
     super.key,
@@ -148,7 +146,6 @@ class AppSectionCard extends StatelessWidget {
   }
 }
 
-/// Glassmorphic card using backdrop blur.
 class AppGlassCard extends StatelessWidget {
   const AppGlassCard({
     super.key,
@@ -427,7 +424,6 @@ class AppStatusBadge extends StatelessWidget {
   }
 }
 
-/// Chip with optional leading icon and gradient background when active.
 class AppFilterChip extends StatelessWidget {
   const AppFilterChip({
     super.key,
@@ -489,7 +485,6 @@ class AppFilterChip extends StatelessWidget {
   }
 }
 
-/// Hero section with gradient background used on dashboards.
 class AppHeroBanner extends StatelessWidget {
   const AppHeroBanner({
     super.key,
@@ -593,7 +588,6 @@ class AppHeroBanner extends StatelessWidget {
   }
 }
 
-/// Row of section header with optional trailing action.
 class AppSectionHeader extends StatelessWidget {
   const AppSectionHeader({
     super.key,
@@ -652,7 +646,6 @@ class AppSectionHeader extends StatelessWidget {
   }
 }
 
-/// Icon badge with optional red dot.
 class AppIconBadge extends StatelessWidget {
   const AppIconBadge({
     super.key,
@@ -743,7 +736,6 @@ class AppIconBadge extends StatelessWidget {
   }
 }
 
-/// Gradient action button — primary CTA.
 class AppGradientButton extends StatelessWidget {
   const AppGradientButton({
     super.key,
@@ -815,7 +807,6 @@ class AppGradientButton extends StatelessWidget {
   }
 }
 
-/// Empty-state placeholder with icon and call-to-action.
 class AppEmptyStateView extends StatelessWidget {
   const AppEmptyStateView({
     super.key,
@@ -883,11 +874,7 @@ class AppEmptyStateView extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Skeleton loading widgets (no external packages needed)
-// ---------------------------------------------------------------------------
 
-/// Animated pulsing placeholder box — use to build skeleton layouts.
 class AppSkeletonBox extends StatefulWidget {
   const AppSkeletonBox({
     super.key,
@@ -945,7 +932,6 @@ class _AppSkeletonBoxState extends State<AppSkeletonBox>
   }
 }
 
-/// A skeleton row that mimics a ListTile with a leading avatar.
 class AppSkeletonTile extends StatelessWidget {
   const AppSkeletonTile({super.key, this.hasSubtitle = true});
   final bool hasSubtitle;
@@ -976,7 +962,6 @@ class AppSkeletonTile extends StatelessWidget {
   }
 }
 
-/// A skeleton that fills a card shape — use for card-based list screens.
 class AppSkeletonCard extends StatelessWidget {
   const AppSkeletonCard({super.key});
 
@@ -1012,7 +997,6 @@ class AppSkeletonCard extends StatelessWidget {
   }
 }
 
-/// Skeleton for a full list screen: shows [count] skeleton cards.
 class AppSkeletonListView extends StatelessWidget {
   const AppSkeletonListView({super.key, this.count = 5});
   final int count;
@@ -1027,7 +1011,6 @@ class AppSkeletonListView extends StatelessWidget {
   }
 }
 
-/// Skeleton for a KPI / metric card row — 2 side-by-side boxes.
 class AppSkeletonMetricRow extends StatelessWidget {
   const AppSkeletonMetricRow({super.key});
 

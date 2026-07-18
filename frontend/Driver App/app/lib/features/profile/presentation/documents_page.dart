@@ -10,9 +10,6 @@ import '../../../core/network/upload_mime.dart';
 import '../../../core/theme/driver_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// Audit ref: [Front-Driver] backend exposes /api/compliance-documents/
-// (config/urls.py:65). The /api/accounts/compliance-documents/ path does
-// not exist server-side.
 final _docsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final res = await DriverDioClient.dio.get('/api/compliance-documents/');
@@ -46,8 +43,6 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
 
     setState(() => _uploading = true);
     try {
-      // Le backend refuse un Content-Type manquant/octet-stream (UP-001) :
-      // on déclare un MIME concret sinon l'upload KYC 400.
       final up = normalizeUpload(file.name);
       final form = FormData.fromMap({
         'doc_type': docType,

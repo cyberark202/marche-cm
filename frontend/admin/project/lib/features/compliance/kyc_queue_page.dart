@@ -7,7 +7,6 @@ import '../data/admin_repository.dart';
 import 'document_review_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 35 — KYC compliance queue, grouped by user.
 class KycQueuePage extends StatefulWidget {
   const KycQueuePage({super.key});
 

@@ -50,7 +50,6 @@ def mark_payout_retry_success(*, tx: WalletTransaction):
 
 
 def _retry_delay_seconds(attempt: int) -> int:
-    # Exponential backoff with ceiling.
     return min(3600, 60 * (2 ** max(0, attempt - 1)))
 
 
@@ -170,10 +169,6 @@ def process_due_payout_retries(*, limit: int = 100) -> dict:
                         "updated_at",
                     ]
                 )
-                # Savepoint imbrique: si finalize_payout_success leve une
-                # exception, on ne corrompt pas la transaction outer (job/tx
-                # status restent committables). On declenche ensuite un
-                # rollback compensatoire des fonds.
                 try:
                     from apps.orders.services import OrderFinanceService
 

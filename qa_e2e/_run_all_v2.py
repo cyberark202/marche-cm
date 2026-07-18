@@ -5,7 +5,6 @@ import os
 import sys
 import traceback
 
-# Must be set BEFORE importing qa (qa reads QA_BASE at import time).
 os.environ.setdefault("QA_BASE", "http://127.0.0.1:8000")
 os.environ.setdefault("QA_TRANSIT_ID", "7")
 

@@ -3,8 +3,6 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   const AppConfig._();
 
-  // Build-time injection: --dart-define=API_BASE_URL=http://localhost:8000
-  // The key MUST be the identifier "API_BASE_URL", not a URL literal.
   static const String _apiBaseUrlFromEnv = String.fromEnvironment(
     "API_BASE_URL",
     defaultValue: "https://cm.digital-get.com",
@@ -23,15 +21,11 @@ class AppConfig {
     return "https://cm.digital-get.com";
   }
 
-  // Site vitrine public (partage produit, téléchargement app). Un lien produit
-  // profond nécessitera une route web /p/{id} côté vitrine (follow-up infra).
   static const String siteUrl = String.fromEnvironment(
     "SITE_URL",
     defaultValue: "https://marketcm.com",
   );
 
-  // Identité de l'app pour la gouvernance runtime (/api/app/runtime-config/).
-  // appVersion DOIT rester aligné sur la version de pubspec.yaml (sans le +build).
   static const String appId = "clients";
   static const String appVersion = "0.1.0";
 

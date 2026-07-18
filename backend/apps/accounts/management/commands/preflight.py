@@ -76,7 +76,6 @@ class Command(BaseCommand):
                 "Corrigez avant de déployer."
             )
 
-    # ── Checks ────────────────────────────────────────────────────────────────
 
     def _check_debug(self, add):
         if settings.DEBUG:
@@ -138,7 +137,6 @@ class Command(BaseCommand):
             add(WARN, "Cache", "LocMem — throttling non distribué (Redis requis en multi-instance).")
         else:
             add(OK, "Cache", backend.split(".")[-1])
-        # Round-trip (proves the backend is reachable).
         try:
             cache.set("preflight:probe", "1", 5)
             if cache.get("preflight:probe") == "1":
@@ -297,7 +295,6 @@ class Command(BaseCommand):
         except Exception as exc:  # noqa: BLE001
             add(WARN, "Migrations", f"vérification impossible: {exc}")
 
-    # ── Rendering ───────────────────────────────────────────────────────────────
 
     def _render(self, results):
         styles = {

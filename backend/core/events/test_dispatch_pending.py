@@ -22,7 +22,6 @@ class DispatchPendingTransactionTests(TestCase):
         self.assertEqual(event.status, OutboxStatus.PROCESSED)
 
     def test_dispatch_with_handler_runs_in_autocommit_context(self):
-        # Reproduit le contexte worker : aucun atomic() englobant côté appelant.
         seen = []
         register_handler("audit.test.handled", lambda e: seen.append(e.pk))
         event = OutboxEvent.objects.create(event_type="audit.test.handled", payload={})

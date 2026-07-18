@@ -10,29 +10,24 @@ def main():
     adm = Client("admin"); adm.login(ADMIN, PWD)
     buy = Client("buyer"); buy.login(BUY, PWD)
 
-    # T9.1 admin dashboard
     r = adm.req("GET", "/api/admin/dashboard/", note="admin dashboard")
     record("T9.1", "Dashboard admin accessible (stats)", "critical", S(r) == 200,
            "200 + stats", f"status={S(r)} body={B(r,160)}", endpoint="GET /api/admin/dashboard/")
 
-    # T9.2 non-admin dashboard -> 403
     r = buy.req("GET", "/api/admin/dashboard/", note="buyer dashboard")
     record("T9.2", "Dashboard admin refusé aux non-admins", "critical", S(r) == 403,
            "403", f"status={S(r)}", endpoint="GET /api/admin/dashboard/")
 
-    # T9.3 admin audit CSV export
     r = adm.req("GET", "/api/admin/audit/export/", note="admin audit export")
     is_csv = r is not None and "csv" in (r.headers.get("Content-Type", "") if r is not None else "")
     record("T9.3", "Export CSV des logs d'audit (admin)", "major", S(r) == 200 and is_csv,
            "200 text/csv", f"status={S(r)} ctype={r.headers.get('Content-Type') if r is not None else 'NA'}",
            endpoint="GET /api/admin/audit/export/")
 
-    # T9.4 non-admin audit export -> 403
     r = buy.req("GET", "/api/admin/audit/export/", note="buyer audit export")
     record("T9.4", "Export audit refusé aux non-admins", "critical", S(r) == 403,
            "403", f"status={S(r)}", endpoint="GET /api/admin/audit/export/")
 
-    # T9.5 admin reviews/approves a pending seller/buyer KYC document
     import qa
     if qa.is_remote():
         did_val = qa.remote_eval("from apps.accounts.models import ComplianceDocument; doc = ComplianceDocument.objects.filter(status='PENDING').order_by('id').first(); val = doc.id if doc else None", "val")
@@ -57,30 +52,25 @@ def main():
                    f"status={S(r)} db_status={doc.status} doc_id={did}", endpoint="POST /api/compliance-documents/{id}/review/",
                    be_file="apps/accounts/views.py:ComplianceDocumentViewSet.review")
 
-        # T9.6 non-admin review -> 403
         r = buy.req("POST", f"/api/compliance-documents/{did}/review/", json_body={"status": "REJECTED"}, note="buyer review")
         record("T9.6", "Revue KYC refusée aux non-admins", "critical", S(r) in (403, 404),
                "403/404", f"status={S(r)}", endpoint="POST /api/compliance-documents/{id}/review/")
 
-    # T9.7 admin lists all users
     r = adm.req("GET", "/api/users/", note="admin users")
     record("T9.7", "Admin liste tous les utilisateurs", "major", S(r) == 200,
            "200", f"status={S(r)}", endpoint="GET /api/users/")
 
-    # T9.8 /api/users/online/ exists
     r = adm.req("GET", "/api/users/online/", note="users online")
     record("T9.8", "Endpoint /api/users/online/ (utilisé par l'app admin) fonctionne", "minor",
            S(r) in (200,), "200", f"status={S(r)} body={B(r,80)}", endpoint="GET /api/users/online/",
            fe_file="frontend/admin/project/lib/features/data/admin_repository.dart:19")
 
-    # T9.9 admin escrow holds + audit events
     r1 = adm.req("GET", "/api/escrow/holds/", note="escrow holds")
     r2 = adm.req("GET", "/api/audit/events/", note="audit events")
     record("T9.9", "Admin consulte escrow holds + audit events", "minor",
            S(r1) == 200 and S(r2) == 200, "200/200", f"holds={S(r1)} audit={S(r2)}",
            endpoint="GET /api/escrow/holds/ , /api/audit/events/")
 
-    # T9.10 admin resolves dispute #1 with REFUND_BUYER (internal refund, safe)
     if qa.is_remote():
         dispute_id_val = qa.remote_eval("from apps.logistics.models import ShipmentDispute; disp = ShipmentDispute.objects.order_by('id').first(); val = disp.id if disp else None", "val")
         dispute_id = int(dispute_id_val) if dispute_id_val and dispute_id_val != "None" else None
@@ -115,13 +105,11 @@ def main():
                    f"status={S(r)} dispute_status={disp.status} refunded={refunded} body={B(r,120)}",
                    endpoint="POST /api/shipment-disputes/{id}/decide/", be_file="apps/logistics/views.py:decide")
 
-        # T9.11 non-admin decide -> 403
         r = buy.req("POST", f"/api/shipment-disputes/{dispute_id}/decide/", json_body={
             "status": "RESOLVED", "admin_decision": "REFUND_BUYER", "resolution_note": "x"}, note="buyer decide")
         record("T9.11", "Décision de litige refusée aux non-admins", "critical", S(r) in (403, 404),
                "403/404", f"status={S(r)}", endpoint="POST /api/shipment-disputes/{id}/decide/")
 
-    # T9.12 Feature gap: no user-block endpoint wired anywhere (mission expects 'blocage utilisateur')
     record("T9.12", "Fonction 'blocage utilisateur' disponible côté admin", "major",
            False,
            "endpoint de blocage/suspension utilisateur exposé + câblé dans l'app admin",

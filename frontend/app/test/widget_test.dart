@@ -1,8 +1,3 @@
-// Smoke tests for the Marché CM multi-role app.
-//
-// Booting the full app requires SecureDioClient.initialize(), secure storage
-// and Firebase, which aren't available in the test sandbox — so we assert the
-// core building blocks instead (theme + session defaults).
 
 import 'dart:io';
 

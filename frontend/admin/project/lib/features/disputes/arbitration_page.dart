@@ -7,7 +7,6 @@ import '../data/admin_repository.dart';
 import 'dispute_helpers.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 38 — Arbitration: parties, timeline, escrow decision.
 class ArbitrationPage extends StatefulWidget {
   const ArbitrationPage({super.key, required this.disputeId});
   final int disputeId;
@@ -40,7 +39,7 @@ class _ArbitrationPageState extends State<ArbitrationPage> {
 
   Future<void> _decide(String decision, String label) async {
     final note = await _askNote(label);
-    if (note == null) return; // cancelled
+    if (note == null) return;
     setState(() => _submitting = true);
     try {
       await _repo.decideDispute(

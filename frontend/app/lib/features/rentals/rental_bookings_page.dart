@@ -6,11 +6,6 @@ import '../../core/api_service.dart';
 import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
 
-/// Réservations reçues sur mes biens (côté propriétaire, doc 14).
-///
-/// Cycle : PAID → accepter/refuser ; ACCEPTED → générer le code de remise
-/// (le locataire le saisit) ; IN_PROGRESS → confirmer la restitution avec le
-/// code reçu ; RETURNED → clôturer (conforme) ou ouvrir un litige.
 class RentalBookingsPage extends StatefulWidget {
   const RentalBookingsPage({super.key});
 

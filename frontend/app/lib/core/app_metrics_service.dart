@@ -1,6 +1,5 @@
 import 'dart:collection';
 
-/// Event types tracked for product observability.
 enum MetricEvent {
   apiTimeout,
   apiError,
@@ -28,7 +27,6 @@ class MetricEntry {
   final MetricEvent event;
   final DateTime ts;
   final int? latencyMs;
-  // Non-PII metadata only (screen name, provider code, etc.)
   final Map<String, String>? extra;
 
   @override
@@ -38,13 +36,6 @@ class MetricEntry {
       '${extra != null ? ' $extra' : ''}';
 }
 
-/// In-memory ring buffer for product observability metrics.
-///
-/// No PII is ever stored — only event types, latencies, and non-PII labels
-/// (screen name, payment provider code, etc.).
-/// Ring buffer caps at [maxEntries] to bound memory on low-end Android.
-/// Consumers can read [recentEvents] or subscribe to the synchronous
-/// [onEvent] callback for live dashboards.
 class AppMetricsService {
   AppMetricsService._();
   static final AppMetricsService instance = AppMetricsService._();
@@ -52,10 +43,8 @@ class AppMetricsService {
   final int maxEntries = 200;
   final ListQueue<MetricEntry> _buffer = ListQueue();
 
-  // Optional live listener (e.g. debug overlay). Not persistent.
   void Function(MetricEntry)? onEvent;
 
-  // ── Recording ─────────────────────────────────────────────────────────────
 
   void record(
     MetricEvent event, {
@@ -125,7 +114,6 @@ class AppMetricsService {
         extra: {'key': key},
       );
 
-  // ── Aggregates ────────────────────────────────────────────────────────────
 
   UnmodifiableListView<MetricEntry> get recentEvents =>
       UnmodifiableListView(_buffer);
@@ -154,7 +142,6 @@ class AppMetricsService {
   int get paymentFailCount =>
       _buffer.where((e) => e.event == MetricEvent.paymentFailed).length;
 
-  // ── Debug ─────────────────────────────────────────────────────────────────
 
   void clear() => _buffer.clear();
 

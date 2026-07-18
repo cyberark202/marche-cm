@@ -44,8 +44,6 @@ class VideoFeedContractTests(TestCase):
             price_for_min_qty=1000, price_for_max_qty=1000, is_active=True,
         )
         self.with_video = Product.objects.create(title="Avec video", **common)
-        # Affectation directe du chemin : l'upload réel (validation ffprobe)
-        # est couvert ailleurs, ici seul le contrat du feed est testé.
         Product.objects.filter(pk=self.with_video.pk).update(video="products/videos/demo.mp4")
         self.without_video = Product.objects.create(title="Sans video", **common)
         self.client_buyer = APIClient()
@@ -86,7 +84,6 @@ class VideoFeedContractTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         self.assertTrue(response.data["is_seller"] is False)
 
-        # La liste racine n'inclut pas les réponses, mais expose replies_count.
         top = self._rows(self.client_buyer.get(f"/api/video-comments/?product_id={self.with_video.id}"))
         self.assertEqual(len(top), 1)
         self.assertEqual(top[0]["replies_count"], 1)
@@ -96,7 +93,6 @@ class VideoFeedContractTests(TestCase):
         self.assertEqual(len(replies), 1)
         self.assertEqual(replies[0]["message"], "Quel prix ?")
 
-        # Pas de réponse à une réponse (fil à 1 niveau).
         nested = self.client_buyer.post(
             "/api/video-comments/",
             {"product": self.with_video.id, "message": "encore", "parent": response.data["id"]},
@@ -120,7 +116,6 @@ class VideoFeedContractTests(TestCase):
         self.assertEqual(response.data, {"liked": False, "total_likes": 0})
         self.assertEqual(VideoCommentLike.objects.count(), 0)
 
-        # Le compteur remonte dans la liste.
         self.client_buyer.post(url, {})
         top = self._rows(self.client_buyer.get(f"/api/video-comments/?product_id={self.with_video.id}"))
         self.assertEqual(top[0]["likes_count"], 1)

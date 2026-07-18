@@ -26,19 +26,15 @@ class _DisputeDetailPageState extends State<DisputeDetailPage> {
   bool _loading = true;
   String? _error;
 
-  // Admin decision panel
   String _adminDecision = 'REFUND_BUYER';
   final _noteCtrl = TextEditingController();
   bool _deciding = false;
 
-  // Appeal panel
   final _appealCtrl = TextEditingController();
   bool _appealing = false;
 
-  // Resolve appeal (admin)
   bool _resolvingAppeal = false;
 
-  // Evidence upload
   bool _uploadingEvidence = false;
 
   @override
@@ -346,9 +342,6 @@ class _StickyBar extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Body
-// ---------------------------------------------------------------------------
 class _Body extends StatelessWidget {
   final Map<String, dynamic> dispute;
   final bool isAdmin;
@@ -393,24 +386,19 @@ class _Body extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // --- Status banner ---
         _StatusBanner(status: dispStatus, guaranteeFund: guaranteeFund),
         const SizedBox(height: 16),
 
-        // --- Main info ---
         _InfoCard(dispute: dispute),
         const SizedBox(height: 12),
 
-        // --- SLA ---
         if (dispute['sla_due_at'] != null)
           _SlaCard(slaAt: dispute['sla_due_at'] as String),
         const SizedBox(height: 12),
 
-        // --- Custody chain (always shown) ---
         _CustodySection(shipmentId: dispute['shipment'] as int?),
         const SizedBox(height: 12),
 
-        // --- Evidence gallery ---
         _EvidenceSection(
           evidences: evidences,
           resolved: resolved,
@@ -419,7 +407,6 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // --- Appeal section (shown when resolved) ---
         if (resolved && dispute['appeal_requested'] != true)
           _AppealSection(
             ctrl: appealCtrl,
@@ -431,7 +418,6 @@ class _Body extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // --- Admin panel ---
         if (isAdmin && !resolved) ...[
           _AdminPanel(
             dispute: dispute,
@@ -455,9 +441,6 @@ class _Body extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Status banner
-// ---------------------------------------------------------------------------
 class _StatusBanner extends StatelessWidget {
   final String status;
   final bool guaranteeFund;
@@ -510,9 +493,6 @@ class _StatusBanner extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Info card
-// ---------------------------------------------------------------------------
 class _InfoCard extends StatelessWidget {
   final Map<String, dynamic> dispute;
   const _InfoCard({required this.dispute});
@@ -584,9 +564,6 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// SLA card
-// ---------------------------------------------------------------------------
 class _SlaCard extends StatelessWidget {
   final String slaAt;
   const _SlaCard({required this.slaAt});
@@ -627,9 +604,6 @@ class _SlaCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Custody chain section
-// ---------------------------------------------------------------------------
 class _CustodySection extends StatefulWidget {
   final int? shipmentId;
   const _CustodySection({this.shipmentId});
@@ -639,7 +613,6 @@ class _CustodySection extends StatefulWidget {
 }
 
 class _CustodySectionState extends State<_CustodySection> {
-  // Loaded via parent dispute's custody-chain endpoint
   bool _expanded = false;
 
   @override
@@ -678,8 +651,6 @@ class _CustodyChainLoaderState extends State<_CustodyChainLoader> {
   }
 
   Future<void> _load() async {
-    // Use dispute custody-chain endpoint (passed via parent's dispute context)
-    // We search for events matching the shipment
     final token = context.read<SessionStore>().token;
     try {
       final resp = await _api.getList(
@@ -746,9 +717,6 @@ class _CustodyChainLoaderState extends State<_CustodyChainLoader> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Evidence section
-// ---------------------------------------------------------------------------
 class _EvidenceSection extends StatelessWidget {
   final List evidences;
   final bool resolved, uploading;
@@ -839,9 +807,6 @@ class _EvidenceSection extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Appeal section
-// ---------------------------------------------------------------------------
 class _AppealSection extends StatelessWidget {
   final TextEditingController ctrl;
   final bool loading;
@@ -903,9 +868,6 @@ class _AppealSection extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Appeal status
-// ---------------------------------------------------------------------------
 class _AppealStatusCard extends StatelessWidget {
   final Map<String, dynamic> dispute;
   const _AppealStatusCard({required this.dispute});
@@ -930,9 +892,6 @@ class _AppealStatusCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Admin panel
-// ---------------------------------------------------------------------------
 class _AdminPanel extends StatelessWidget {
   final Map<String, dynamic> dispute;
   final String adminDecision;
@@ -978,7 +937,6 @@ class _AdminPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            // Decision selector
             DropdownButtonFormField<String>(
               initialValue: adminDecision,
               decoration: const InputDecoration(
@@ -1026,7 +984,6 @@ class _AdminPanel extends StatelessWidget {
               ],
             ),
             const Divider(height: 24),
-            // Inspection & Guarantee fund
             Row(
               children: [
                 Expanded(
@@ -1079,9 +1036,6 @@ class _AdminPanel extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Resolution card
-// ---------------------------------------------------------------------------
 class _ResolutionCard extends StatelessWidget {
   final Map<String, dynamic> dispute;
   const _ResolutionCard({required this.dispute});
@@ -1144,9 +1098,6 @@ class _ResolutionCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helper: prompt text dialog
-// ---------------------------------------------------------------------------
 Future<String?> _promptText(
   BuildContext context,
   String title,

@@ -7,10 +7,6 @@ import '../auth/session_store.dart';
 import 'feed_models.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Commentaires d'une vidéo en bottom sheet (la vidéo continue derrière,
-/// façon TikTok) : fil racine + réponses (1 niveau), like de commentaire,
-/// badge « Vendeur ». Le sheet renvoie le nombre total de commentaires via
-/// `Navigator.pop(count)` pour mettre à jour le compteur du feed.
 class VideoCommentsSheet extends StatefulWidget {
   const VideoCommentsSheet({
     super.key,
@@ -29,12 +25,10 @@ class _VideoCommentsSheetState extends State<VideoCommentsSheet> {
   final ApiService _api = ApiService();
   final TextEditingController _controller = TextEditingController();
   List<Map<String, dynamic>> _comments = [];
-  // Réponses chargées, par id de commentaire racine (null = repliées).
   final Map<int, List<Map<String, dynamic>>> _replies = {};
   bool _loading = true;
   bool _submitting = false;
   int _count = 0;
-  // Commentaire auquel on répond (null = commentaire racine).
   Map<String, dynamic>? _replyingTo;
   List<String> _emojis = const [];
 
@@ -117,7 +111,7 @@ class _VideoCommentsSheetState extends State<VideoCommentsSheet> {
       });
       if (parent != null) {
         await _loadReplies(parent["id"] as int);
-        await _loadComments(); // replies_count à jour sur le parent
+        await _loadComments();
       } else {
         await _loadComments();
       }
@@ -397,7 +391,6 @@ class _VideoCommentsSheetState extends State<VideoCommentsSheet> {
                 ],
               ),
             ),
-            // Like du commentaire.
             GestureDetector(
               onTap: () => _toggleCommentLike(comment, parentId: parentId),
               child: Column(
@@ -416,7 +409,6 @@ class _VideoCommentsSheetState extends State<VideoCommentsSheet> {
             ),
           ],
         ),
-        // Réponses (1 niveau), repliées derrière « Voir les N réponses ».
         if (parentId == null && repliesCount > 0 && loadedReplies == null)
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 6),

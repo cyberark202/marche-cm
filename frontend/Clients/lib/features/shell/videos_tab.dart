@@ -20,9 +20,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 class VideosTab extends StatefulWidget {
   const VideosTab({super.key, this.active = false});
 
-  /// `true` uniquement quand l'onglet Vidéos est celui affiché par le shell.
-  /// Tant qu'il est `false`, on ne charge NI le feed NI aucune vidéo : le
-  /// réseau/lecteur ne démarre qu'à la première entrée dans l'écran.
   final bool active;
 
   @override
@@ -36,15 +33,11 @@ class _VideosTabState extends State<VideosTab> {
   bool _loading = true;
   String? _error;
   int _currentPage = 0;
-  // Vrai dès la première activation de l'onglet : évite tout chargement tant
-  // que l'utilisateur n'est pas entré dans l'écran vidéo.
   bool _loadStarted = false;
-  // États utilisateur mutables, initialisés depuis le serveur au chargement.
   final Map<int, bool> _liked = {};
   final Map<int, int> _likeCounts = {};
   final Map<int, int> _commentCounts = {};
   final Map<int, bool> _followingSeller = {};
-  // Vue comptée une seule fois par vidéo et par session de feed.
   final Set<int> _viewedIds = {};
   StreamSubscription<Map<String, dynamic>>? _eventsSub;
 
@@ -52,9 +45,6 @@ class _VideosTabState extends State<VideosTab> {
   void initState() {
     super.initState();
     if (widget.active) _load();
-    // Nouvelle vidéo publiée par un vendeur : ne rafraîchir en direct que si
-    // l'acheteur est encore sur la 1re vidéo, pour ne jamais couper une
-    // lecture en cours plus bas dans le feed.
     _eventsSub = RealtimeEventsService.instance.events.listen((event) {
       if (!mounted || !_loadStarted) return;
       if (RealtimeEventsService.instance.matchesTopic(event, 'products') &&
@@ -67,8 +57,6 @@ class _VideosTabState extends State<VideosTab> {
   @override
   void didUpdateWidget(covariant VideosTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Chargement paresseux : on ne déclenche le feed qu'à la première fois où
-    // l'onglet devient réellement visible.
     if (widget.active && !_loadStarted) {
       _load();
     }
@@ -92,7 +80,6 @@ class _VideosTabState extends State<VideosTab> {
       if (!mounted) return;
       setState(() {
         _videos = payload.videos;
-        // Hydratation des états serveur (le toggle local prend le relais).
         for (final video in payload.videos) {
           _liked[video.id] = video.isLiked;
           _likeCounts[video.id] = video.likes;
@@ -114,8 +101,6 @@ class _VideosTabState extends State<VideosTab> {
     }
   }
 
-  /// Comptage de vue serveur (déduplication par session ; alimente aussi les
-  /// recommandations).
   void _trackView(int productId) {
     if (!_viewedIds.add(productId)) return;
     final token = context.read<SessionStore>().token;
@@ -124,7 +109,6 @@ class _VideosTabState extends State<VideosTab> {
 
   Future<void> _toggleLike(VideoPostData video, {bool onlyLike = false}) async {
     final alreadyLiked = _liked[video.id] ?? false;
-    // Double-tap façon TikTok : ne retire jamais un like existant.
     if (onlyLike && alreadyLiked) return;
     final token = context.read<SessionStore>().token;
     setState(() {
@@ -171,8 +155,6 @@ class _VideosTabState extends State<VideosTab> {
     }
   }
 
-  /// Partage WhatsApp (canal dominant au Cameroun) avec repli presse-papier —
-  /// même pattern que le partage produit.
   Future<void> _shareVideo(VideoPostData video) async {
     final p = video.product;
     final message = "${p.title} — ${p.priceMin} FCFA sur Market CM.\n"
@@ -202,7 +184,6 @@ class _VideosTabState extends State<VideosTab> {
     );
   }
 
-  /// Commentaires en bottom sheet (la vidéo continue derrière, façon TikTok).
   Future<void> _openComments(VideoPostData video) async {
     final newCount = await showModalBottomSheet<int>(
       context: context,
@@ -220,7 +201,6 @@ class _VideosTabState extends State<VideosTab> {
 
   @override
   Widget build(BuildContext context) {
-    // Onglet jamais ouvert : écran noir, aucun réseau, aucune vidéo.
     if (!_loadStarted) {
       return const Scaffold(
           backgroundColor: Colors.black, body: SizedBox.shrink());
@@ -275,8 +255,6 @@ class _VideosTabState extends State<VideosTab> {
           },
           itemBuilder: (context, index) {
             final video = _videos[index];
-            // Préchargement TikTok : la page active joue, les voisines (±1)
-            // initialisent leur player en pause — swipe instantané.
             final nearActive = (index - _currentPage).abs() <= 1;
             return _VideoPage(
               video: video,
@@ -388,7 +366,6 @@ class _VideoPageState extends State<_VideoPage> {
               ),
             ),
           ),
-          // Cœur du double-tap like.
           IgnorePointer(
             child: Center(
               child: AnimatedScale(
@@ -501,7 +478,6 @@ class _PostInfo extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            // Follow inline : suivre le vendeur sans quitter la vidéo.
             GestureDetector(
               onTap: onFollow,
               child: Container(
@@ -534,7 +510,6 @@ class _PostInfo extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 8),
-        // Fiche produit ancrée (pattern TikTok Shop) : tap → fiche + achat.
         GestureDetector(
           onTap: onOpenProduct,
           child: Container(
@@ -601,7 +576,6 @@ class _ActionBar extends StatelessWidget {
   final VoidCallback onComment;
   final VoidCallback onShare;
 
-  /// Compteur abrégé façon TikTok (1,2 k / 3,4 M).
   static String compact(int value) {
     if (value >= 1000000) {
       return "${(value / 1000000).toStringAsFixed(1).replaceAll('.', ',')} M";

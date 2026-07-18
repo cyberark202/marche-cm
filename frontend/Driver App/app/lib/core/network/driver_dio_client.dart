@@ -12,9 +12,6 @@ class DriverDioClient {
   static bool _initialized = false;
   static Completer<String?>? _refreshCompleter;
 
-  /// Invoqué quand un 401 n'a pas pu être résorbé par le refresh (session
-  /// morte côté serveur). Câblé par AuthNotifier : sans lui, l'utilisateur
-  /// restait coincé dans le shell avec des écrans en erreur jusqu'au redémarrage.
   static void Function()? onAuthFailed;
 
   static Dio get dio {
@@ -30,9 +27,6 @@ class DriverDioClient {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
       connectTimeout: const Duration(seconds: 15),
-      // sendTimeout couvre la phase d'ENVOI du corps (upload multipart). Sans
-      // lui, un envoi bloqué (ex. flux qui n'atteint jamais son Content-Length)
-      // tournait indéfiniment sans jamais lever d'erreur — bouton figé.
       sendTimeout: const Duration(seconds: 60),
       receiveTimeout: const Duration(seconds: 30),
       headers: {
@@ -42,15 +36,11 @@ class DriverDioClient {
     ));
 
     _dio.interceptors.add(_AuthInterceptor());
-    // Registered AFTER the auth interceptor: any error the auth layer passes
-    // through (non-401, or 401 with a failed refresh) is sanitized here so the
-    // raw URI / SocketException host never reaches the UI.
     _dio.interceptors.add(_ErrorSanitizerInterceptor());
     _initialized = true;
   }
 }
 
-// ── Error Sanitizer — strip endpoint URL / server host from every failure ────
 
 class _ErrorSanitizerInterceptor extends Interceptor {
   @override
@@ -61,15 +51,11 @@ class _ErrorSanitizerInterceptor extends Interceptor {
     if (status == 401) {
       message = "Session expirée. Veuillez vous reconnecter.";
     } else if (status >= 400 && status < 500) {
-      // The Django exception handler already returns user-safe `detail`
-      // strings (no stack traces / internals), so they are safe to surface.
       message = _serverDetail(err.response?.data) ??
           "La requête n'a pas pu être traitée. Veuillez réessayer.";
     } else if (status >= 500) {
       message = "Une erreur serveur est survenue. Veuillez réessayer plus tard.";
     } else {
-      // Transport-level failure (DNS, TLS, timeout, connection refused) — the
-      // underlying error embeds the server host:port; never surface it.
       message = "Serveur momentanément injoignable. Veuillez réessayer.";
     }
 
@@ -89,10 +75,6 @@ class _ErrorSanitizerInterceptor extends Interceptor {
           ?.toString()
           .trim();
       if (raw != null && raw.isNotEmpty) return raw;
-      // DRF field/validation errors, e.g. {"file": ["..."]} or
-      // {"non_field_errors": ["..."]}. Surface the first concrete message so a
-      // validation failure (wrong MIME, file too large…) is never masked by a
-      // generic fallback.
       for (final value in data.values) {
         if (value is List && value.isNotEmpty) {
           final first = value.first?.toString().trim();
@@ -125,7 +107,6 @@ class _AuthInterceptor extends Interceptor {
       return;
     }
 
-    // Prevent concurrent refresh races — Completer pattern
     if (DriverDioClient._refreshCompleter != null) {
       final newToken = await DriverDioClient._refreshCompleter!.future;
       if (newToken != null) {
@@ -149,10 +130,6 @@ class _AuthInterceptor extends Interceptor {
         return;
       }
 
-      // Audit ref: [Front-Driver] backend exposes /api/auth/refresh/
-      // (config/urls.py:118). The previous /api/accounts/token/refresh/ path
-      // does not exist server-side — every access-token expiry would log the
-      // driver out within 15-30 min.
       final response = await Dio().post(
         '${DriverDioClient._baseUrl}/api/auth/refresh/',
         data: {'refresh': refreshToken},

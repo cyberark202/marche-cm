@@ -46,7 +46,7 @@ class AuditEvent(models.Model):
     user_agent = models.TextField(blank=True)
     correlation_id = models.CharField(max_length=80, blank=True, db_index=True)
     chain_hash = models.CharField(max_length=64, blank=True)
-    outcome = models.CharField(max_length=10, default="SUCCESS")  # SUCCESS | FAILURE | PARTIAL
+    outcome = models.CharField(max_length=10, default="SUCCESS")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -59,12 +59,6 @@ class AuditEvent(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        # Audit ref: [FIN-007] previously the chain hash was read without any
-        # locking, so two events arriving concurrently for the same entity
-        # could share the same `prev_hash` and create a forked chain. We now
-        # serialize the read+write with a short distributed Redis lock keyed
-        # on (entity_type, entity_id) — the lock is auto-released on exit and
-        # has a 5 s TTL so a crashed process cannot poison the chain forever.
         if self.chain_hash:
             super().save(*args, **kwargs)
             return
@@ -78,9 +72,6 @@ class AuditEvent(models.Model):
                     self.chain_hash = self._compute_chain_hash()
                     super().save(*args, **kwargs)
         except LockAcquisitionError:
-            # Lock saturation — write anyway with best-effort hash to keep
-            # the audit trail alive. A reconciliation job can verify the
-            # chain offline and flag any forked segment.
             self.chain_hash = self._compute_chain_hash()
             super().save(*args, **kwargs)
 

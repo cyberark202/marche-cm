@@ -8,14 +8,12 @@ class S3MediaStorage(S3Boto3Storage):
     """
     def url(self, name, parameters=None, expire=None, http_method=None):
         if name.startswith(("products/", "avatars/")):
-            # Public unsigned CDN URL
             old_auth = self.querystring_auth
             self.querystring_auth = False
             url_val = super().url(name, parameters, expire, http_method)
             self.querystring_auth = old_auth
             return url_val
         else:
-            # Private signed S3 URL
             old_auth = self.querystring_auth
             old_domain = self.custom_domain
             self.querystring_auth = True

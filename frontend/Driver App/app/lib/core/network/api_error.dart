@@ -1,16 +1,5 @@
 import 'package:dio/dio.dart';
 
-/// Centralized, user-safe error mapping for the Driver app.
-///
-/// SECURITY: the UI must NEVER render a raw `DioException` / exception string.
-/// Their `toString()` embeds the request URI and, on transport failures, the
-/// underlying `SocketException` (which leaks the server host:port). Every error
-/// shown to a driver is funnelled through [ApiError.friendly], which returns a
-/// professional French message and never an endpoint, URL or server detail.
-///
-/// Works hand-in-hand with the sanitizer interceptor in [DriverDioClient]:
-/// the interceptor strips technical fields and sets a clean `message`; this
-/// helper reads that message (or falls back to a generic one).
 class ApiError {
   const ApiError._();
 
@@ -22,8 +11,6 @@ class ApiError {
 
     if (error is DioException) {
       final msg = error.message?.trim();
-      // The interceptor already replaced this with a safe message; if anything
-      // technical slipped through, fall back to the generic message.
       if (msg != null && msg.isNotEmpty && !_looksTechnical(msg)) return msg;
       return _generic;
     }
@@ -36,8 +23,6 @@ class ApiError {
     return text;
   }
 
-  /// True when a string still carries transport/stack/endpoint material that
-  /// must not reach the user (URL, host lookup, socket, raw exception type).
   static bool _looksTechnical(String value) {
     final s = value.toLowerCase();
     return s.contains("://") ||

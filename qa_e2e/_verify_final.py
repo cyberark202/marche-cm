@@ -14,7 +14,6 @@ adm = Client("admin"); adm.login("admin@marche-cm.local", PWD)
 buy = Client("buyer"); buy.login("buyer@marche-cm.local", PWD)
 print("tokens adm/buy:", bool(adm.access), bool(buy.access))
 
-# --- (A) open dispute on an existing buyer shipment with correct fields ---
 import qa
 if qa.is_remote():
     sh_id = qa.remote_eval("from apps.logistics.models import Shipment; sh = Shipment.objects.filter(order__buyer__email__iexact='buyer@marche-cm.local').order_by('-id').first(); val = sh.id if sh else None", "val")
@@ -36,11 +35,9 @@ if sh_id:
                 note="open dispute correct fields")
     print(f"OPEN_DISPUTE (reason/details) -> {S(r)} body={B(r,180)}")
 
-# --- (B) suspend / unsuspend flow ---
 try:
     r = adm.req("POST", f"/api/users/{buyer_id}/suspend/", json_body={"reason": "QA verif M-6"}, note="suspend")
     print(f"SUSPEND -> {S(r)} body={B(r,120)}")
-    # suspended buyer must not be able to log in
     blocked = Client("buyer2")
     rb = blocked.req("POST", "/api/auth/login/", json_body={"email": "buyer@marche-cm.local", "password": PWD},
                      auth=False, note="login while suspended")

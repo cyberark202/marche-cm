@@ -11,9 +11,6 @@ import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// ---------------------------------------------------------------------------
-// List page
-// ---------------------------------------------------------------------------
 class ShipmentDisputesPage extends StatefulWidget {
   const ShipmentDisputesPage({super.key});
 
@@ -167,9 +164,6 @@ class _ShipmentDisputesPageState extends State<ShipmentDisputesPage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// List tile
-// ---------------------------------------------------------------------------
 class _DisputeListTile extends StatelessWidget {
   final Map<String, dynamic> dispute;
   final VoidCallback onTap;
@@ -270,9 +264,6 @@ class _DisputeListTile extends StatelessWidget {
       '${d.day}/${d.month}/${d.year} ${d.hour}:${d.minute.toString().padLeft(2, '0')}';
 }
 
-// ---------------------------------------------------------------------------
-// Create page (buyer-focused, 2 steps)
-// ---------------------------------------------------------------------------
 class _DisputeCreatePage extends StatefulWidget {
   final int shipmentId;
   const _DisputeCreatePage({required this.shipmentId});
@@ -290,31 +281,24 @@ class _DisputeCreatePageState extends State<_DisputeCreatePage> {
   bool _loading = false;
   int _step = 0;
 
-  // Dispute types available to buyers — grouped by category for clarity.
-  // Seller-against-buyer types (FALSE_NON_RECEIPT, USED_THEN_DISPUTED) are excluded.
   static const _disputeTypes = [
-    // --- Probleme avec le vendeur ---
     ('QUALITY_DEFECT',    'Mauvaise qualite',           LucideIcons.starHalf,                  Color(0xFFE65100)),
     ('WRONG_QUANTITY',    'Quantite incomplete',         LucideIcons.packageX,  Color(0xFF6A1B9A)),
     ('COUNTERFEIT',       'Produit contrefait',          LucideIcons.alertTriangle,               Color(0xFFB71C1C)),
     ('MISLEADING_AD',     'Publicite trompeuse',         LucideIcons.megaphone,                    Color(0xFF6A1B9A)),
     ('FAKE_DOCUMENTS',    'Faux documents vendeur',      LucideIcons.fileText,                 Color(0xFF880E4F)),
-    // --- Livraison ---
     ('DELIVERY_DELAY',    'Retard de livraison',         LucideIcons.clock,                 Color(0xFF283593)),
     ('LOST_PARCEL',       'Colis perdu',                 LucideIcons.searchX,                  Color(0xFF37474F)),
     ('DAMAGED_GOODS',     'Marchandise endommagee',      LucideIcons.imageOff,                Color(0xFF4E342E)),
     ('WRONG_RECIPIENT',   'Livre au mauvais destinataire',LucideIcons.userX,                 Color(0xFF1565C0)),
-    // --- Paiement & Plateforme ---
     ('DOUBLE_CHARGE',     'Double debit Mobile Money',   LucideIcons.coins,                   Color(0xFF00695C)),
     ('ESCROW_BLOCKED',    'Fonds bloques trop longtemps',LucideIcons.lock,                        Color(0xFF558B2F)),
     ('WALLET_FROZEN',     'Gel de wallet injustifie',    LucideIcons.wallet,      Color(0xFF0277BD)),
     ('WITHDRAWAL_ERROR',  'Erreur de retrait wallet',    LucideIcons.repeat2,            Color(0xFF00838F)),
     ('PREMATURE_RELEASE', 'Liberation prematuree des fonds', LucideIcons.unlock,               Color(0xFFE65100)),
     ('UNJUST_SUSPENSION', 'Suspension injustifiee de mon compte', LucideIcons.ban,              Color(0xFF6A1B9A)),
-    // --- Securite ---
     ('DATA_BREACH',       'Fuite de mes donnees personnelles', LucideIcons.shield,                Color(0xFFB71C1C)),
     ('UNAUTHORIZED_ACCESS','Acces non autorise a mon compte',  LucideIcons.userX,           Color(0xFFC62828)),
-    // --- Autre ---
     ('OTHER',             'Autre probleme',              LucideIcons.helpCircle,                         Color(0xFF455A64)),
   ];
 
@@ -602,9 +586,6 @@ class _TypeOption extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Detail page (buyer view — no admin panel)
-// ---------------------------------------------------------------------------
 class _DisputeDetailPage extends StatefulWidget {
   final int disputeId;
   const _DisputeDetailPage({required this.disputeId});
@@ -731,7 +712,6 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Status banner
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -751,7 +731,6 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
         ),
         const SizedBox(height: 14),
 
-        // Info
         Card(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
@@ -770,7 +749,6 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
         ),
         const SizedBox(height: 12),
 
-        // Evidence
         Card(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Column(
@@ -817,7 +795,6 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
         ),
         const SizedBox(height: 12),
 
-        // Resolution
         if (resolved && d['resolution_note'] != null) ...[
           Card(
             color: Colors.green.shade50,
@@ -851,7 +828,6 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
           const SizedBox(height: 12),
         ],
 
-        // Appeal
         if (resolved && d['appeal_requested'] != true) ...[
           Card(
             color: Colors.orange.shade50,
@@ -978,9 +954,6 @@ class _DisputeDetailPageState extends State<_DisputeDetailPage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Shipment picker bottom sheet
-// ---------------------------------------------------------------------------
 class _ShipmentPickerSheet extends StatefulWidget {
   final String? token;
   final ApiService api;

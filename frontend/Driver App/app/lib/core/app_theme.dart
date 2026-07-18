@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'theme/driver_theme.dart';
 
-/// Compatibility shim — exposes the same `AppPalette` / `AppRadii` /
-/// `AppDurations` API the shared `cm_components.dart` kit expects, mapped onto
-/// the driver app's authoritative design tokens (`T` in driver_theme.dart).
-/// Keeps a single source of truth (T) while letting the cross-app kit compile
-/// unchanged.
 class AppPalette {
   AppPalette._();
 

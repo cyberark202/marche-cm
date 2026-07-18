@@ -12,7 +12,6 @@ import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Preuve de livraison — photo + code OTP 4 chiffres (PDF 28).
 class DeliveryProofPage extends StatefulWidget {
   final String shipmentId;
   const DeliveryProofPage({super.key, required this.shipmentId});
@@ -63,7 +62,6 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
     });
     try {
       final form = FormData.fromMap({
-        // MIME explicite : le backend refuse octet-stream (UP-001).
         "photo": await MultipartFile.fromFile(_photo!.path,
             filename: "proof.jpg", contentType: DioMediaType('image', 'jpeg')),
         "otp": _otpValue,
@@ -79,7 +77,6 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
     } catch (e) {
       if (mounted) setState(() => _error = ApiError.friendly(e));
     } finally {
-      // Toujours relâcher le spinner (succès = navigation ; échec = ré-essai).
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -144,9 +141,6 @@ class _DeliveryProofPageState extends State<DeliveryProofPage> {
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(T.rLg),
-                                  // XFile.path est un chemin fichier local sur
-                                  // mobile (Image.network échouait → aperçu vide)
-                                  // et une URL blob sur le Web.
                                   child: kIsWeb
                                       ? Image.network(
                                           _photo!.path,

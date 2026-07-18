@@ -65,7 +65,6 @@ class ProductReviewTests(TestCase):
             {"rating": 5, "comment": "Excellent produit"}, format="json")
         self.assertEqual(r.status_code, 201, r.content)
 
-        # Le vendeur repond.
         seller_c = APIClient()
         seller_c.force_authenticate(self.seller)
         reply = seller_c.post(
@@ -74,7 +73,6 @@ class ProductReviewTests(TestCase):
         self.assertEqual(reply.status_code, 200, reply.content)
         self.assertEqual(reply.json()["seller_reply"], "Merci pour votre confiance !")
 
-        # L'agregat produit expose note, reponse vendeur.
         agg = buyer_c.get(f"/api/products/{self.product.id}/reviews/").json()
         self.assertEqual(agg["reviews_count"], 1)
         self.assertEqual(agg["average_rating"], 5.0)
@@ -86,7 +84,6 @@ class ProductReviewTests(TestCase):
         buyer_c.post(
             f"/api/orders/{self.order.id}/review/",
             {"rating": 4, "comment": "Bien"}, format="json")
-        # L'acheteur ne peut pas repondre a son propre avis en tant que vendeur.
         resp = buyer_c.post(
             f"/api/orders/{self.order.id}/review-reply/",
             {"reply": "auto-reponse"}, format="json")

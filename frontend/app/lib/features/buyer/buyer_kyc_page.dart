@@ -12,12 +12,6 @@ import '../../core/security/secure_dio_client.dart';
 import '../../core/upload_mime.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// KYC onboarding — wizard fidèle au design `screens-kyc.jsx` (6 écrans) :
-/// intro → type de compte → documents → signature → récapitulatif → succès.
-///
-/// Backend : `POST /api/auth/kyc/submit/` (multipart) par document, avec la
-/// signature manuscrite + `consent_accepted` (horodaté serveur) sur le premier
-/// envoi. doc_type ∈ {CNI, PROOF_ADDRESS, SELFIE}.
 enum _KycStage { intro, type, docs, signature, review, success }
 
 enum _AccountType { individual, company, pro }
@@ -33,7 +27,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   _KycStage _stage = _KycStage.intro;
   _AccountType _accountType = _AccountType.individual;
 
-  // 3 documents requis par le design : CNI, justificatif domicile, selfie.
   final Map<String, PlatformFile?> _docs = {
     'cni': null,
     'address': null,
@@ -43,7 +36,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   bool _uploading = false;
   String? _errorMessage;
 
-  // Signature manuscrite + consentement légal (design écran 04 / catalogue 46).
   final GlobalKey _signatureBoundaryKey = GlobalKey();
   final GlobalKey<_SignaturePadState> _signaturePadKey =
       GlobalKey<_SignaturePadState>();
@@ -56,7 +48,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   int get _docsDone => _docs.values.where((f) => f != null).length;
   bool get _allDocsDone => _docsDone == _docs.length;
 
-  // ── Step index for the 4-segment progress bar (type→docs→signature→review)
   int get _stepIndex {
     switch (_stage) {
       case _KycStage.type:
@@ -114,7 +105,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
       _errorMessage = null;
     });
     try {
-      // 1) CNI (document d'identité primaire) — porte la signature + consentement.
       final cniData = FormData();
       cniData.fields.add(const MapEntry('doc_type', 'CNI'));
       cniData.fields.add(const MapEntry('consent_accepted', 'true'));
@@ -132,9 +122,7 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
       ));
       await SecureDioClient.dio.post('/api/auth/kyc/submit/', data: cniData);
 
-      // 2) Justificatif de domicile.
       await _postDoc('PROOF_ADDRESS', _docs['address']!);
-      // 3) Selfie avec CNI.
       await _postDoc('SELFIE', _docs['selfie']!);
 
       if (!mounted) return;
@@ -216,7 +204,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     });
   }
 
-  // ── Header ────────────────────────────────────────────────────────────────
   Widget _header() {
     final (title, subtitle) = switch (_stage) {
       _KycStage.intro => ('Vérification KYC', 'Étape obligatoire > 50 k F'),
@@ -273,7 +260,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     }
   }
 
-  // ── Écran 1 : Intro ─────────────────────────────────────────────────────
   Widget _introContent() {
     const needs = [
       (LucideIcons.shieldCheck, "Pièce d'identité", 'CNI, passeport ou récépissé'),
@@ -381,7 +367,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     );
   }
 
-  // ── Écran 2 : Type de compte ────────────────────────────────────────────
   Widget _typeContent() {
     const options = [
       (_AccountType.individual, LucideIcons.user, 'Particulier',
@@ -412,7 +397,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     );
   }
 
-  // ── Écran 3 : Documents ─────────────────────────────────────────────────
   Widget _docsContent() {
     const docMeta = [
       ('cni', "Carte nationale d'identité", 'Recto-verso, bonne lumière',
@@ -444,7 +428,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     );
   }
 
-  // ── Écran 4 : Signature ─────────────────────────────────────────────────
   Widget _signatureContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,7 +522,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     );
   }
 
-  // ── Écran 5 : Récapitulatif ─────────────────────────────────────────────
   Widget _reviewContent() {
     final typeLabel = switch (_accountType) {
       _AccountType.individual => 'Particulier',
@@ -612,7 +594,6 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
     );
   }
 
-  // ── Bottom bar ──────────────────────────────────────────────────────────
   Widget _bottomBar() {
     final (label, icon, enabled, onPressed) = switch (_stage) {
       _KycStage.intro => (
@@ -712,10 +693,9 @@ class _BuyerKycPageState extends State<BuyerKycPage> {
   }
 }
 
-// ── Sous-widgets ──────────────────────────────────────────────────────────
 
 class _KycProgress extends StatelessWidget {
-  final int step; // 1..4
+  final int step;
   const _KycProgress({required this.step});
 
   @override
@@ -1053,7 +1033,6 @@ class _ErrorBanner extends StatelessWidget {
       );
 }
 
-// ── Écran 6 : Succès ──────────────────────────────────────────────────────
 class _SuccessScreen extends StatelessWidget {
   final VoidCallback onClose;
   const _SuccessScreen({required this.onClose});
@@ -1138,7 +1117,6 @@ class _SuccessScreen extends StatelessWidget {
   }
 }
 
-// ── Signature pad (réutilisé, éprouvé) ────────────────────────────────────
 
 class _SignaturePad extends StatefulWidget {
   const _SignaturePad({super.key, required this.onChanged});

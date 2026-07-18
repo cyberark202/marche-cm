@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/theme/driver_logo.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Splash screen partagé Market CM (repris de l'app Clients) pour une identité
-/// visuelle cohérente entre toutes les applications.
 class CmSplashScreen extends StatefulWidget {
   const CmSplashScreen({super.key, this.onCompleted, this.holdMs = 1800});
 

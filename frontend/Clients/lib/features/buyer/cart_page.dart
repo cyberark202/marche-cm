@@ -19,7 +19,6 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> {
   final ApiService _api = ApiService();
-  // Audit ref: [BUG-04] anti double-soumission du checkout.
   bool _submitting = false;
 
   int _unitPrice(ProductCardData product, int quantity) {
@@ -27,7 +26,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _checkout(BuyerStore store) async {
-    if (_submitting) return; // Audit ref: [BUG-04] bloque le double-clic.
+    if (_submitting) return;
     final token = context.read<SessionStore>().token;
     final productsById = {for (final p in widget.products) p.id: p};
     for (final entry in store.cartItems) {
@@ -48,11 +47,6 @@ class _CartPageState extends State<CartPage> {
       productTotal += _unitPrice(product, entry.quantity) * entry.quantity;
       itemsCount += 1;
     }
-    // Audit ref: [BUG-05] l'acheteur séquestre produits + livraison. La
-    // commission plateforme est prélevée côté vendeur/livreur à la libération,
-    // elle n'est PAS ajoutée au montant bloqué de l'acheteur. Les frais de
-    // livraison (150 FCFA/km, selon la distance vendeur -> vous) sont calculés
-    // côté serveur à la commande et ajoutés au séquestre.
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -80,10 +74,6 @@ class _CartPageState extends State<CartPage> {
     if (confirm != true || !mounted) return;
     setState(() => _submitting = true);
 
-    // Panier serveur : on pousse chaque article (upsert idempotent, rejouable
-    // sur reseau faible) puis on declenche le checkout groupe ATOMIQUE cote
-    // serveur — une commande par article, tout ou rien. Fini le risque de
-    // checkout partiel de l'ancienne boucle client.
     try {
       for (final entry in store.cartItems) {
         await _api.post(
@@ -133,8 +123,6 @@ class _CartPageState extends State<CartPage> {
       if (product == null) continue;
       productTotal += _unitPrice(product, entry.quantity) * entry.quantity;
     }
-    // Les frais de livraison (150 FCFA/km) sont calculés côté serveur a la
-    // commande selon la distance vendeur -> acheteur, puis ajoutés au séquestre.
     final grandTotal = productTotal;
 
     return Scaffold(
@@ -227,7 +215,6 @@ class _CartPageState extends State<CartPage> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _CartHeader extends StatelessWidget {
   const _CartHeader({required this.itemCount, required this.totalQty});

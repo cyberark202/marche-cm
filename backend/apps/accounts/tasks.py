@@ -35,7 +35,7 @@ def user_geocode_task(self, user_id: int) -> dict:
     try:
         localized = update_user_location(user, force=True)
         return {"user_id": user_id, "localized": bool(localized)}
-    except Exception as exc:  # network/provider error — retry a bounded number of times
+    except Exception as exc:
         try:
             raise self.retry(exc=exc)
         except self.MaxRetriesExceededError:

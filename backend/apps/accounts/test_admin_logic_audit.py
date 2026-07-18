@@ -55,7 +55,6 @@ class AdminLogicAuditTests(TestCase):
         self.buyer_api = APIClient(); self.buyer_api.force_authenticate(user=self.buyer)
         self.anon = APIClient()
 
-    # ── 1. AuthZ deny-by-default : un acheteur n'accède à AUCUN endpoint admin
     def test_buyer_forbidden_on_every_admin_endpoint(self):
         cases = [
             ("get", "/api/admin/dashboard/", None),
@@ -80,7 +79,6 @@ class AdminLogicAuditTests(TestCase):
             resp = self.anon.get(url)
             self.assertIn(resp.status_code, (401, 403), f"{url} → {resp.status_code}")
 
-    # ── 2. Admin légitime : accès accordé
     def test_admin_dashboard_ok(self):
         resp = self.admin_api.get("/api/admin/dashboard/")
         self.assertEqual(resp.status_code, 200, resp.content)
@@ -90,13 +88,11 @@ class AdminLogicAuditTests(TestCase):
         self.assertEqual(self.admin_api.get("/api/audit/events/").status_code, 200)
         self.assertIn(self.buyer_api.get("/api/audit/events/").status_code, (403, 404))
 
-    # ── 3. JWT falsifié → rejet
     def test_forged_jwt_rejected(self):
         forged = APIClient()
         forged.credentials(HTTP_AUTHORIZATION="Bearer not.a.valid.jwt.signature")
         self.assertEqual(forged.get("/api/admin/dashboard/").status_code, 401)
 
-    # ── 4. Anti-escalade de privilège
     def test_buyer_cannot_self_promote_via_profile(self):
         """Le serializer profil n'expose pas `role`/`is_superuser` : ignorés."""
         resp = self.buyer_api.post(
@@ -140,7 +136,6 @@ class AdminLogicAuditTests(TestCase):
         self.assertEqual(created.role, UserRole.SUPPLIER)
         self.assertTrue(AuditLog.objects.filter(action_key="admin.users.manage").exists())
 
-    # ── 5. Anti-IDOR : la liste users est auto-scopée pour un non-admin
     @staticmethod
     def _rows(resp):
         """Réponse DRF paginée ({results:[...]}) ou liste brute."""
@@ -165,9 +160,7 @@ class AdminLogicAuditTests(TestCase):
         resp = self.buyer_api.get(f"/api/users/{self.other.id}/")
         self.assertEqual(resp.status_code, 404, resp.content)
 
-    # ── A-01 fix : recherche serveur (au-delà de la 1re page paginée)
     def test_admin_server_side_search_beyond_first_page(self):
-        # Crée 30 acheteurs => la cible "needle" est hors de la 1re page (20).
         for i in range(30):
             User.objects.create_user(
                 username=f"filler_{i}", email=f"filler_{i}@test.local",
@@ -194,18 +187,15 @@ class AdminLogicAuditTests(TestCase):
         ids = {row["id"] for row in self._rows(resp)}
         self.assertEqual(ids, {self.buyer.id})
 
-    # ── 6. Step-up obligatoire sur wallet.reconcile, même pour l'admin
     def test_admin_reconcile_requires_stepup(self):
         resp = self.admin_api.post(
             "/api/wallets/reconcile/",
             {"transaction_id": "nonexistent", "status": "SUCCESS"},
             format="json",
         )
-        # 403 = step-up manquant (avant même de toucher la transaction)
         self.assertEqual(resp.status_code, 403, resp.content)
         self.assertIn("securite", str(resp.content, "utf-8").lower())
 
-    # ── 7. Anti-self-suspension (cohérence du module d'administration)
     def test_admin_cannot_suspend_self(self):
         resp = self.admin_api.post(
             f"/api/users/{self.admin.id}/suspend/", {"reason": "x"}, format="json")

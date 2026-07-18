@@ -72,7 +72,7 @@ class RentalBookingSerializer(serializers.ModelSerializer):
         if period == RentalPeriod.DAY:
             return max(1, days)
         if period == RentalPeriod.WEEK:
-            return max(1, -(-days // 7))  # ceil
+            return max(1, -(-days // 7))
         if period == RentalPeriod.MONTH:
             return max(1, -(-days // 30))
         return max(1, days)

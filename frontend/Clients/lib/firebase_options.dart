@@ -1,11 +1,3 @@
-// Firebase configuration for the Clients (buyer) app — project "marche-cm".
-//
-// Android values come from android/app/google-services.json (package
-// com.marche.clients). Web reuses the shared marche-cm web app config.
-// iOS is SCAFFOLDED ONLY: register an iOS app for this bundle id in the
-// Firebase console, drop ios/Runner/GoogleService-Info.plist, configure an
-// APNs key, then replace the `ios` block below with the generated values.
-//
 // ignore_for_file: type=lint
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
@@ -20,7 +12,6 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        // iOS not yet configured for this app — see file header.
         throw UnsupportedError(
           'Firebase iOS is not configured for the Clients app yet. '
           'Register the iOS app in the Firebase console and add '

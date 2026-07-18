@@ -37,8 +37,6 @@ class DriverDispatchTests(TestCase):
             username="disp_seller", email="disp_seller@test.local", password="TestPassword123!",
             role="SUPPLIER", is_verified=True, kyc_level=2, country_code="CM", phone_number="+237690000602",
             location_latitude=4.05, location_longitude=9.70)
-        # Livreur proche (Douala) et livreur lointain (Yaoundé) : l'offre doit
-        # partir vers le plus proche d'abord.
         self.driver = u.objects.create_user(
             username="disp_driver", email="disp_driver@test.local", password="TestPassword123!",
             role="TRANSIT_AGENT", is_verified=True, kyc_level=2, country_code="CM", phone_number="+237690000603",

@@ -1,10 +1,3 @@
-// Firebase configuration for the Admin console — project "marche-cm".
-//
-// The admin console is deployed as a WEB app, so only the web config is set
-// (shared marche-cm web app). No Android/iOS Firebase app is registered for
-// the admin console; those platforms throw and the guarded init in main.dart
-// skips them. Register native apps in the Firebase console if ever needed.
-//
 // ignore_for_file: type=lint
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
@@ -14,7 +7,6 @@ class DefaultFirebaseOptions {
     if (kIsWeb) {
       return web;
     }
-    // Admin is web-only for Firebase purposes.
     throw UnsupportedError(
       'Firebase is only configured for web on the Admin console '
       '(platform: $defaultTargetPlatform).',

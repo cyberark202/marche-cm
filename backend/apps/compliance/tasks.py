@@ -12,7 +12,6 @@ from celery import shared_task
 
 logger = logging.getLogger(__name__)
 
-# Documents d'identité dont l'expiration invalide la vérification.
 _IDENTITY_DOC_TYPES = ("NATIONAL_ID", "PASSPORT", "DRIVERS_LICENSE")
 _WARNING_WINDOW_DAYS = 30
 
@@ -32,7 +31,6 @@ def check_kyc_document_expiry(limit: int = 1000) -> dict:
     warn_before = today + timedelta(days=_WARNING_WINDOW_DAYS)
     warned = expired = 0
 
-    # 1) Avertissement 30 jours avant échéance (une seule fois par document).
     upcoming = (
         KYCDocument.objects.filter(
             document_type__in=_IDENTITY_DOC_TYPES,
@@ -63,7 +61,6 @@ def check_kyc_document_expiry(limit: int = 1000) -> dict:
         doc.save(update_fields=["expiry_warning_sent_at"])
         warned += 1
 
-    # 2) Documents échus : rétrograder le compte + marquer l'application EXPIRED.
     due = (
         KYCDocument.objects.filter(
             document_type__in=_IDENTITY_DOC_TYPES,

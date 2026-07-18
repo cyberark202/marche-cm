@@ -111,7 +111,6 @@ class _HomeTabState extends State<HomeTab> {
   }
 }
 
-// ─── Hero Header ─────────────────────────────────────────────────────────────
 
 class _HeroHeader extends StatelessWidget {
   const _HeroHeader({
@@ -327,7 +326,6 @@ class _BalanceCard extends StatelessWidget {
   }
 }
 
-// ─── KPI Row ─────────────────────────────────────────────────────────────────
 
 class _KpiRow extends StatelessWidget {
   const _KpiRow({
@@ -473,7 +471,6 @@ class _KpiCard extends StatelessWidget {
   }
 }
 
-// ─── Quick Actions ────────────────────────────────────────────────────────────
 
 class _QuickActions extends StatelessWidget {
   const _QuickActions({required this.session});
@@ -687,7 +684,6 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-// ─── Recent Orders ────────────────────────────────────────────────────────────
 
 class _RecentOrders extends StatelessWidget {
   const _RecentOrders({required this.orders});

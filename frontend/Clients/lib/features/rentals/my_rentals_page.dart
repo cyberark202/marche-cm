@@ -6,11 +6,6 @@ import '../../core/api_service.dart';
 import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
 
-/// Mes locations (côté locataire, doc 14).
-///
-/// Cycle : REQUESTED → payer (séquestre loyer + caution) ; ACCEPTED →
-/// confirmer la remise avec le code reçu ; IN_PROGRESS → déclencher la
-/// restitution (le code part au propriétaire) ; litige possible en cours.
 class MyRentalsPage extends StatefulWidget {
   const MyRentalsPage({super.key});
 

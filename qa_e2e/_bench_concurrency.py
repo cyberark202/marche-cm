@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 
 BASE = "http://127.0.0.1:8000"
-PATH = "/api/products/"  # public, read-only, the 60% catalogue path
+PATH = "/api/products/"
 HDRS = {"User-Agent": "conc-bench", "X-App-Client": "bench"}
 
 

@@ -308,9 +308,6 @@ class InnovationHardeningTests(APITestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
-    # -----------------------------------------------------------------------
-    # H4 — SSRF Protection: webhook URL validation + redirect blocking
-    # -----------------------------------------------------------------------
 
     def test_webhook_rejects_private_ip_rfc1918(self):
         """RFC 1918 private IPs must be rejected at webhook creation (SSRF)."""
@@ -385,7 +382,6 @@ class InnovationHardeningTests(APITestCase):
         )
         self._auth_as(self.supplier)
 
-        # Simulate urllib raising HTTPError (redirect blocked by _NoRedirectHandler).
         redirect_error = urllib.error.HTTPError(
             url="https://example.com/hook",
             code=301,
@@ -399,11 +395,8 @@ class InnovationHardeningTests(APITestCase):
                 {},
                 format="json",
             )
-        # The redirect must be caught gracefully — never a 500.
         self.assertNotEqual(res.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        # Caught by except → 502 (delivery failure), not a silent 200 success.
         self.assertEqual(res.status_code, status.HTTP_502_BAD_GATEWAY)
-        # Must indicate the redirect was the cause, not a provider success.
         self.assertIn("error", res.data)
 
     def test_dispute_escalation_rejects_resolved_disputes(self):

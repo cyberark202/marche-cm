@@ -6,13 +6,6 @@ import 'arbitration_page.dart';
 import 'dispute_helpers.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Litige multi-vue (design `screens-extras.jsx`) — outil d'arbitrage admin.
-///
-/// L'admin inspecte un litige depuis chaque perspective (acheteur plaignant,
-/// vendeur témoin, livreur mis en cause) puis bascule vers la conversation
-/// tripartite réelle ([ArbitrationPage]). Les perspectives sont alimentées par
-/// les vraies métadonnées du litige ; les preuves par partie restent à brancher
-/// sur l'API détaillée.
 class DisputeMultiviewPage extends StatelessWidget {
   const DisputeMultiviewPage({
     super.key,
@@ -269,7 +262,6 @@ class _SectionLabel extends StatelessWidget {
       );
 }
 
-// ── Perspective detail (acheteur / vendeur / livreur) ─────────────────────
 class _PerspectiveDetailPage extends StatelessWidget {
   const _PerspectiveDetailPage({
     required this.perspective,

@@ -56,11 +56,9 @@ class ProductSoftDeleteTests(TestCase):
     def test_admin_delete_is_soft_and_preserves_order(self):
         resp = self._delete(self.admin)
         self.assertIn(resp.status_code, (200, 204), resp.content)
-        # Le produit existe toujours mais est désactivé.
         self.product.refresh_from_db()
         self.assertFalse(self.product.is_active)
         self.assertTrue(Product.objects.filter(id=self.product.id).exists())
-        # La commande liée n'a PAS été supprimée par cascade.
         self.assertTrue(Order.objects.filter(id=self.order.id).exists())
 
     def test_seller_delete_is_soft(self):

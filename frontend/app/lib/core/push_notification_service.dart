@@ -6,12 +6,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'security/secure_dio_client.dart';
 
-/// Must be a top-level function — FCM background isolate cannot access class state.
 @pragma('vm:entry-point')
 Future<void> _fcmBackgroundHandler(RemoteMessage message) async {
-  // Firebase is already initialized by the system before this runs.
-  // System tray notification is shown automatically for notification+data messages.
-  // Add local notification plugin calls here if you need custom presentation.
 }
 
 class PushNotificationService {
@@ -25,7 +21,6 @@ class PushNotificationService {
     ),
   );
 
-  /// Call once after Firebase.initializeApp() and SecureDioClient.initialize().
   static Future<void> initialize() async {
     if (kIsWeb) return;
 
@@ -33,7 +28,6 @@ class PushNotificationService {
 
     final messaging = FirebaseMessaging.instance;
 
-    // iOS / macOS: request permission. Android 13+ also respects this.
     await messaging.requestPermission(
       alert: true,
       badge: true,
@@ -43,13 +37,11 @@ class PushNotificationService {
     final token = await messaging.getToken();
     if (token != null) await _registerToken(token);
 
-    // Re-register whenever FCM rotates the token.
     messaging.onTokenRefresh.listen(_registerToken);
   }
 
   static Future<void> _registerToken(String fcmToken) async {
     try {
-      // Skip redundant API call if token hasn't changed.
       final cached = await _storage.read(key: _kFcmTokenKey);
       if (cached == fcmToken) return;
 
@@ -67,7 +59,6 @@ class PushNotificationService {
     }
   }
 
-  /// Call on logout so the backend stops delivering to this device.
   static Future<void> clearToken() async {
     try {
       final token = await _storage.read(key: _kFcmTokenKey);

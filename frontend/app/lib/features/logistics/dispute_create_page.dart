@@ -6,9 +6,6 @@ import '../../core/api_service.dart';
 import '../auth/session_store.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// ---------------------------------------------------------------------------
-// Dispute type catalog — mirrors backend DisputeType
-// ---------------------------------------------------------------------------
 class DisputeTypeInfo {
   final String value;
   final String label;
@@ -26,7 +23,6 @@ class DisputeTypeInfo {
 }
 
 const _disputeTypes = [
-  // Qualite produit
   DisputeTypeInfo(
     value: 'QUALITY_DEFECT',
     label: 'Mauvaise qualite',
@@ -48,7 +44,6 @@ const _disputeTypes = [
     icon: LucideIcons.shieldOff,
     color: Color(0xFFC0392B),
   ),
-  // Mauvaise foi
   DisputeTypeInfo(
     value: 'FALSE_NON_RECEIPT',
     label: 'Fausse non-reception',
@@ -63,7 +58,6 @@ const _disputeTypes = [
     icon: LucideIcons.history,
     color: Color(0xFF7F8C8D),
   ),
-  // Livraison
   DisputeTypeInfo(
     value: 'DELIVERY_DELAY',
     label: 'Retard de livraison',
@@ -85,7 +79,6 @@ const _disputeTypes = [
     icon: LucideIcons.userX,
     color: Color(0xFF16A085),
   ),
-  // Escrow
   DisputeTypeInfo(
     value: 'ESCROW_BLOCKED',
     label: 'Fonds bloques',
@@ -107,7 +100,6 @@ const _disputeTypes = [
     icon: LucideIcons.wallet,
     color: Color(0xFF2980B9),
   ),
-  // Financiers
   DisputeTypeInfo(
     value: 'DOUBLE_CHARGE',
     label: 'Double debit Mobile Money',
@@ -129,7 +121,6 @@ const _disputeTypes = [
     icon: LucideIcons.creditCard,
     color: Color(0xFF8E44AD),
   ),
-  // KYC
   DisputeTypeInfo(
     value: 'FAKE_DOCUMENTS',
     label: 'Faux documents',
@@ -144,7 +135,6 @@ const _disputeTypes = [
     icon: LucideIcons.userMinus,
     color: Color(0xFF7F8C8D),
   ),
-  // Logistique
   DisputeTypeInfo(
     value: 'DAMAGED_GOODS',
     label: 'Marchandise endommagee',
@@ -166,7 +156,6 @@ const _disputeTypes = [
     icon: LucideIcons.mapPinOff,
     color: Color(0xFF2C3E50),
   ),
-  // Publicite
   DisputeTypeInfo(
     value: 'MISLEADING_AD',
     label: 'Publicite trompeuse',
@@ -181,7 +170,6 @@ const _disputeTypes = [
     icon: LucideIcons.barChart3,
     color: Color(0xFF7F8C8D),
   ),
-  // Donnees
   DisputeTypeInfo(
     value: 'DATA_BREACH',
     label: 'Fuite de donnees KYC',
@@ -196,7 +184,6 @@ const _disputeTypes = [
     icon: LucideIcons.userX,
     color: Color(0xFF922B21),
   ),
-  // Entre vendeurs
   DisputeTypeInfo(
     value: 'CATALOG_COPY',
     label: 'Copie de catalogue',
@@ -211,7 +198,6 @@ const _disputeTypes = [
     icon: LucideIcons.thumbsDown,
     color: Color(0xFF7F8C8D),
   ),
-  // Internes
   DisputeTypeInfo(
     value: 'MODERATION_BIAS',
     label: 'Favoritisme moderation',
@@ -226,7 +212,6 @@ const _disputeTypes = [
     icon: LucideIcons.scrollText,
     color: Color(0xFF922B21),
   ),
-  // Reglementaires
   DisputeTypeInfo(
     value: 'FINANCIAL_REGULATION',
     label: 'Activite non autorisee',
@@ -241,7 +226,6 @@ const _disputeTypes = [
     icon: LucideIcons.receipt,
     color: Color(0xFF7F8C8D),
   ),
-  // Multi-acteurs
   DisputeTypeInfo(
     value: 'MULTI_ACTOR',
     label: 'Multi-acteurs',
@@ -249,7 +233,6 @@ const _disputeTypes = [
     icon: LucideIcons.users,
     color: Color(0xFF2C3E50),
   ),
-  // Autre
   DisputeTypeInfo(
     value: 'OTHER',
     label: 'Autre',
@@ -259,9 +242,6 @@ const _disputeTypes = [
   ),
 ];
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 class DisputeCreatePage extends StatefulWidget {
   final int shipmentId;
   final String? defaultReason;
@@ -282,7 +262,7 @@ class _DisputeCreatePageState extends State<DisputeCreatePage> {
   final _reasonCtrl = TextEditingController();
   final _detailsCtrl = TextEditingController();
 
-  int _step = 0; // 0=type, 1=details, 2=evidence
+  int _step = 0;
   DisputeTypeInfo? _selectedType;
   final List<PlatformFile> _evidenceFiles = [];
   String? _evidenceDescription;
@@ -337,7 +317,6 @@ class _DisputeCreatePageState extends State<DisputeCreatePage> {
       );
       final disputeId = resp['id'] as int?;
 
-      // Upload evidence files if any
       if (disputeId != null && _evidenceFiles.isNotEmpty) {
         for (final f in _evidenceFiles) {
           try {
@@ -435,9 +414,6 @@ class _DisputeCreatePageState extends State<DisputeCreatePage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Step 0: Type selector
-// ---------------------------------------------------------------------------
 class _TypeStep extends StatelessWidget {
   final ValueChanged<DisputeTypeInfo> onSelected;
   const _TypeStep({super.key, required this.onSelected});
@@ -482,9 +458,6 @@ class _TypeStep extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Step 1: Details form
-// ---------------------------------------------------------------------------
 class _DetailsStep extends StatelessWidget {
   final DisputeTypeInfo type;
   final GlobalKey<FormState> formKey;
@@ -512,7 +485,6 @@ class _DetailsStep extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Type badge
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -597,9 +569,6 @@ class _DetailsStep extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Step 2: Evidence upload
-// ---------------------------------------------------------------------------
 class _EvidenceStep extends StatelessWidget {
   final DisputeTypeInfo type;
   final List<PlatformFile> files;

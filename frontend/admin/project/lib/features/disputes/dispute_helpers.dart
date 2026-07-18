@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../core/format.dart';
 
-/// Shared display logic for shipment disputes.
 class DisputeHelpers {
   const DisputeHelpers._();
 
@@ -58,7 +57,6 @@ class DisputeHelpers {
     return '—';
   }
 
-  /// Best-effort monetary amount associated with a dispute.
   static num amount(Map<String, dynamic> d) {
     for (final key in [
       'disputed_amount',

@@ -36,12 +36,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       allowMultiple: false,
-      // withData charge les octets en mémoire (nécessaire sur le Web).
-      // withReadStream est VOLONTAIREMENT désactivé : combiné à withData, le
-      // flux à abonnement unique de file_picker est déjà drainé par le
-      // chargement des bytes, et MultipartFile.fromStream reste alors bloqué en
-      // attente d'octets qui n'arrivent jamais → le POST ne partait jamais
-      // (bouton en loading infini). On envoie donc par chemin fichier ou bytes.
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
@@ -67,20 +61,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      // Audit ref: [Front-Driver] no /api/accounts/driver-kyc/ exists.
-      // Driver KYC documents (ID, license) are uploaded as regular
-      // compliance documents — the admin reviews them and grants the
-      // TRANSIT_AGENT role on approval. The backend stores one file per
-      // document, so each photo is posted as its own compliance document.
-      //
-      // The per-part Content-Type MUST be set: the backend rejects uploads
-      // with a missing/octet-stream MIME (upload hardening UP-001). Without
-      // this, every KYC submission 400'd and the driver could never onboard.
       Future<void> upload(String docType, PlatformFile file) async {
         final norm = normalizeUpload(file.name);
         final MultipartFile mf;
-        // Natif : on laisse Dio lire le fichier par son chemin — il calcule
-        // lui-même un Content-Length exact (pas de flux qui bloque l'envoi).
         if (!kIsWeb && (file.path ?? '').isNotEmpty) {
           mf = await MultipartFile.fromFile(
             file.path!,
@@ -88,7 +71,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             contentType: norm.mime,
           );
         } else if (file.bytes != null && file.bytes!.isNotEmpty) {
-          // Web (et repli natif) : envoi des octets en mémoire.
           mf = MultipartFile.fromBytes(
             file.bytes!,
             filename: norm.filename,
@@ -108,15 +90,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       await upload(_docType, _frontFile!);
       if (_backFile != null) await upload('CNI_VERSO', _backFile!);
       await upload('DRIVER_LICENSE', _licenseFile!);
-      // Succès : completeKyc() bascule isOnboarded=true → le routeur quitte
-      // /onboarding et démonte cette page.
       await ref.read(authProvider.notifier).completeKyc();
     } catch (e) {
       if (mounted) setState(() => _error = ApiError.friendly(e));
     } finally {
-      // Toujours relâcher le spinner. Sur le chemin de succès la page est
-      // démontée par la navigation ; sinon le bouton redevient actionnable et
-      // ne reste jamais figé (cause du "loading infini").
       if (mounted) setState(() => _busy = false);
     }
   }

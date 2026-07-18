@@ -5,11 +5,6 @@ import '../../../core/network/api_error.dart';
 import '../../../core/network/driver_dio_client.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Verification bundle returned by a sensitive-action email OTP challenge.
-///
-/// Audit ref: backend requires `wallet.withdraw` to carry a 2FA challenge
-/// (apps/accounts/security.py SENSITIVE_ACTIONS_REQUIRING_2FA). The wallet PIN
-/// was removed product-wide, so the email OTP is now the only second factor.
 class SensitiveActionVerification {
   const SensitiveActionVerification({
     required this.challengeToken,
@@ -20,9 +15,6 @@ class SensitiveActionVerification {
   final String verificationCode;
 }
 
-/// Request a sensitive-action email OTP challenge and collect the code.
-///
-/// Returns the challenge token + code pair, or null if the user cancels.
 Future<SensitiveActionVerification?> collectSensitiveActionCode(
   BuildContext context, {
   required String actionKey,

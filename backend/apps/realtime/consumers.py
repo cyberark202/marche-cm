@@ -39,16 +39,6 @@ def _coerce_finite_float(value) -> float | None:
     return f
 
 
-# Audit ref: [WS-001] BaseAuthConsumer ne valide jamais le JWT.
-# Previous version trusted only scope["user"] populated by AuthMiddlewareStack
-# (Django session cookie). Mobile clients (3 Flutter apps) have no session
-# cookie — they need JWT validation. The new implementation calls
-# authenticate_scope_user() which:
-#   * accepts Sec-WebSocket-Protocol: bearer, <token> (recommended, no log leak)
-#   * accepts Authorization: Bearer <token> header
-#   * accepts ?token=<jwt> ONLY in DEBUG / explicit override (audit [WS-002])
-#   * validates the JWT signature, expiry, blacklist via SimpleJWT
-#   * verifies user.is_active
 
 class BaseAuthConsumer(AsyncJsonWebsocketConsumer):
     """JWT-authenticated WebSocket base — refuses connection if no valid token."""
@@ -60,7 +50,7 @@ class BaseAuthConsumer(AsyncJsonWebsocketConsumer):
                 "ws.auth_failed",
                 extra={"path": self.scope.get("path", "")},
             )
-            await self.close(code=4401)  # 4401 = unauthorized (custom WS close code)
+            await self.close(code=4401)
             return
         self.scope["user"] = user
         self.user = user
@@ -92,9 +82,6 @@ class NotificationConsumer(BaseAuthConsumer):
         logger.info("ws_notification_connect", extra={"user_id": user.pk})
 
     async def disconnect(self, code):
-        # Audit ref: [M-5] guard against rejected handshakes (auth failure closes
-        # before connect() sets group_name) — mirrors the other consumers and
-        # avoids an AttributeError on every unauthenticated connection attempt.
         if hasattr(self, "group_name"):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
             await self._set_online(False)
@@ -148,12 +135,6 @@ class TrackingConsumer(BaseAuthConsumer):
         if hasattr(self, "group_name"):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
-    # Audit ref: [WS-003] GPS spoofing TrackingConsumer.
-    # Three hardening layers added below:
-    #   1. Sender authorization: user must be the *assigned* transit_agent of
-    #      the shipment — not just any TRANSIT_AGENT-role user.
-    #   2. Coordinate validation: lat ∈ [-90, 90], lng ∈ [-180, 180], finite.
-    #   3. Rate limit: max 1 location update per 2s per (agent, shipment).
     _GPS_RATE_KEY_FMT = "ws:gps:rate:{user_id}:{shipment_id}"
     _GPS_RATE_WINDOW_SECONDS = 2
 
@@ -205,8 +186,6 @@ class TrackingConsumer(BaseAuthConsumer):
             user_id=getattr(self.user, "pk", "anon"),
             shipment_id=self.shipment_id,
         )
-        # cache.add returns False if the key already exists (within the window).
-        # add() is atomic on django-redis and on LocMemCache.
         added = await database_sync_to_async(cache.add)(
             key, int(time.time()), self._GPS_RATE_WINDOW_SECONDS,
         )
@@ -236,8 +215,6 @@ class TrackingConsumer(BaseAuthConsumer):
         from apps.logistics.models import Shipment, ShipmentEvent
         try:
             shipment = Shipment.objects.get(pk=self.shipment_id)
-            # Position « derniere connue » : permet a l'acheteur/vendeur de voir
-            # le livreur des l'ouverture du suivi (REST), avant le prochain tick.
             shipment.current_latitude = lat
             shipment.current_longitude = lng
             shipment.location_updated_at = timezone.now()
@@ -261,7 +238,6 @@ class DashboardConsumer(BaseAuthConsumer):
     """
 
     async def connect(self):
-        # Audit ref: [FIN-020] use enum, not string comparison.
         from apps.accounts.models import UserRole
         self.user = self.scope["user"]
         if getattr(self.user, "role", None) != UserRole.GENERAL_ADMIN:
@@ -279,9 +255,6 @@ class DashboardConsumer(BaseAuthConsumer):
         await self.send_json(event["data"])
 
 
-# ---------------------------------------------------------------------------
-# Helper: push notification to a user's WebSocket
-# ---------------------------------------------------------------------------
 
 async def push_notification_to_user(channel_layer, user_id: int, data: dict) -> None:
     """
@@ -294,11 +267,6 @@ async def push_notification_to_user(channel_layer, user_id: int, data: dict) -> 
     )
 
 
-# Audit ref: [M-5] Clean handler for unknown /ws/* paths.
-# Without a catch-all, URLRouter raises when no route matches the path, which
-# surfaces to clients as an abrupt 500-style failure (observed for the Driver
-# App's stale /ws/driver/ URL). This consumer rejects the handshake cleanly with
-# a custom close code so the client gets a deterministic, non-error rejection.
 class FallbackWebSocketConsumer(AsyncJsonWebsocketConsumer):
     """Reject any unrouted WebSocket path with close code 4404 (not found)."""
 

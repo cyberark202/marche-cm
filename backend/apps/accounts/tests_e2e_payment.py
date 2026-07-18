@@ -60,9 +60,6 @@ def _hmac_sig(body: bytes, secret: str) -> str:
     ).hexdigest()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Step 1 — NotchPay channel routing
-# ─────────────────────────────────────────────────────────────────────────────
 
 @override_settings(
     NOTCHPAY_ENABLED=True,
@@ -114,13 +111,9 @@ class NotchPayChannelRoutingTests(TestCase):
             )
         args, _ = mock_post.call_args
         payload = args[1]
-        # No lock — NotchPay falls back to its own picker, the safe default.
         self.assertNotIn("locked_channel", payload)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Steps 2-4 — Webhook signature + idempotency
-# ─────────────────────────────────────────────────────────────────────────────
 
 @override_settings(
     NOTCHPAY_ENABLED=True,
@@ -195,15 +188,9 @@ class WebhookFlowTests(TestCase):
             data=body, content_type="application/json",
             HTTP_X_NOTCH_SIGNATURE="deadbeef" * 8,
         )
-        # The endpoint enforces HMAC pre-check and rejects with 403 — anything
-        # in the 4xx range is the right shape; we tighten on 403 since that's
-        # what the audited code path returns for "auth failed at app level".
         self.assertEqual(resp.status_code, 403, resp.content)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Step 5 — lock_funds_for_order is atomic and reduces available balance
-# ─────────────────────────────────────────────────────────────────────────────
 
 @override_settings(LEDGER_DOUBLE_ENTRY_ENABLED=False)
 class LockFundsForOrderTests(TestCase):

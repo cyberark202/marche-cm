@@ -93,7 +93,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Fond vert foncé
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -103,7 +102,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
               ),
             ),
           ),
-          // Étoiles décoratives semi-transparentes
           Positioned(
             top: 60,
             left: 24,
@@ -140,7 +138,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
               size: 56,
             ),
           ),
-          // Contenu centré
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -148,7 +145,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Spacer(),
-                  // Logo simplifié
                   AnimatedBuilder(
                     animation: _main,
                     builder: (_, __) {
@@ -162,7 +158,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                     },
                   ),
                   const SizedBox(height: 32),
-                  // Titre "Marché.cm"
                   FadeTransition(
                     opacity: _titleFade,
                     child: SlideTransition(
@@ -179,7 +174,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Tagline
                   FadeTransition(
                     opacity: _taglineFade,
                     child: const Text(
@@ -193,7 +187,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                     ),
                   ),
                   const Spacer(),
-                  // Spinner blanc
                   FadeTransition(
                     opacity: _loaderFade,
                     child: const CircularProgressIndicator(
@@ -202,7 +195,6 @@ class _CmSplashScreenState extends State<CmSplashScreen>
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Texte connexion
                   FadeTransition(
                     opacity: _loaderFade,
                     child: const Text(

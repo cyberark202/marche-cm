@@ -7,7 +7,6 @@ import '../auth/auth_api_service.dart';
 import '../data/admin_repository.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 39 — Wallet reconciliation (NotchPay vs system) + step-up reconcile.
 class ReconciliationPage extends StatefulWidget {
   const ReconciliationPage({super.key});
 
@@ -146,13 +145,11 @@ class _ReconciliationPageState extends State<ReconciliationPage> {
     );
   }
 
-  // ── Step-up reconciliation flow ────────────────────────────────────────────
 
   Future<void> _startReconcile() async {
     final input = await _askTransaction();
     if (input == null) return;
 
-    // 1. Request the 2FA challenge (server e-mails a 6-digit code).
     String challengeToken;
     try {
       challengeToken = await _auth.requestSensitiveAction('wallet.reconcile');
@@ -163,11 +160,9 @@ class _ReconciliationPageState extends State<ReconciliationPage> {
     }
     if (!mounted) return;
 
-    // 2. Ask for the emailed verification code.
     final code = await _askCode();
     if (code == null || code.isEmpty) return;
 
-    // 3. Submit reconciliation.
     try {
       await _repo.reconcile(
         transactionId: input.transactionId,

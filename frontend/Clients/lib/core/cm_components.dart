@@ -4,19 +4,7 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Market CM — branded atoms ported faithfully from the authoritative
-/// design source (`central-market-ui-design/project/theme.jsx`).
-///
-/// These complement the existing rich kit in `app_ui.dart` with the small
-/// building blocks the mockups rely on: Pill, Avatar, image placeholder,
-/// star rating, product card, branded bottom navigation and screen header.
-///
-/// Everything pulls from [AppPalette] so the Cameroonian palette stays the
-/// single source of truth.
 
-// ─────────────────────────────────────────────────────────────
-// Pill — small status/label chip (theme.jsx `Pill`)
-// ─────────────────────────────────────────────────────────────
 enum CmPillVariant { neutral, success, warn, danger, info, dark, accent }
 
 class CmPill extends StatelessWidget {
@@ -87,9 +75,6 @@ class CmPill extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Avatar — gradient initials (theme.jsx `Avatar`)
-// ─────────────────────────────────────────────────────────────
 enum CmAvatarVariant { primary, accent, coral, info, dark }
 
 class CmAvatar extends StatelessWidget {
@@ -172,10 +157,6 @@ class CmAvatar extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Image placeholder — soft gradient + watermark icon (theme.jsx `Ph`).
-// Renders [imageUrl] when provided, falling back to the gradient tone.
-// ─────────────────────────────────────────────────────────────
 enum CmTone { primary, accent, cream, coral, sky }
 
 class CmImagePlaceholder extends StatelessWidget {
@@ -249,7 +230,6 @@ class CmImagePlaceholder extends StatelessWidget {
         ),
       );
 
-  /// Soft branded loading state while the network image streams in.
   Widget _loading(LinearGradient gradient) => DecoratedBox(
         decoration: BoxDecoration(gradient: gradient),
         child: Center(
@@ -312,9 +292,6 @@ class CmImagePlaceholder extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Stars — rating row (theme.jsx `Stars`)
-// ─────────────────────────────────────────────────────────────
 class CmStars extends StatelessWidget {
   const CmStars({super.key, required this.value, this.size = 12});
 
@@ -338,9 +315,6 @@ class CmStars extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Branded screen header (theme.jsx `ScreenHeader`)
-// ─────────────────────────────────────────────────────────────
 class CmScreenHeader extends StatelessWidget {
   const CmScreenHeader({
     super.key,
@@ -449,9 +423,6 @@ class _HeaderIconBtn extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Product card — catalog/featured tile (theme.jsx shop product card)
-// ─────────────────────────────────────────────────────────────
 class CmProductCard extends StatelessWidget {
   const CmProductCard({
     super.key,
@@ -696,10 +667,6 @@ class _SquareIconBtn extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Branded bottom navigation (theme.jsx `BottomNav`)
-// Pill-highlighted active icon + label + optional badge.
-// ─────────────────────────────────────────────────────────────
 class CmNavItem {
   const CmNavItem({required this.icon, required this.label, this.badge = 0});
   final IconData icon;
@@ -808,26 +775,16 @@ class CmBottomNav extends StatelessWidget {
   }
 }
 
-/// Helpers responsive partages.
-///
-/// L'app tourne aussi en web/tablette : sur les grands ecrans, un contenu
-/// etale sur toute la largeur est illisible. [CmResponsive.center] borne la
-/// largeur du contenu et le centre, sans effet sur mobile (largeur < [phoneMax]).
-/// Pattern de rollout : envelopper le `body` (ou le contenu scrollable) de
-/// chaque ecran et de chaque dialog avec `CmResponsive.center(child: ...)`.
 class CmResponsive {
   CmResponsive._();
 
-  /// Au-dela de cette largeur on considere l'ecran "large" (tablette/desktop/web).
   static const double phoneMax = 600;
 
-  /// Largeur de contenu maximale confortable a la lecture.
   static const double contentMaxWidth = 720;
 
   static bool isLargeScreen(BuildContext context) =>
       MediaQuery.of(context).size.width >= phoneMax;
 
-  /// Centre [child] et borne sa largeur sur grand ecran. No-op sur mobile.
   static Widget center({
     required Widget child,
     double maxWidth = contentMaxWidth,
@@ -842,15 +799,11 @@ class CmResponsive {
     );
   }
 
-  /// Largeur conseillee pour un AlertDialog/bottom sheet sur grand ecran.
   static double dialogWidth(BuildContext context, {double max = 520}) {
     final w = MediaQuery.of(context).size.width;
     return w < max ? w : max;
   }
 
-  /// Enveloppe globale a brancher sur `MaterialApp.builder` : centre et borne
-  /// TOUTE l'app (ecrans, routes poussees, dialogs) sur grand ecran web/desktop,
-  /// avec des gouttieres neutres. No-op sur mobile (largeur < [phoneMax]).
   static Widget appWrap(
     BuildContext context,
     Widget? child, {

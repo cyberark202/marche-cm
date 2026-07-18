@@ -12,7 +12,6 @@ import '../disputes/rental_disputes_page.dart';
 import '../moderation/moderation_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 32 — Admin dashboard: GMV, KPIs, critical alerts.
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({
     super.key,
@@ -21,7 +20,6 @@ class AdminDashboardPage extends StatefulWidget {
     required this.onOpenConfig,
   });
 
-  /// Switch the shell's active tab (0 Accueil · 1 Comptes · 2 Litiges · 3 Wallet · 4 Profil).
   final void Function(int index) onNavigate;
   final VoidCallback onOpenAudit;
   final VoidCallback onOpenConfig;
@@ -42,7 +40,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Future<_DashboardData> _load() async {
     final dashboard = await _repo.dashboard();
-    // Aggregates are best-effort: a failure here must not blank the dashboard.
     List<Map<String, dynamic>> orders = const [];
     List<Map<String, dynamic>> disputes = const [];
     List<Map<String, dynamic>> escrow = const [];
@@ -58,7 +55,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       disputes = results[1];
       escrow = results[2];
       online = results[3];
-    } catch (_) {/* keep dashboard counters from /admin/dashboard/ */}
+    } catch (_) {}
 
     num gmv = 0;
     for (final o in orders) {
@@ -177,7 +174,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Widget _gmvHero(_DashboardData d) {
     return HeroPanel(
-      // Identité admin sobre/sombre (design screens-admin.jsx : #1A2A24 → ink).
       gradient: const LinearGradient(
         colors: [Color(0xFF1A2A24), Color(0xFF0E1F18)],
         begin: Alignment.topLeft,

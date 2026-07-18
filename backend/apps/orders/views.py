@@ -26,7 +26,6 @@ ORDER_STATUS_TRANSITIONS = {
     OrderStatus.DELIVERED: {OrderStatus.COMPLETED, OrderStatus.DISPUTED},
     OrderStatus.DISPUTED: {OrderStatus.REFUNDED, OrderStatus.COMPLETED},
     OrderStatus.REFUNDED: set(),
-    # Legacy compatibility.
     OrderStatus.CONFIRMED: {OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.SHIPPING},
     OrderStatus.COMPLETED: set(),
     OrderStatus.CANCELLED: set(),
@@ -62,8 +61,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.select_related("buyer", "seller", "product", "shipment").all()
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
-    # Restreint a la lecture + creation: les transitions d'etat passent par les
-    # actions @action dediees, jamais par PATCH/PUT/DELETE generiques.
     http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
@@ -235,9 +232,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
         if order.buyer_id != request.user.id:
             return response.Response({"detail": "Action reservee a l'acheteur."}, status=status.HTTP_403_FORBIDDEN)
-        # Docs 03 R13 / 12 : services et produits numeriques n'ont pas de flux
-        # logistique — l'acheteur confirme la bonne execution des que le vendeur
-        # a accepte, ce qui libere l'escrow.
         from apps.catalog.models import LISTING_TYPES_WITHOUT_LOGISTICS
 
         is_non_physical_confirmable = (
@@ -403,8 +397,6 @@ class CartItemViewSet(viewsets.ModelViewSet):
         )
 
     def create(self, request, *args, **kwargs):
-        # Upsert idempotent : le client envoie la quantite voulue (pas un delta),
-        # ce qui rend l'ajout au panier rejouable sans risque sur reseau faible.
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product = serializer.validated_data["product"]

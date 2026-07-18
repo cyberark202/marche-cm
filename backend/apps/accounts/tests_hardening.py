@@ -41,7 +41,6 @@ from apps.accounts.device_security import DeviceFingerprint, validate_token_devi
 User = get_user_model()
 
 
-# ── TOTP MFA ─────────────────────────────────────────────────────────────────
 
 class TOTPServiceTests(TestCase):
     def setUp(self):
@@ -49,7 +48,6 @@ class TOTPServiceTests(TestCase):
 
     def test_generate_secret_is_valid_base32(self):
         import base64
-        # Must be decodable base32 without error.
         decoded = base64.b32decode(self.secret, casefold=True)
         self.assertGreaterEqual(len(decoded), 20)
 
@@ -68,7 +66,7 @@ class TOTPServiceTests(TestCase):
         self.assertFalse(TOTPService.verify(self.secret, "abc123"))
 
     def test_short_code_fails(self):
-        self.assertFalse(TOTPService.verify(self.secret, "12345"))  # 5 digits
+        self.assertFalse(TOTPService.verify(self.secret, "12345"))
 
     def test_empty_inputs_fail(self):
         self.assertFalse(TOTPService.verify("", "123456"))
@@ -89,9 +87,7 @@ class TOTPServiceTests(TestCase):
     def test_step_anti_replay_blocks_reuse(self):
         user_id = 9999
         step = get_current_totp_step()
-        # First use should succeed.
         self.assertTrue(mark_totp_step_used(user_id, step))
-        # Second use of the same step must be rejected.
         self.assertFalse(mark_totp_step_used(user_id, step))
 
     def test_different_steps_are_independent(self):
@@ -107,7 +103,6 @@ class TOTPServiceTests(TestCase):
         self.assertTrue(mark_totp_step_used(10002, step))
 
 
-# ── Backup codes ─────────────────────────────────────────────────────────────
 
 class BackupCodeTests(TestCase):
     def test_generate_returns_correct_count(self):
@@ -128,7 +123,6 @@ class BackupCodeTests(TestCase):
     def test_hash_codes_produces_pbkdf2_hashes(self):
         codes = BackupCodeService.generate()
         hashes = BackupCodeService.hash_codes(codes)
-        # PBKDF2 hashes are at least 50 chars and differ from plaintext.
         for code, h in zip(codes, hashes):
             self.assertNotEqual(code, h)
             self.assertGreater(len(h), 50)
@@ -140,7 +134,6 @@ class BackupCodeTests(TestCase):
 
         matched, remaining = BackupCodeService.verify_and_consume(target, hashes)
         self.assertTrue(matched)
-        # Consumed code's hash should be removed.
         self.assertEqual(len(remaining), len(hashes) - 1)
 
     def test_verify_and_consume_wrong_code(self):
@@ -149,7 +142,7 @@ class BackupCodeTests(TestCase):
 
         matched, remaining = BackupCodeService.verify_and_consume("WRONGCODE1", hashes)
         self.assertFalse(matched)
-        self.assertEqual(len(remaining), len(hashes))  # Nothing consumed
+        self.assertEqual(len(remaining), len(hashes))
 
     def test_consumed_code_cannot_be_reused(self):
         codes = BackupCodeService.generate()
@@ -161,7 +154,6 @@ class BackupCodeTests(TestCase):
         self.assertFalse(matched)
 
 
-# ── Device fingerprinting ─────────────────────────────────────────────────────
 
 class DeviceFingerprintTests(TestCase):
     def test_same_inputs_produce_same_fingerprint(self):
@@ -182,13 +174,12 @@ class DeviceFingerprintTests(TestCase):
     def test_fingerprint_is_constant_time_comparable(self):
         fp = DeviceFingerprint(user_agent="Mozilla/5.0", device_id="dev-001")
         computed = fp.compute()
-        # matches() uses hmac.compare_digest — verify it works correctly.
         self.assertTrue(fp.matches(computed))
         self.assertFalse(fp.matches("a" * 32))
 
     def test_empty_stored_fingerprint_passes_soft(self):
         fp = DeviceFingerprint(user_agent="Mozilla/5.0", device_id="")
-        self.assertTrue(fp.matches(""))  # No stored fingerprint = soft pass
+        self.assertTrue(fp.matches(""))
 
     def test_from_request_extracts_ua_and_device_id(self):
         factory = RequestFactory()
@@ -232,12 +223,10 @@ class TokenDeviceValidationTests(TestCase):
     def test_missing_dfp_claim_soft_passes(self):
         factory = RequestFactory()
         request = factory.get("/")
-        # Token has no 'dfp' claim (pre-migration token).
         result = validate_token_device({"user_id": 1}, request)
         self.assertTrue(result)
 
 
-# ── Security middleware: headers ──────────────────────────────────────────────
 
 class SecurityHeadersMiddlewareTests(APITestCase):
     def _auth_as(self, user):
@@ -279,13 +268,11 @@ class SecurityHeadersMiddlewareTests(APITestCase):
         self.assertGreater(len(cid), 8)
 
     def test_malicious_correlation_id_is_replaced(self):
-        # Injection attempt in correlation ID should be rejected and replaced.
         res = self.client.get("/api/health/", HTTP_X_CORRELATION_ID="<script>alert(1)</script>")
         returned_cid = res.get("X-Correlation-ID", "")
         self.assertNotIn("<script>", returned_cid)
 
 
-# ── Fraud engine ─────────────────────────────────────────────────────────────
 
 class FraudEngineTests(TestCase):
     def setUp(self):
@@ -318,7 +305,7 @@ class FraudEngineTests(TestCase):
         from apps.wallets.fraud import FraudEngine, RiskContext, RiskScorer
         ctx = RiskContext(
             user_id=self.user.id,
-            amount=Decimal("22000"),  # 88% of 25000 limit
+            amount=Decimal("22000"),
             action="withdraw",
             ip="1.2.3.4",
         )
@@ -338,7 +325,6 @@ class FraudEngineTests(TestCase):
             action="withdraw",
             ip="1.2.3.4",
         )
-        # Simulate 15 transactions/hour.
         velocity = {"user_tx_count_1h": 15, "user_tx_count_24h": 15, "user_amount_24h_cents": 15000}
         kyc_limits = {"per_transaction": 25000, "per_day": 50000}
         scorer = RiskScorer(ctx)
@@ -370,7 +356,6 @@ class FraudEngineTests(TestCase):
         self.assertEqual(result2["user_amount_24h_cents"], 30000)
 
 
-# ── Suspicious request middleware ─────────────────────────────────────────────
 
 class SuspiciousRequestMiddlewareTests(TestCase):
     def setUp(self):
@@ -385,7 +370,6 @@ class SuspiciousRequestMiddlewareTests(TestCase):
         mw = self._get_middleware()
         request = self.factory.get("/api/products/")
         request.META["HTTP_USER_AGENT"] = "MarcheCM-App/1.0"
-        # _score_request is internal but we test the outcome: no block.
         score = mw._score_request(request)
         self.assertEqual(score, 0)
 
@@ -418,7 +402,6 @@ class SuspiciousRequestMiddlewareTests(TestCase):
         self.assertGreater(score, 0)
 
 
-# ── Request size limiting ─────────────────────────────────────────────────────
 
 class RequestSizeLimitMiddlewareTests(TestCase):
     def setUp(self):
@@ -437,7 +420,7 @@ class RequestSizeLimitMiddlewareTests(TestCase):
         mw = RequestSizeLimitMiddleware(get_response)
 
         request = self.factory.post("/api/auth/login/")
-        request.META["CONTENT_LENGTH"] = "2048"  # > 1024 limit
+        request.META["CONTENT_LENGTH"] = "2048"
 
         response = mw(request)
         self.assertEqual(response.status_code, 413)
@@ -456,13 +439,11 @@ class RequestSizeLimitMiddlewareTests(TestCase):
         get_response.assert_called_once()
 
 
-# ── DRF exception handler ─────────────────────────────────────────────────────
 
 class SecurityExceptionHandlerTests(APITestCase):
     def test_404_not_found_returns_clean_message(self):
         res = self.client.get("/api/nonexistent-endpoint-xyz/")
         self.assertEqual(res.status_code, 404)
-        # Must not include stack traces or file paths.
         body = str(res.content)
         self.assertNotIn("Traceback", body)
         self.assertNotIn("site-packages", body)
@@ -481,7 +462,6 @@ class SecurityExceptionHandlerTests(APITestCase):
         self.assertIn("error_id", response.data)
 
 
-# ── Auto-payout validator (regression guard) ──────────────────────────────────
 
 class AutoPayoutValidatorRegressionTests(TestCase):
     """Ensure the auto-payout startup guard has not been weakened."""
@@ -497,7 +477,6 @@ class AutoPayoutValidatorRegressionTests(TestCase):
             NOTCHPAY_MTN_NUMBER="",
             NOTCHPAY_ORANGE_NUMBER="",
         ):
-            # Must not raise — disabled auto-payout never needs phone numbers.
             _validate_autopayout_config()
 
     def test_live_autopayout_with_placeholder_phones_raises(self):
@@ -509,7 +488,7 @@ class AutoPayoutValidatorRegressionTests(TestCase):
             NOTCHPAY_AUTO_PAYOUT=True,
             NOTCHPAY_ENABLED=True,
             NOTCHPAY_MODE="live",
-            NOTCHPAY_MTN_NUMBER="670766331",  # old hardcoded placeholder
+            NOTCHPAY_MTN_NUMBER="670766331",
             NOTCHPAY_ORANGE_NUMBER="695605502",
         ):
             with self.assertRaises(ImproperlyConfigured):

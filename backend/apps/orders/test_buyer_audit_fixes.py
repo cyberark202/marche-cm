@@ -72,7 +72,6 @@ class BuyerAuditFixTests(TestCase):
         serializer.is_valid(raise_exception=True)
         return serializer.save()
 
-    # ---- BUG-01 ----------------------------------------------------------
     def test_register_rejects_weak_password(self):
         serializer = RegisterSerializer(data={
             "name": "Faible", "phone_number": "+237690000999",
@@ -93,7 +92,6 @@ class BuyerAuditFixTests(TestCase):
             "email": "strong@test.local", "password": "Sup3r!Secret2026", "country_code": "CM"})
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
-    # ---- BUG-02 ----------------------------------------------------------
     def test_order_decrements_stock(self):
         self._create_order(2)
         self.product.refresh_from_db()
@@ -101,9 +99,9 @@ class BuyerAuditFixTests(TestCase):
 
     def test_order_rejects_oversell(self):
         with self.assertRaises(drf_serializers.ValidationError):
-            self._create_order(8)  # within max_order_qty (10) but > available_qty (5)
+            self._create_order(8)
         self.product.refresh_from_db()
-        self.assertEqual(self.product.available_qty, 5)  # untouched
+        self.assertEqual(self.product.available_qty, 5)
 
     def test_cancel_restores_stock(self):
         order = self._create_order(2)
@@ -113,9 +111,8 @@ class BuyerAuditFixTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, OrderStatus.CANCELLED)
         self.product.refresh_from_db()
-        self.assertEqual(self.product.available_qty, 5)  # restored
+        self.assertEqual(self.product.available_qty, 5)
 
-    # ---- BUG-03 ----------------------------------------------------------
     def test_order_rejected_for_suspended_seller(self):
         self.seller.is_active = False
         self.seller.save(update_fields=["is_active"])

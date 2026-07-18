@@ -30,9 +30,6 @@ logger = logging.getLogger("security")
 security_event_logger = logging.getLogger("security.events")
 
 
-# ---------------------------------------------------------------------------
-# Correlation ID — OWASP ASVS V7.1.3
-# ---------------------------------------------------------------------------
 
 CORRELATION_HEADER = "X-Correlation-ID"
 CORRELATION_REQUEST_ATTR = "_correlation_id"
@@ -52,7 +49,6 @@ class CorrelationIDMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         upstream = (request.META.get("HTTP_X_CORRELATION_ID") or "").strip()
-        # Validate upstream IDs strictly — reject anything that could be injected.
         if upstream and len(upstream) <= 64 and upstream.replace("-", "").replace("_", "").isalnum():
             correlation_id = upstream[:64]
         else:
@@ -64,11 +60,8 @@ class CorrelationIDMiddleware:
         elapsed_ms = int((time.monotonic() - t_start) * 1000)
 
         resp[CORRELATION_HEADER] = correlation_id
-        # Phase 6 — observability: response time visible to mobile clients and
-        # reverse proxies so they can surface latency without server-side APM.
         resp["X-Response-Time"] = f"{elapsed_ms}ms"
 
-        # Slow-request detection: log any API call exceeding the threshold.
         _slow_ms = getattr(settings, "SLOW_REQUEST_THRESHOLD_MS", 3000)
         if elapsed_ms >= _slow_ms:
             path = request.path
@@ -88,9 +81,6 @@ def get_correlation_id(request: HttpRequest) -> str:
     return getattr(request, CORRELATION_REQUEST_ATTR, "unknown")
 
 
-# ---------------------------------------------------------------------------
-# Security Headers — OWASP ASVS V14.4
-# ---------------------------------------------------------------------------
 
 _CSP_DIRECTIVES = {
     "default-src": "'none'",
@@ -123,8 +113,6 @@ class SecurityHeadersMiddleware:
     this middleware adds the remaining OWASP-recommended headers.
     """
 
-    # API responses are JSON — no need for browser XSS protections on /api/.
-    # But headers don't hurt and help if the API is ever embedded in a web view.
     _SECURITY_HEADERS = {
         "X-Content-Type-Options": "nosniff",
         "X-Permitted-Cross-Domain-Policies": "none",
@@ -133,7 +121,6 @@ class SecurityHeadersMiddleware:
             "camera=(), microphone=(), geolocation=(self), "
             "payment=(), usb=(), interest-cohort=()"
         ),
-        # Cross-Origin policies — defense against Spectre and similar.
         "Cross-Origin-Embedder-Policy": "require-corp",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
@@ -142,7 +129,6 @@ class SecurityHeadersMiddleware:
     def __init__(self, get_response: Callable) -> None:
         self.get_response = get_response
         self._csp = _build_csp()
-        # Override via environment if needed (e.g. to add CDN hashes).
         env_csp = getattr(settings, "CONTENT_SECURITY_POLICY", "").strip()
         if env_csp:
             self._csp = env_csp
@@ -158,17 +144,13 @@ class SecurityHeadersMiddleware:
                 response[header] = value
         if "Content-Security-Policy" not in response:
             response["Content-Security-Policy"] = self._csp
-        # Remove server fingerprinting headers added by some middleware/servers.
         for _hdr in ("Server", "X-Powered-By"):
             if _hdr in response:
                 del response[_hdr]
 
 
-# ---------------------------------------------------------------------------
-# Request size limiting — anti-DoS, anti-file-bomb
-# ---------------------------------------------------------------------------
 
-_DEFAULT_MAX_BODY_BYTES = 50 * 1024 * 1024  # 50 MB overall limit
+_DEFAULT_MAX_BODY_BYTES = 50 * 1024 * 1024
 _UPLOAD_PATH_PREFIXES = (
     "/api/compliance/",
     "/api/products/",
@@ -223,30 +205,22 @@ class RequestSizeLimitMiddleware:
         image_limit = getattr(settings, "MAX_UPLOAD_IMAGE_MB", 5) * 1024 * 1024
         doc_limit = getattr(settings, "MAX_UPLOAD_DOCUMENT_MB", 20) * 1024 * 1024
 
-        # Compliance / KYC
         if any(p in request.path for p in ("/api/compliance/", "/api/compliance-documents/", "/api/auth/kyc/submit/")):
             return doc_limit
 
-        # Wallets (payment proofs / receipts)
         if "/api/wallets/" in request.path:
             return doc_limit
 
-        # Profile update (avatar)
         if "/api/auth/profile/" in request.path:
             return image_limit
 
-        # Product creation / updates (images)
         if "/api/products/" in request.path:
             return image_limit
 
         return self._global_max
 
 
-# ---------------------------------------------------------------------------
-# Suspicious request detection — OWASP ASVS V4.2, V7.3
-# ---------------------------------------------------------------------------
 
-# Patterns that are almost certainly attack probes, never legitimate API calls.
 _ATTACK_PATH_PATTERNS = (
     "/.git/",
     "/.env",
@@ -262,7 +236,6 @@ _ATTACK_PATH_PATTERNS = (
     "/.ssh/",
 )
 
-# Headers commonly injected by scanners/bots.
 _ATTACK_HEADER_PATTERNS = (
     "sqlmap",
     "nikto",
@@ -314,27 +287,22 @@ class SuspiciousRequestMiddleware:
         path = request.path.lower()
         ua = request.META.get("HTTP_USER_AGENT", "").lower()
 
-        # Path traversal / known attack paths
         for pattern in _ATTACK_PATH_PATTERNS:
             if pattern in path:
                 score += 10
                 break
 
-        # Scanner signatures in User-Agent
         for scanner in _ATTACK_HEADER_PATTERNS:
             if scanner in ua:
                 score += 10
                 break
 
-        # Missing User-Agent on non-health paths (automated scanners often omit it)
         if not ua and not path.startswith("/api/health"):
             score += 3
 
-        # Excessively long path (path traversal / fuzzing)
         if len(request.path) > 512:
             score += 5
 
-        # Null bytes in any header (injection attempt)
         for key, value in request.META.items():
             if key.startswith("HTTP_") and "\x00" in str(value):
                 score += 10
@@ -349,13 +317,9 @@ class SuspiciousRequestMiddleware:
             current = cache.get(cache_key, 0)
             cache.set(cache_key, current + score, timeout=3600)
         except Exception:
-            # Never fail a request due to cache errors — but keep the outage visible.
             logger.warning("suspicion_counter_cache_unavailable", exc_info=True)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 _TRUSTED_PROXY_HEADERS = ("HTTP_X_FORWARDED_FOR", "HTTP_X_REAL_IP")
 
@@ -462,12 +426,10 @@ def _client_ip(request: HttpRequest) -> str:
     When the request is NOT from a trusted proxy, XFF is attacker-controlled
     and gets ignored entirely.
     """
-    remote = request.META.get("REMOTE_ADDR", "0.0.0.0")  # nosec B104 - fallback string for a missing client IP, not a socket bind
+    remote = request.META.get("REMOTE_ADDR", "0.0.0.0")
     if not _is_request_from_trusted_proxy(request):
         return remote
 
-    # Cloudflare convention — a single, non-chained client IP. Cloudflare
-    # strips and rewrites this header so it cannot be spoofed by clients.
     cf_ip = request.META.get("HTTP_CF_CONNECTING_IP", "").strip()
     if cf_ip:
         try:
@@ -483,8 +445,6 @@ def _client_ip(request: HttpRequest) -> str:
     xff = request.META.get("HTTP_X_FORWARDED_FOR", "").strip()
     if xff:
         candidates = [p.strip() for p in xff.split(",") if p.strip()]
-        # Walk RTL — last hop appends its peer, so the originating client is
-        # the leftmost address whose RIGHT neighbour was the first non-proxy.
         for candidate in reversed(candidates):
             if _ip_in_trusted(candidate, exact, nets):
                 continue

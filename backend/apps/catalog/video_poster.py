@@ -15,9 +15,7 @@ from django.core.files.base import ContentFile
 
 logger = logging.getLogger(__name__)
 
-# Largeur max du poster ; hauteur auto (paire pour les codecs).
 _POSTER_MAX_WIDTH = 720
-# Au-dela, on considere l'extraction figee (clip protege/corrompu).
 _FFMPEG_TIMEOUT_SECONDS = 60
 
 
@@ -72,14 +70,12 @@ def generate_video_poster(video_fieldfile, *, at_seconds: float = 1.0):
         os.close(fd)
 
         scale = f"scale='min({_POSTER_MAX_WIDTH},iw)':-2"
-        # Seek rapide a `at_seconds` (avant -i) puis 1 frame.
         primary = [
             ffmpeg_exe, "-y", "-ss", str(at_seconds), "-i", tmp_in,
             "-frames:v", "1", "-q:v", "3", "-vf", scale, tmp_out,
         ]
         ok = _run_ffmpeg(primary)
         if not ok or not os.path.exists(tmp_out) or os.path.getsize(tmp_out) == 0:
-            # Clip plus court que `at_seconds` : on prend la toute premiere frame.
             fallback = [
                 ffmpeg_exe, "-y", "-i", tmp_in,
                 "-frames:v", "1", "-q:v", "3", "-vf", scale, tmp_out,

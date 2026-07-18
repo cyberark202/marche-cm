@@ -1,8 +1,3 @@
-// Smoke test for the Marché CM admin console.
-//
-// A full boot needs SecureDioClient.initialize() + secure storage, which are
-// not available in the widget-test sandbox, so we assert that the login screen
-// renders standalone (the unauthenticated entry point).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -23,28 +23,22 @@ from django.utils import timezone
 
 logger = logging.getLogger("security.fraud")
 
-# ---------------------------------------------------------------------------
-# Thresholds (all configurable via Django settings)
-# ---------------------------------------------------------------------------
 
-HOLD_THRESHOLD: int = 60   # Risk score ≥ 60 → hold for manual review
-BLOCK_THRESHOLD: int = 85  # Risk score ≥ 85 → hard block
+HOLD_THRESHOLD: int = 60
+BLOCK_THRESHOLD: int = 85
 
 
 def _cfg(name: str, default: Any) -> Any:
     return getattr(settings, name, default)
 
 
-# ---------------------------------------------------------------------------
-# Data classes
-# ---------------------------------------------------------------------------
 
 @dataclass
 class RiskContext:
     """Input context for risk scoring."""
     user_id: int
     amount: Decimal
-    action: str              # "withdraw", "transfer", "topup", "order"
+    action: str
     ip: str = ""
     user_agent: str = ""
     device_id: str = ""
@@ -54,8 +48,8 @@ class RiskContext:
 @dataclass
 class RiskDecision:
     """Output of the fraud engine."""
-    score: int               # 0–100
-    action: str              # "allow", "hold", "block"
+    score: int
+    action: str
     reasons: list[str] = field(default_factory=list)
     hold_id: str | None = None
 
@@ -72,9 +66,6 @@ class RiskDecision:
         return self.action == "allow"
 
 
-# ---------------------------------------------------------------------------
-# Velocity checker — Redis sliding window counters
-# ---------------------------------------------------------------------------
 
 class VelocityChecker:
     """
@@ -99,7 +90,6 @@ class VelocityChecker:
             cache.set(key, new, timeout=ttl_seconds)
             return new
         except Exception:
-            # Cache HS = compteurs de velocite aveugles : signal securite majeur.
             logger.exception("fraud_velocity_cache_unavailable key=%s", key)
             return 0
 
@@ -109,15 +99,12 @@ class VelocityChecker:
         uid = str(user_id)
         result: dict[str, int | Decimal] = {}
 
-        # Per-user: transaction count per hour
         tx_count_key = cls._key("user_tx_count", uid, "1h")
         result["user_tx_count_1h"] = cls._increment(tx_count_key, 3600)
 
-        # Per-user: transaction count per day
         tx_day_key = cls._key("user_tx_count", uid, "24h")
         result["user_tx_count_24h"] = cls._increment(tx_day_key, 86400)
 
-        # Per-user: cumulative amount per day (store as int cents to avoid float)
         amt_cents = int(amount * 100)
         amt_day_key = cls._key("user_amount", uid, "24h")
         try:
@@ -129,7 +116,6 @@ class VelocityChecker:
             logger.exception("fraud_velocity_cache_unavailable key=%s", amt_day_key)
             result["user_amount_24h_cents"] = 0
 
-        # Per-IP: transaction count per hour
         if ip:
             ip_key = cls._key("ip_tx_count", ip, "1h")
             result["ip_tx_count_1h"] = cls._increment(ip_key, 3600)
@@ -151,9 +137,6 @@ class VelocityChecker:
         return result
 
 
-# ---------------------------------------------------------------------------
-# Risk scorer
-# ---------------------------------------------------------------------------
 
 class RiskScorer:
     """
@@ -182,7 +165,6 @@ class RiskScorer:
         per_tx_limit = Decimal(str(kyc_limits.get("per_transaction", 0)))
         per_day_limit = Decimal(str(kyc_limits.get("per_day", 0)))
 
-        # Amount-based signals
         if per_tx_limit > 0 and amount >= per_tx_limit * Decimal("0.8"):
             total += 20
             reasons.append("high_amount_vs_kyc_limit")
@@ -190,7 +172,6 @@ class RiskScorer:
             total += 10
             reasons.append("moderate_amount_vs_kyc_limit")
 
-        # Velocity: user transaction count
         user_tx_1h = velocity.get("user_tx_count_1h", 0)
         if user_tx_1h > 10:
             total += 15
@@ -199,7 +180,6 @@ class RiskScorer:
             total += 10
             reasons.append(f"elevated_user_velocity:{user_tx_1h}tx/h")
 
-        # Velocity: user daily amount
         user_amt_cents = velocity.get("user_amount_24h_cents", 0)
         if per_day_limit > 0:
             daily_ratio = Decimal(str(user_amt_cents / 100)) / per_day_limit
@@ -210,7 +190,6 @@ class RiskScorer:
                 total += 15
                 reasons.append(f"elevated_daily_amount:{daily_ratio:.0%}")
 
-        # Velocity: IP transaction count
         ip_tx_1h = velocity.get("ip_tx_count_1h", 0)
         if ip_tx_1h > 20:
             total += 15
@@ -219,7 +198,6 @@ class RiskScorer:
             total += 10
             reasons.append(f"elevated_ip_velocity:{ip_tx_1h}tx/h")
 
-        # First transaction (new account pattern)
         if velocity.get("user_tx_count_24h", 0) <= 1:
             total += 5
             reasons.append("first_transaction")
@@ -227,9 +205,6 @@ class RiskScorer:
         return min(total, 100), reasons
 
 
-# ---------------------------------------------------------------------------
-# Fraud engine — main entry point
-# ---------------------------------------------------------------------------
 
 class FraudEngine:
     """
@@ -252,7 +227,6 @@ class FraudEngine:
         kyc_level = getattr(user, "kyc_level", 0)
         kyc_limits = _cfg("KYC_LIMITS", {}).get(kyc_level, {"per_transaction": 25000, "per_day": 50000})
 
-        # Record velocity BEFORE scoring (includes current transaction).
         velocity = VelocityChecker.record_transaction(
             user_id=ctx.user_id,
             amount=ctx.amount,
@@ -269,7 +243,6 @@ class FraudEngine:
         else:
             action = "allow"
 
-        # Persist fraud event for audit trail.
         hold_id = FraudEngine._persist_event(ctx, score, reasons, action, user)
 
         if score > 0:
@@ -297,7 +270,7 @@ class FraudEngine:
         if score == 0:
             return None
         try:
-            from .models import FraudEvent  # late import — avoids circular
+            from .models import FraudEvent
             event = FraudEvent.objects.create(
                 user=user,
                 event_type=ctx.action,

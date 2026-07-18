@@ -1,4 +1,3 @@
-# Diagnostic Playwright : capture TOUS les logs + traverse les shadow roots.
 import sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -7,7 +6,6 @@ URL = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:5000"
 LABEL = sys.argv[2] if len(sys.argv) > 2 else "clients"
 OUT = Path(__file__).parent / "artifacts" / "pw"; OUT.mkdir(parents=True, exist_ok=True)
 
-# Requete qui PERCE les shadow roots pour lister les noeuds interessants.
 PIERCE_JS = r"""
 () => {
   const hits = [];

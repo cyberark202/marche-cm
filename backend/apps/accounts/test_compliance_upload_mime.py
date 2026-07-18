@@ -17,7 +17,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts import field_crypto
 
-# Valid PNG 8-byte magic signature + filler (passes magic-byte validation).
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
 
@@ -54,7 +53,5 @@ class ComplianceUploadMimeTests(TestCase):
         self.assertEqual(resp.json().get("doc_type"), "DRIVER_LICENSE")
 
     def test_octet_stream_rejected(self):
-        # Security control (UP-001) must stay enforced — a missing/octet-stream
-        # Content-Type is refused with a 400, not silently accepted.
         resp = self._post(self._agent_token(), "application/octet-stream")
         self.assertEqual(resp.status_code, 400, resp.content)

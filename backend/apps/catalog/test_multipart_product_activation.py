@@ -42,7 +42,6 @@ class MultipartProductActivationTests(TestCase):
         self.client.force_authenticate(user=self.supplier)
 
     def _form(self, **over):
-        # Forme unifiée « Vendeur » : montant + quantité disponible.
         body = {
             "title": "Produit photo", "description": "desc", "brand": "QA",
             "category_name": "Divers", "weight_kg": "2",

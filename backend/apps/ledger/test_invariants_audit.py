@@ -45,7 +45,6 @@ class LedgerInvariantAuditTests(TestCase):
     def test_idempotent_topup_no_double_credit(self):
         ledger_service.post_topup(self.buyer, Decimal("5000.00"), "audit-idem-1")
         before = LedgerTransaction.objects.count()
-        # Rejouer la même clé ne doit PAS créer de seconde transaction.
         with self.assertRaises(Exception):
             ledger_service.post_topup(self.buyer, Decimal("5000.00"), "audit-idem-1")
         self.assertEqual(LedgerTransaction.objects.count(), before)
@@ -61,7 +60,6 @@ class LedgerInvariantAuditTests(TestCase):
                 entries=[
                     {"account": acct, "direction": EntryDirection.DEBIT,
                      "amount": Decimal("100.00"), "description": "x"},
-                    # crédit manquant → déséquilibre
                 ],
             )
 
@@ -70,6 +68,5 @@ class LedgerInvariantAuditTests(TestCase):
         ledger_service.post_escrow_lock(self.buyer, self.seller, Decimal("8000.00"), "audit-cyc-lock")
         ledger_service.post_escrow_refund(self.buyer, self.seller, Decimal("8000.00"), "audit-cyc-refund")
         wallet = ledger_service.get_or_create_user_wallet_account(self.buyer)
-        # Topup +8000, lock -8000, refund +8000 → 8000 net disponible.
         self.assertEqual(ledger_service.get_account_balance(wallet), Decimal("8000.00"))
         self._assert_global_balance()

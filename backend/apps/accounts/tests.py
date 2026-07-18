@@ -123,7 +123,6 @@ class ComplianceDocumentAccessTests(APITestCase):
 
     def test_buyer_cannot_create_compliance_document(self):
         self._auth_as(self.buyer)
-        # Use valid JPEG magic bytes so upload_security passes and role check fires.
         fake_jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 20
         payload = {
             "doc_type": "CERT_BUSINESS_REGISTRATION",
@@ -156,8 +155,6 @@ class ComplianceDocumentAccessTests(APITestCase):
             status="APPROVED",
             file=SimpleUploadedFile("public.jpg", b"fake", content_type="image/jpeg"),
         )
-        # Authentication is now required — the old unauthenticated access was a BOLA
-        # vulnerability and has been fixed.  Suppliers can still read their own docs.
         self._auth_as(self.supplier)
         res = self.client.get(f"{reverse('compliance-document-list')}?user_id={self.supplier.id}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -174,21 +171,19 @@ class ComplianceDocumentAccessTests(APITestCase):
             status="APPROVED",
             file=SimpleUploadedFile("cert.jpg", b"fake", content_type="image/jpeg"),
         )
-        # Pending business cert — hidden (not approved).
         ComplianceDocument.objects.create(
             user=self.supplier,
             doc_type="CERT_TAX_CLEARANCE",
             status="PENDING",
             file=SimpleUploadedFile("tax.jpg", b"fake", content_type="image/jpeg"),
         )
-        # Approved identity document — MUST NOT leak (PII).
         ComplianceDocument.objects.create(
             user=self.supplier,
             doc_type="CNI",
             status="APPROVED",
             file=SimpleUploadedFile("cni.jpg", b"fake", content_type="image/jpeg"),
         )
-        self._auth_as(self.buyer)  # a buyer inspecting the seller
+        self._auth_as(self.buyer)
         url = reverse("compliance-document-public-certifications")
         res = self.client.get(f"{url}?user_id={self.supplier.id}")
         self.assertEqual(res.status_code, status.HTTP_200_OK)

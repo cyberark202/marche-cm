@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../data/admin_repository.dart';
 
-/// Screen 33b — Admin creates a managed business account.
-/// The backend (`create_managed_user`) restricts roles to SUPPLIER /
-/// WHOLESALER / TRANSIT_AGENT and forbids creating a GENERAL_ADMIN.
 class CreateManagedUserPage extends StatefulWidget {
   const CreateManagedUserPage({super.key});
 
@@ -25,7 +22,6 @@ class _CreateManagedUserPageState extends State<CreateManagedUserPage> {
   final _airPrice = TextEditingController();
   final _seaPrice = TextEditingController();
 
-  // Roles the admin is allowed to create (matches backend whitelist).
   static const _roles = <String, String>{
     'SUPPLIER': 'Fournisseur',
     'WHOLESALER': 'Grossiste',

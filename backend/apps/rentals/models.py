@@ -38,10 +38,8 @@ class RentalListing(models.Model):
     price_per_period = models.DecimalField(
         max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )
-    # Caution séquestrée pendant la location, restituée au retour conforme.
     deposit_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     image = models.ImageField(upload_to="rentals/images/", blank=True, null=True)
-    # Preuve de propriété (doc 14) — obligatoire à la publication.
     ownership_proof = models.FileField(upload_to="rentals/ownership/", blank=True, null=True)
     city = models.CharField(max_length=120, blank=True)
     is_available = models.BooleanField(default=True)
@@ -70,14 +68,12 @@ class RentalListing(models.Model):
 
 
 class RentalBookingStatus(models.TextChoices):
-    # État séquentiel principal (doc 22).
     REQUESTED = "REQUESTED", "Demandee"
     PAID = "PAID", "Payee (sequestre)"
     ACCEPTED = "ACCEPTED", "Acceptee"
     IN_PROGRESS = "IN_PROGRESS", "En cours"
     RETURNED = "RETURNED", "Restituee"
     COMPLETED = "COMPLETED", "Terminee"
-    # Transitions exceptionnelles.
     REFUSED = "REFUSED", "Refusee"
     DISPUTED = "DISPUTED", "En litige"
     REFUNDED = "REFUNDED", "Remboursee"
@@ -102,16 +98,13 @@ class RentalBooking(models.Model):
     deposit_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     status = models.CharField(max_length=12, choices=RentalBookingStatus.choices, default=RentalBookingStatus.REQUESTED)
 
-    # OTP de remise du bien au locataire (doc 14). Hash salé uniquement.
     handover_otp_hash = models.CharField(max_length=128, blank=True)
     handover_otp_expires_at = models.DateTimeField(null=True, blank=True)
     handover_confirmed_at = models.DateTimeField(null=True, blank=True)
-    # OTP de restitution du bien au propriétaire.
     return_otp_hash = models.CharField(max_length=128, blank=True)
     return_otp_expires_at = models.DateTimeField(null=True, blank=True)
     return_confirmed_at = models.DateTimeField(null=True, blank=True)
 
-    # Fonds effectivement libérés / remboursés (pour une compta exacte).
     rental_released_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     deposit_returned_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     deposit_forfeited_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -139,7 +132,6 @@ class RentalStateEvent(models.Model):
     from_status = models.CharField(max_length=12, blank=True)
     to_status = models.CharField(max_length=12)
     note = models.CharField(max_length=240, blank=True)
-    # État des lieux (photo) à la remise ou au retour.
     photo = models.ImageField(upload_to="rentals/condition/", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

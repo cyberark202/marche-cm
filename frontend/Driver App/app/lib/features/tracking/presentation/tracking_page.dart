@@ -14,11 +14,6 @@ import '../../../core/theme/driver_theme.dart';
 import '../../../core/websocket_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Suivi GPS du livreur. Le livreur (transit_agent assigne) :
-///  1. stream sa position via geolocator,
-///  2. l'envoie au TrackingConsumer (`ws/tracking/{id}/`, type `location_update`),
-///  3. la voit sur une carte OpenStreetMap (flutter_map, sans cle API).
-/// Le backend rediffuse alors la position a l'acheteur et au vendeur.
 class TrackingPage extends StatefulWidget {
   final String shipmentId;
   const TrackingPage({super.key, required this.shipmentId});
@@ -34,9 +29,8 @@ class _TrackingPageState extends State<TrackingPage> {
   StreamSubscription<Map<String, dynamic>>? _wsSub;
 
   LatLng? _pos;
-  LatLng? _pickup; // vendeur (enlevement)
-  LatLng? _dropoff; // acheteur (livraison)
-  // Destination choisie par le livreur : 0 = vendeur, 1 = acheteur.
+  LatLng? _pickup;
+  LatLng? _dropoff;
   int _destination = 0;
   List<RouteOption> _routes = const [];
   int _selectedRoute = 0;
@@ -63,9 +57,6 @@ class _TrackingPageState extends State<TrackingPage> {
     _startGpsStream();
   }
 
-  /// Recupere les coordonnees du vendeur (enlevement) et de l'acheteur
-  /// (livraison) pour tracer l'itineraire, + choisit la destination par defaut
-  /// selon le statut (avant enlevement -> vendeur, sinon -> acheteur).
   Future<void> _loadShipment() async {
     try {
       final resp =
@@ -81,13 +72,11 @@ class _TrackingPageState extends State<TrackingPage> {
       setState(() {
         if (pLat != null && pLng != null) _pickup = LatLng(pLat, pLng);
         if (dLat != null && dLng != null) _dropoff = LatLng(dLat, dLng);
-        // Deja enleve / en transit -> on va chez l'acheteur.
         _destination =
             (status == 'PICKUP_PENDING' || status.isEmpty) ? 0 : 1;
       });
       unawaited(_recomputeRoute(force: true));
     } catch (_) {
-      // Pas de coords -> la carte affiche juste la position live du livreur.
     }
   }
 
@@ -196,16 +185,12 @@ class _TrackingPageState extends State<TrackingPage> {
         .replaceFirst('https://', 'wss://');
     _ws = WebSocketService('$base/ws/tracking/${widget.shipmentId}/',
         token: token);
-    // On ecoute pour garder la socket vivante (et detecter une coupure) meme si
-    // le livreur n'a pas besoin de recevoir sa propre position. En cas de
-    // coupure on se reconnecte SILENCIEUSEMENT en arriere-plan (backoff 2..30s).
     _wsSub = _ws!.connect().listen(
       (_) {},
       onError: (_) => _scheduleWsReconnect(),
       onDone: _scheduleWsReconnect,
       cancelOnError: true,
     );
-    // Reset du backoff apres une connexion stable (evite une boucle a 2s).
     _wsStability?.cancel();
     _wsStability = Timer(const Duration(seconds: 20), () => _wsAttempts = 0);
   }
@@ -229,7 +214,7 @@ class _TrackingPageState extends State<TrackingPage> {
     _posSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // n'emet que tous les ~10 m
+        distanceFilter: 10,
       ),
     ).listen(_onPosition, onError: (_) {
       if (mounted) setState(() => _error = 'Erreur GPS.');
@@ -293,7 +278,7 @@ class _TrackingPageState extends State<TrackingPage> {
                         mapController: _mapController,
                         options: MapOptions(
                           initialCenter:
-                              _pos ?? const LatLng(3.848, 11.502), // Yaounde
+                              _pos ?? const LatLng(3.848, 11.502),
                           initialZoom: 15,
                         ),
                         children: [

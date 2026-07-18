@@ -34,7 +34,6 @@ class DisputeCaseViewSet(
         return DisputeCaseSerializer
 
     def get_permissions(self):
-        # Audit ref: [FIN-020] use enum + permission class instead of string role.
         if self.action == "decide":
             return [IsAuthenticated(), IsGeneralAdmin()]
         return super().get_permissions()
@@ -73,13 +72,11 @@ class DisputeCaseViewSet(
 
     @action(detail=True, methods=["post"], url_path="decide")
     def decide(self, request, pk=None):
-        # Permission enforced by get_permissions() above.
         case = self.get_object()
         serializer = MakeDecisionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         d = serializer.validated_data
         try:
-            # Audit ref: [FIN-005] pass Decimals straight through — no float().
             decision = dispute_service.make_decision(
                 case=case,
                 decided_by=request.user,
@@ -94,9 +91,6 @@ class DisputeCaseViewSet(
         except DRFValidationError:
             raise
         except Exception as exc:
-            # The service raises ValidationError(...) for business-rule failures
-            # (negative amounts, sum mismatch, unsupported entity_type, missing
-            # order). Surface them as 422 — the financial action did NOT execute.
             return Response({"detail": str(exc)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
     @action(detail=True, methods=["post"], url_path="escalate")

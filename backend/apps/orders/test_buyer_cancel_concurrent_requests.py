@@ -68,7 +68,7 @@ class BuyerCancelConcurrentRequestsTests(TransactionTestCase):
             try:
                 amt = OrderFinanceService.cancel_order(order=self.order, actor=self.buyer, reason="concurrent")
                 results.append(("ok", amt))
-            except Exception as exc:  # ValidationError or OperationalError(locked)
+            except Exception as exc:
                 results.append(("err", type(exc).__name__))
             finally:
                 connections.close_all()
@@ -81,8 +81,6 @@ class BuyerCancelConcurrentRequestsTests(TransactionTestCase):
 
         successes = [r for r in results if r[0] == "ok"]
         self.assertTrue(results, "no worker completed")
-        # Core invariant under ANY interleaving: the refund happens at most once
-        # (never a double refund / lost update).
         self.assertLessEqual(len(successes), 1, f"double refund detected: {results}")
 
         self.order.refresh_from_db()
@@ -90,15 +88,11 @@ class BuyerCancelConcurrentRequestsTests(TransactionTestCase):
         wallet = Wallet.objects.get(owner=self.buyer)
 
         if successes:
-            # A winner committed: order cancelled, escrow refunded exactly once.
             self.assertEqual(self.order.status, OrderStatus.CANCELLED)
             self.assertEqual(escrow.status, "REFUNDED")
             self.assertEqual(wallet.available_balance, Decimal("50000.00"))
             self.assertEqual(wallet.locked_balance, Decimal("0.00"))
         else:
-            # Both writers lost the SQLite race (e.g. "database is locked"); the
-            # atomic guard means NO partial state — escrow stays locked, funds
-            # untouched. This is still correct (the client simply retries).
             self.assertEqual(self.order.status, OrderStatus.PENDING)
             self.assertEqual(escrow.status, "LOCKED")
             self.assertEqual(wallet.available_balance, Decimal("41400.00"))

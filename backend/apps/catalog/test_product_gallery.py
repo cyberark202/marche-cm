@@ -45,7 +45,6 @@ class ProductGalleryTests(TestCase):
         self.client.force_authenticate(user=self.supplier)
 
     def _form(self, **over):
-        # Forme unifiée « Vendeur » : montant + quantité disponible.
         body = {
             "title": "Produit galerie", "description": "desc", "brand": "QA",
             "category_name": "Divers", "weight_kg": "2",
@@ -61,9 +60,7 @@ class ProductGalleryTests(TestCase):
         self.assertEqual(r.status_code, 201, r.content)
         product = Product.objects.get(id=r.data["id"])
         self.assertEqual(product.images.count(), 3)
-        # Image principale retro-remplie depuis la 1re image de la galerie.
         self.assertTrue(bool(product.image))
-        # La reponse expose la galerie ordonnee.
         self.assertEqual(len(r.data["images"]), 3)
         self.assertEqual([img["position"] for img in r.data["images"]], [0, 1, 2])
 
@@ -72,7 +69,6 @@ class ProductGalleryTests(TestCase):
         body["gallery_images"] = [_real_jpeg(f"{i}.jpg") for i in range(11)]
         r = self.client.post("/api/products/", body, format="multipart")
         self.assertEqual(r.status_code, 400, r.content)
-        # Rien ne doit etre cree (echec avant ecriture DB).
         self.assertEqual(Product.objects.count(), 0)
         self.assertEqual(ProductImage.objects.count(), 0)
 
@@ -89,7 +85,6 @@ class ProductGalleryTests(TestCase):
         body["gallery_images"] = [_real_jpeg("a.jpg")]
         r = self.client.post("/api/products/", body, format="multipart")
         pid = r.data["id"]
-        # +8 -> total 9, OK
         r2 = self.client.patch(
             f"/api/products/{pid}/",
             {"gallery_images": [_real_jpeg(f"{i}.jpg") for i in range(8)]},
@@ -97,7 +92,6 @@ class ProductGalleryTests(TestCase):
         )
         self.assertEqual(r2.status_code, 200, r2.content)
         self.assertEqual(Product.objects.get(id=pid).images.count(), 9)
-        # +2 -> total 11, refuse
         r3 = self.client.patch(
             f"/api/products/{pid}/",
             {"gallery_images": [_real_jpeg("x.jpg"), _real_jpeg("y.jpg")]},
@@ -113,13 +107,11 @@ class ProductGalleryTests(TestCase):
         pid = r.data["id"]
         image_id = r.data["images"][0]["id"]
 
-        # Un autre vendeur ne peut pas supprimer.
         self.client.force_authenticate(user=self.other)
         r_forbidden = self.client.delete(f"/api/products/{pid}/images/{image_id}/")
         self.assertIn(r_forbidden.status_code, (403, 404), r_forbidden.content)
         self.assertEqual(Product.objects.get(id=pid).images.count(), 2)
 
-        # Le proprietaire peut.
         self.client.force_authenticate(user=self.supplier)
         r_ok = self.client.delete(f"/api/products/{pid}/images/{image_id}/")
         self.assertEqual(r_ok.status_code, 204, r_ok.content)

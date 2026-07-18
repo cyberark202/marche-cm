@@ -29,8 +29,6 @@ class _VideoPublisherPageState extends State<VideoPublisherPage> {
   Future<void> _loadCerts() async {
     final token = context.read<SessionStore>().token;
     try {
-      // Endpoint public non-PII : certifications business APPROUVÉES seulement
-      // (l'ancien ?user_id= renvoyait 404 pour un acheteur — anti-IDOR).
       _certs = await _api.getList(
           "/api/compliance-documents/public-certifications/?user_id=${widget.video.sellerId}",
           token: token);

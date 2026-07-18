@@ -7,7 +7,6 @@ from __future__ import annotations
 try:
     from prometheus_client import Counter, Histogram, Gauge, Summary
 
-    # HTTP
     http_requests_total = Counter(
         "marche_cm_http_requests_total",
         "Total HTTP requests",
@@ -20,7 +19,6 @@ try:
         buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
     )
 
-    # Financial
     transactions_total = Counter(
         "marche_cm_transactions_total",
         "Total financial transactions",
@@ -33,7 +31,6 @@ try:
         buckets=[1000, 5000, 10000, 50000, 100000, 500000, 1000000, 5000000],
     )
 
-    # Escrow
     escrow_active_total = Gauge(
         "marche_cm_escrow_active_total",
         "Number of active escrow holds",
@@ -43,21 +40,18 @@ try:
         "Total amount locked in escrow (XAF)",
     )
 
-    # Orders
     orders_total = Counter(
         "marche_cm_orders_total",
         "Total orders",
         ["status"],
     )
 
-    # Fraud
     fraud_flags_total = Counter(
         "marche_cm_fraud_flags_total",
         "Total fraud flags raised",
         ["decision", "event_type"],
     )
 
-    # Outbox
     outbox_events_total = Counter(
         "marche_cm_outbox_events_total",
         "Total outbox events",
@@ -69,7 +63,6 @@ try:
         buckets=[1, 5, 15, 30, 60, 300, 600, 1800],
     )
 
-    # WebSocket
     ws_connections_active = Gauge(
         "marche_cm_ws_connections_active",
         "Active WebSocket connections",
@@ -80,7 +73,6 @@ try:
 
 except ImportError:
     METRICS_ENABLED = False
-    # Provide no-op stubs so code imports don't fail without prometheus_client
     class _Noop:
         def labels(self, **_): return self
         def inc(self, *_, **__): pass

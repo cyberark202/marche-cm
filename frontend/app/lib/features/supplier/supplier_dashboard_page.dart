@@ -182,7 +182,6 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
 
           return CustomScrollView(
             slivers: [
-              // ── Hero header ───────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Container(
                   decoration: const BoxDecoration(
@@ -198,7 +197,6 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Titre + badge rôle
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -241,7 +239,6 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          // Balance card
                           _BalanceCard(
                             balance: walletBalance,
                             blocked: walletBlocked,
@@ -253,7 +250,6 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                 ),
               ),
 
-              // ── KPI grid ─────────────────────────────────────────────────
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
                 sliver: SliverGrid.count(
@@ -294,7 +290,6 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                 ),
               ),
 
-              // ── Accès rapides ─────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
@@ -357,7 +352,6 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
                 ),
               ),
 
-              // ── Conformité ────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
@@ -480,7 +474,6 @@ class _SupplierDashboardPageState extends State<SupplierDashboardPage> {
   }
 }
 
-// ── Data model ──────────────────────────────────────────────────────────────
 
 class _SupplierPayload {
   const _SupplierPayload({
@@ -502,7 +495,6 @@ class _SupplierPayload {
   final bool fallback;
 }
 
-// ── Local widgets ────────────────────────────────────────────────────────────
 
 class _RoleBadge extends StatelessWidget {
   const _RoleBadge({required this.session});

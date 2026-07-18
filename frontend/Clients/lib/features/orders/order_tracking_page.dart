@@ -7,10 +7,6 @@ import '../auth/session_store.dart';
 import 'live_delivery_map_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Suivi commande — timeline livreur (PDF 10).
-///
-/// Affiche le statut, l'itinéraire, le produit, le livreur et un stepper
-/// vertical des étapes (commande → enlevée → en transit → preuve → libération).
 class OrderTrackingPage extends StatefulWidget {
   const OrderTrackingPage({
     super.key,
@@ -216,7 +212,6 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _Hero extends StatelessWidget {
   const _Hero({
@@ -670,9 +665,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STEPPER VERTICAL
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _TimelineList extends StatelessWidget {
   const _TimelineList({

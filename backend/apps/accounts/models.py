@@ -12,11 +12,7 @@ from .encrypted_fields import EncryptedTextField
 
 class UserRole(models.TextChoices):
     GENERAL_ADMIN = "GENERAL_ADMIN", "Administrateur General"
-    # « Vendeur » est le compte vendeur unifié. La clé technique reste SUPPLIER
-    # (zéro casse) ; les anciens comptes WHOLESALER ont été migrés vers SUPPLIER.
     SUPPLIER = "SUPPLIER", "Vendeur"
-    # DÉPRÉCIÉ : fusionné dans SUPPLIER (Vendeur). Conservé pour compatibilité du
-    # code/historique ; plus aucun compte n'est créé avec ce rôle.
     WHOLESALER = "WHOLESALER", "Grossiste (déprécié)"
     TRANSIT_AGENT = "TRANSIT_AGENT", "Livreur"
     BUYER = "BUYER", "Acheteur"
@@ -58,14 +54,11 @@ class User(AbstractUser):
     trust_score = models.DecimalField(max_digits=4, decimal_places=2, default=0)
     is_online = models.BooleanField(default=False)
     last_seen_at = models.DateTimeField(null=True, blank=True)
-    kyc_level = models.PositiveSmallIntegerField(default=0)  # 0=none, 1=basic, 2=advanced
+    kyc_level = models.PositiveSmallIntegerField(default=0)
     wallet_pin_hash = models.CharField(max_length=128, blank=True)
     wallet_pin_failed_attempts = models.PositiveSmallIntegerField(default=0)
     wallet_pin_locked_until = models.DateTimeField(null=True, blank=True)
 
-    # Audit ref: [M-6] Admin account suspension. Enforcement is carried by the
-    # standard `is_active` flag (SimpleJWT + ModelBackend reject inactive users),
-    # while these fields capture the auditable who/when/why of the suspension.
     is_suspended = models.BooleanField(default=False)
     suspended_at = models.DateTimeField(null=True, blank=True)
     suspension_reason = models.CharField(max_length=255, blank=True, default="")
@@ -80,9 +73,6 @@ class User(AbstractUser):
     def __str__(self) -> str:
         return f"{self.username} ({self.role})"
 
-    # Audit ref: [M-6] Suspension lifecycle. `suspend` revokes every outstanding
-    # refresh token so the account loses access immediately (access tokens are
-    # already rejected by JWTAuthentication once is_active=False).
     def suspend(self, *, by=None, reason: str = "") -> None:
         from django.db import transaction
         from django.utils import timezone
@@ -187,19 +177,16 @@ class AuditLog(models.Model):
 
 class ComplianceDocument(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="compliance_documents")
-    doc_type = models.CharField(max_length=40)  # RCCM, ID_CARD, TAX_CERT, INSURANCE
+    doc_type = models.CharField(max_length=40)
     file = models.FileField(upload_to="compliance/")
     preview_image = models.ImageField(upload_to="compliance/previews/", blank=True, null=True)
-    status = models.CharField(max_length=20, default="PENDING")  # PENDING, APPROVED, REJECTED
+    status = models.CharField(max_length=20, default="PENDING")
     reviewed_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_compliance_documents"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
-    # KYC handwritten signature + legal consent of record (catalogue screen 46).
-    # The signature engages the user legally; it must be stored and auditable
-    # server-side, not merely captured client-side.
     signature_image = models.ImageField(upload_to="compliance/signatures/", blank=True, null=True)
     consent_accepted_at = models.DateTimeField(null=True, blank=True)
     consent_version = models.CharField(max_length=20, blank=True, default="")
@@ -239,7 +226,6 @@ class SensitiveActionChallenge(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sensitive_action_challenges")
     action_key = models.CharField(max_length=80)
     challenge_token = models.CharField(max_length=128, unique=True, db_index=True)
-    # PBKDF2-SHA256 hash of the OTP — plaintext is NEVER persisted (OWASP ASVS V2.7).
     code_hash = models.CharField(max_length=128)
     expires_at = models.DateTimeField()
     attempts = models.PositiveSmallIntegerField(default=0)
@@ -275,9 +261,6 @@ class PasswordResetChallenge(models.Model):
         ordering = ["-created_at"]
 
 
-# ---------------------------------------------------------------------------
-# TOTP MFA — OWASP ASVS V2.8
-# ---------------------------------------------------------------------------
 
 class UserMFAConfig(models.Model):
     """Stores TOTP configuration and hashed backup codes per user."""
@@ -287,13 +270,11 @@ class UserMFAConfig(models.Model):
         on_delete=models.CASCADE,
         related_name="mfa_config",
     )
-    # TOTP secret encrypted at rest via EncryptedTextField.
     totp_secret = EncryptedTextField(blank=True, default="")
     totp_enabled = models.BooleanField(default=False)
-    # JSON list of PBKDF2-hashed backup codes.
     backup_code_hashes = models.JSONField(default=list, blank=True)
     totp_enrolled_at = models.DateTimeField(null=True, blank=True)
-    last_used_step = models.BigIntegerField(default=0)  # anti-replay
+    last_used_step = models.BigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -304,9 +285,6 @@ class UserMFAConfig(models.Model):
         return f"MFA({self.user_id}, enabled={self.totp_enabled})"
 
 
-# ---------------------------------------------------------------------------
-# Trusted Device — device binding & fingerprinting
-# ---------------------------------------------------------------------------
 
 class TrustedDevice(models.Model):
     """

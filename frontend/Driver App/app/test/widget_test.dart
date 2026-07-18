@@ -1,7 +1,3 @@
-// Smoke test for the Market CM Driver app.
-//
-// The router-driven app needs DriverDioClient.initialize() at boot, so we
-// assert the standalone theme builder instead of pumping the full tree.
 
 import 'dart:io';
 import 'package:flutter/material.dart';

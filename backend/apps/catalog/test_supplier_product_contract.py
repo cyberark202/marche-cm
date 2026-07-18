@@ -32,7 +32,6 @@ class SupplierProductContractTests(TestCase):
         self.client.force_authenticate(user=self.supplier)
 
     def _canonical(self, **over):
-        # Forme unifiée « Vendeur » : montant (unit_price) + quantité disponible.
         body = {
             "title": "Huile de palme", "description": "bidon 20L", "brand": "Tropical",
             "category_name": "Agroalimentaire", "weight_kg": "20",
@@ -45,7 +44,6 @@ class SupplierProductContractTests(TestCase):
         r = self.client.post("/api/products/", self._canonical(), format="json")
         self.assertEqual(r.status_code, 201, r.content)
         p = Product.objects.get(id=r.data["id"])
-        # Gammes internes dérivées du stock + prix unique (pas de dégressif).
         self.assertEqual(p.min_order_qty, 1)
         self.assertEqual(p.max_order_qty, 100)
         self.assertEqual(p.price_for_min_qty, Decimal("5000.00"))

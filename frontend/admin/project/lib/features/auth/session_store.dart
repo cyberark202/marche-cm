@@ -7,8 +7,6 @@ import 'package:flutter/widgets.dart';
 import '../../core/security/secure_dio_client.dart';
 import '../../core/token_repository.dart';
 
-/// Admin session. Unlike the consumer apps, only GENERAL_ADMIN accounts are
-/// allowed through — any other role is rejected at login and on restore.
 class AdminSessionStore extends ChangeNotifier {
   String? token;
   String? refreshToken;
@@ -24,8 +22,6 @@ class AdminSessionStore extends ChangeNotifier {
   bool get isAdmin => rawRole == 'GENERAL_ADMIN';
   String? get authNotice => _authNotice;
 
-  /// Cold-start restore: validates the stored token and confirms the account
-  /// is still a GENERAL_ADMIN. Non-admin sessions are cleared.
   Future<void> restoreFromStorage() async {
     final stored = await TokenRepository.getAccessToken();
     if (stored == null || stored.isEmpty) return;
@@ -46,7 +42,6 @@ class AdminSessionStore extends ChangeNotifier {
       refreshToken = await TokenRepository.getRefreshToken();
       _applyProfile(data);
     } on DioException {
-      // Network error — keep token optimistically; first API call will surface.
       token = stored;
       refreshToken = await TokenRepository.getRefreshToken();
     } catch (_) {
@@ -116,7 +111,6 @@ class AdminSessionStore extends ChangeNotifier {
     email = mail.isEmpty ? null : mail;
   }
 
-  // ── Proactive JWT refresh ────────────────────────────────────────────────
 
   void _scheduleProactiveRefresh(String accessToken) {
     _refreshTimer?.cancel();

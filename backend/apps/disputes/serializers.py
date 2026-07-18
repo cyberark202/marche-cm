@@ -58,8 +58,6 @@ class OpenDisputeSerializer(serializers.Serializer):
     accused_party_id = serializers.IntegerField(required=False, allow_null=True)
     escrow_hold_id = serializers.UUIDField(required=False, allow_null=True)
 
-    # Anti-désintermédiation : neutraliser liens/e-mails dans les champs libres
-    # d'un litige ouvert par un utilisateur.
     def validate_title(self, value):
         return redact_links(value)
 

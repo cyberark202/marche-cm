@@ -27,9 +27,6 @@ from rest_framework.exceptions import AuthenticationFailed
 User = get_user_model()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [H-001] DebugBypassAuthentication
-# ─────────────────────────────────────────────────────────────────────────────
 
 class DebugBypassHardeningTests(TestCase):
     @override_settings(DEBUG=False, ENABLE_DEBUG_BYPASS=True, DEBUG_BYPASS_TOKEN="x" * 64)
@@ -52,9 +49,6 @@ class DebugBypassHardeningTests(TestCase):
         self.assertIsNone(auth.authenticate(req))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [WS-002] WebSocket token in query string
-# ─────────────────────────────────────────────────────────────────────────────
 
 class WebSocketQueryStringTokenTests(TestCase):
     def _scope(self, query: bytes) -> dict:
@@ -79,9 +73,6 @@ class WebSocketQueryStringTokenTests(TestCase):
 
     @override_settings(DEBUG=True)
     def test_query_string_token_accepted_in_debug(self):
-        # We only verify the code path enters the parser; full JWT validation
-        # is exercised in JWT-specific suites. Here a bogus token is expected
-        # to return None after the parse attempt — not to be silently skipped.
         from asgiref.sync import async_to_sync
 
         from config.websocket_auth import authenticate_scope_user
@@ -91,9 +82,6 @@ class WebSocketQueryStringTokenTests(TestCase):
         self.assertIsNone(result)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [H-005] Registration enumeration via validate_name
-# ─────────────────────────────────────────────────────────────────────────────
 
 class RegistrationEnumerationTests(TestCase):
     def test_validate_name_no_longer_checks_existing_first_name(self):
@@ -104,8 +92,6 @@ class RegistrationEnumerationTests(TestCase):
             first_name="Alice", password="StrongPass!123",
         )
 
-        # Same first_name MUST be accepted at validation time (collision
-        # resolved silently at create() with a numeric suffix on the username).
         serializer = RegisterSerializer()
         cleaned = serializer.validate_name("Alice")
         self.assertEqual(cleaned, "Alice")
@@ -122,9 +108,6 @@ class RegistrationEnumerationTests(TestCase):
             serializer.validate_name("X" * 151)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [KYC-001] Mass-assignment of `user`
-# ─────────────────────────────────────────────────────────────────────────────
 
 class KYCApplicationMassAssignmentTests(TestCase):
     def test_user_field_is_read_only(self):
@@ -149,9 +132,6 @@ class KYCApplicationMassAssignmentTests(TestCase):
                 s.validate_target_level(bogus)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [FIN-004] Fraud engine fail-closed on debit actions
-# ─────────────────────────────────────────────────────────────────────────────
 
 class FraudFailClosedTests(TestCase):
     def _make_view(self):
@@ -181,14 +161,9 @@ class FraudFailClosedTests(TestCase):
     def test_topup_action_remains_fail_open(self, _eval):
         view = self._make_view()
         resp = view._check_fraud(self._request(self.user), Decimal("10000"), "topup")
-        # Credit-only action: legitimate funding should not be blocked by a
-        # transient fraud engine outage.
         self.assertIsNone(resp)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [FIN-006] PIN validated BEFORE fraud in topup/withdraw
-# ─────────────────────────────────────────────────────────────────────────────
 
 class PinFraudOrderTests(TestCase):
     """Static analysis on the source — protects against accidental reordering."""
@@ -209,7 +184,6 @@ class PinFraudOrderTests(TestCase):
             )
         except StopIteration:  # pragma: no cover — sanity guard
             self.fail(f"{action_name}() not found")
-        # The two markers we care about, scanned within the action body.
         pin_idx = fraud_idx = -1
         for offset in range(0, 80):
             line = lines[start + offset] if start + offset < len(lines) else ""

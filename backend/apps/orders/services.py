@@ -64,8 +64,6 @@ class OrderFinanceService:
         require_remote = bool(getattr(settings, "REQUIRE_REMOTE_PROOF_STORAGE", True))
         if not require_remote:
             return
-        # Django 5.x : la source de vérité est STORAGES["default"]; on garde
-        # DEFAULT_FILE_STORAGE en repli (miroir maintenu côté settings).
         storage_backend = ""
         try:
             storage_backend = str(settings.STORAGES["default"]["BACKEND"])
@@ -94,10 +92,6 @@ class OrderFinanceService:
         if total <= ZERO:
             raise ValidationError("Le montant total a bloquer doit etre positif.")
 
-        # Audit ref: [FIN-014] derive a deterministic idempotency key when the
-        # caller didn't pass one. Two rapid "pay" clicks from a buyer used to
-        # double-lock funds because `WalletAccountingService.lock_from_available`
-        # treats an empty key as "no idempotency" and re-runs the mutation.
         if not idempotency_key:
             idempotency_key = f"order:{order.id}:lock_funds_v1"
 
@@ -163,11 +157,6 @@ class OrderFinanceService:
                 order.status = OrderStatus.SOURCING
                 order.escrow_status = EscrowStatus.SPLIT_LOCKED
             else:
-                # Le prix produit va au vendeur (escrow LOCAL). Le cout de
-                # livraison va a un escrow LOGISTICS distinct, libere au livreur
-                # reel (assigne via devis) a la confirmation, diminue de la
-                # commission plateforme. Si pas de frais (montant nul), un seul
-                # escrow local couvre le total.
                 local_amount = supplier_amount if logistics_amount > ZERO else total
                 local_escrow = OrderEscrow.objects.create(
                     order=order,
@@ -507,7 +496,6 @@ class OrderFinanceService:
                     metadata={"reason": reason, "tx_id": tx.id},
                 )
             else:
-                # Inconsistent state: insufficient beneficiary funds for rollback.
                 order.status = OrderStatus.DISPUTED
                 order.escrow_status = EscrowStatus.FROZEN
                 order.save(update_fields=["status", "escrow_status", "updated_at"])
@@ -568,8 +556,6 @@ class OrderFinanceService:
             payout_amount = quantize_money(abs(tx.amount))
             beneficiary_wallet = WalletAccountingService.get_wallet_for_update(user=tx.wallet.owner)
             if beneficiary_wallet.pending_balance >= payout_amount:
-                # Le payout MoMo a quitte la plateforme: on consomme uniquement
-                # le pending (sans recrediter available, sinon double-credit).
                 WalletAccountingService.mutate_wallet(
                     wallet=beneficiary_wallet,
                     amount=payout_amount,
@@ -813,8 +799,6 @@ class OrderFinanceService:
     def release_logistics_escrow_after_buyer_confirmation(cls, *, order: Order, actor):
         with transaction.atomic():
             order = Order.objects.select_for_update(of=("self",)).select_related("buyer", "preferred_transit_agent").get(id=order.id)
-            # Verification d'autorisation AVANT toute mutation: la confirmation
-            # finale est strictement reservee a l'acheteur de la commande.
             if order.buyer_id != getattr(actor, "id", None):
                 raise ValidationError("Confirmation finale reservee a l'acheteur.")
             if order.status not in {OrderStatus.DELIVERED, OrderStatus.SHIPPING}:
@@ -835,12 +819,6 @@ class OrderFinanceService:
             buyer_wallet = WalletAccountingService.get_wallet_for_update(user=order.buyer)
             if buyer_wallet.locked_balance < amount:
                 raise InsufficientFundsError("Solde bloque acheteur insuffisant pour liberation logistique.")
-            # Audit ref: [D-03] Pay the driver who actually carried the parcel.
-            # The escrow beneficiary was provisioned at lock time from
-            # ``preferred_transit_agent`` (a placeholder), but the real agent is
-            # the one assigned when the buyer accepted a quote
-            # (``shipment.transit_agent``). When they differ, the accepted agent
-            # is authoritative — otherwise the wrong driver gets paid.
             shipment = getattr(order, "shipment", None)
             beneficiary = (
                 shipment.transit_agent
@@ -851,7 +829,6 @@ class OrderFinanceService:
                 raise ValidationError("Aucun livreur beneficiaire configure.")
             transit_wallet = WalletAccountingService.get_wallet_for_update(user=beneficiary)
 
-            # Commission plateforme prelevee sur le payout livreur (defaut 10%).
             commission_rate = _logistics_commission_rate()
             commission = quantize_money(amount * commission_rate)
             net_agent = quantize_money(amount - commission)
@@ -1035,8 +1012,6 @@ class OrderFinanceService:
 
     @classmethod
     def refund_order_locked_funds(cls, *, order: Order, actor, reason: str = ""):
-        # Defense en profondeur: seuls admin, staff et transit_agent (gestion
-        # litige logistique) peuvent declencher un remboursement systeme.
         if not actor or not getattr(actor, "is_authenticated", False) or not (
             getattr(actor, "is_superuser", False)
             or getattr(actor, "role", None) in {UserRole.GENERAL_ADMIN, UserRole.TRANSIT_AGENT}
@@ -1051,8 +1026,6 @@ class OrderFinanceService:
             else:
                 order.status = OrderStatus.DISPUTED
             order.save(update_fields=["status", "escrow_status", "updated_at"])
-            # Audit ref: [BUG-02] restore stock only when funds were actually
-            # returned to the buyer (order not fulfilled).
             if order.escrow_status == EscrowStatus.REFUNDED and refund_amount > ZERO:
                 cls._restore_product_stock(order)
             write_audit_log(
@@ -1063,9 +1036,6 @@ class OrderFinanceService:
             )
         return refund_amount
 
-    # Audit ref: [C-3] Atomic buyer/seller cancellation.
-    # Statuses from which a still-funded order may be cancelled (escrow not yet
-    # fully released/refunded). Terminal states are rejected.
     CANCELLABLE_ORDER_STATUSES = frozenset({
         OrderStatus.PENDING,
         OrderStatus.SOURCING,
@@ -1116,8 +1086,6 @@ class OrderFinanceService:
             )
             refreshed.status = OrderStatus.CANCELLED
             refreshed.save(update_fields=["status", "escrow_status", "updated_at"])
-            # Audit ref: [BUG-02] restore stock only when funds were actually
-            # returned to the buyer (order not fulfilled).
             if refund_amount > ZERO:
                 cls._restore_product_stock(refreshed)
             write_audit_log(
@@ -1244,7 +1212,6 @@ class OrderFinanceService:
                     f"doit egaler le total verrouille ({total_locked})."
                 )
 
-            # ---- Buyer refund: unlock to available balance ----------------
             if buyer_refund > ZERO:
                 buyer_wallet = WalletAccountingService.get_wallet_for_update(user=order.buyer)
                 WalletAccountingService.unlock_to_available(
@@ -1257,14 +1224,12 @@ class OrderFinanceService:
                     metadata={"dispute_split": True, "reason": reason[:240]},
                 )
 
-            # ---- Seller release: distribute across beneficiary escrows ----
             remaining_release = seller_release
             now = timezone.now()
             for escrow in active:
                 avail = quantize_money(escrow.amount - escrow.released_amount)
                 if avail <= ZERO:
                     continue
-                # Cap each escrow at its own ceiling.
                 portion_to_beneficiary = min(remaining_release, avail) if remaining_release > ZERO else ZERO
                 portion_to_buyer = quantize_money(avail - portion_to_beneficiary)
 
@@ -1280,15 +1245,10 @@ class OrderFinanceService:
                     escrow.released_amount = quantize_money(escrow.released_amount + portion_to_beneficiary)
                     remaining_release = quantize_money(remaining_release - portion_to_beneficiary)
 
-                # If anything remains as buyer share for this escrow, it was
-                # already unlocked above via the global buyer_refund call,
-                # so we just mark the escrow's lifecycle here.
                 if portion_to_beneficiary >= avail:
                     escrow.status = EscrowLifecycleStatus.RELEASED
                     escrow.released_at = now
                 elif portion_to_beneficiary > ZERO:
-                    # Split réel : une part versée au bénéficiaire, le reste
-                    # remboursé — état distinct de REFUNDED pour la réconciliation.
                     escrow.status = EscrowLifecycleStatus.PARTIALLY_RELEASED
                     escrow.released_at = now
                     escrow.refunded_at = now

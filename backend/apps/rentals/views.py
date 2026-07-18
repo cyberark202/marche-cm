@@ -25,9 +25,7 @@ from .services import RentalService
 
 logger = logging.getLogger(__name__)
 
-# Doc 14 : publier une location exige un KYC niveau 2 minimum.
 _RENTAL_PUBLISH_MIN_KYC = 2
-# Les OTP de remise / retour du bien sont valables 5 minutes (doc 09).
 _RENTAL_OTP_TTL = timedelta(minutes=5)
 
 
@@ -44,7 +42,6 @@ class RentalListingViewSet(viewsets.ModelViewSet):
         base = RentalListing.objects.select_related("owner")
         if self.action in {"list", "retrieve"}:
             qs = base.filter(status=RentalListingStatus.PUBLISHED, owner__is_active=True)
-            # L'utilisateur voit aussi ses propres annonces non publiées.
             if user.is_authenticated:
                 own = base.filter(owner=user)
                 return (qs | own).distinct()
@@ -67,7 +64,6 @@ class RentalListingViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         if not _is_admin(self.request.user) and serializer.instance.owner_id != self.request.user.id:
             raise PermissionDenied("Modification reservee au proprietaire.")
-        # Doc 14 : interdit de modifier une annonce dont une location est active.
         active = serializer.instance.bookings.filter(
             status__in=[
                 RentalBookingStatus.PAID,
@@ -250,12 +246,9 @@ class RentalBookingViewSet(viewsets.ModelViewSet):
             return response.Response({"detail": self._msg(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return response.Response(RentalBookingSerializer(booking).data)
 
-    # ---- helpers OTP remise/retour ----
 
     def _issue_otp(self, request, *, kind):
         booking = self._get_booking()
-        # La remise : le proprietaire declenche, le code va au locataire.
-        # Le retour : le locataire declenche, le code va au proprietaire.
         if kind == "handover":
             if booking.owner_id != request.user.id:
                 return response.Response({"detail": "Reserve au proprietaire."}, status=status.HTTP_403_FORBIDDEN)

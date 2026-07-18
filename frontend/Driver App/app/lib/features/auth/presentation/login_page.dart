@@ -56,7 +56,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              // ── Hero banner ──────────────────────────────
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(24, 48, 24, 40),
@@ -85,7 +84,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ],
                 ),
               ),
-              // ── Form ─────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(

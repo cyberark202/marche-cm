@@ -177,9 +177,6 @@ class AppErrorState extends StatelessWidget {
   }
 }
 
-/// Slim banner shown when connectivity drops. Place it at the top of a Scaffold
-/// body (above the content) so the user knows why data may be stale. Collapses
-/// to zero height when online, so it costs nothing on the happy path.
 class CmOfflineBanner extends StatelessWidget {
   const CmOfflineBanner({super.key});
 

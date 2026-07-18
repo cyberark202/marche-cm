@@ -21,7 +21,6 @@ def main():
 
     anon = Client("anon")
 
-    # Register fresh actors
     sup_email = f"vsup{RUN}@qa.test"
     anon.req("POST", "/api/auth/register/seller/", json_body={
         "name": "V Supplier", "email": sup_email, "phone_number": "+237691100001",
@@ -40,7 +39,6 @@ def main():
         "password": PWD}, auth=False, note="reg buyer")
     buy = Client("buy"); buy.login(buy_email, PWD)
 
-    # --- C-1: exact legacy Flutter supplier payload (category/min_qty/max_qty) ---
     r = sup.req("POST", "/api/products/", json_body={
         "title": f"Riz {RUN}", "brand": "QA", "category": "QA Catégorie",
         "description": "desc flutter", "min_qty": 10, "max_qty": 100,
@@ -48,7 +46,6 @@ def main():
     }, note="C-1 legacy payload")
     check("C-1 legacy supplier payload -> 201", S(r) == 201, f"status={S(r)} (was 400) body={B(r,100)}")
 
-    # --- C-2: multipart create without is_active -> active + visible ---
     with open(f("product1.jpg"), "rb") as fp:
         r = sup.req("POST", "/api/products/", files={"image": ("p.jpg", fp, "image/jpeg")},
                     data={"title": f"Photo {RUN}", "description": "d", "brand": "QA",
@@ -65,14 +62,12 @@ def main():
     check("C-2 multipart product is_active=True + visible", active is True and in_public,
           f"is_active={active} (was False) public_visible={in_public}")
 
-    # --- M-4: wholesaler create with only available_qty + unit_price ---
     r = wh.req("POST", "/api/products/", json_body={
         "title": f"Carton {RUN}", "description": "lot", "brand": "QA",
         "category_name": "QA Catégorie", "weight_kg": "5",
         "available_qty": 50, "unit_price": 3000}, note="M-4 wholesaler create")
     check("M-4 wholesaler create -> 201", S(r) == 201, f"status={S(r)} (was 400) body={B(r,120)}")
 
-    # --- M-2/M-3: KYC PROOF_ADDRESS + SELFIE accepted ---
     ok_types = True
     for dt in ("PROOF_ADDRESS", "SELFIE"):
         with open(f("product1.jpg"), "rb") as fp:
@@ -81,9 +76,7 @@ def main():
         ok_types = ok_types and S(r) in (200, 201)
     check("M-2/M-3 KYC PROOF_ADDRESS+SELFIE -> 201", ok_types, f"(were 400) last status={S(r)}")
 
-    # --- C-3: buyer cancellation refunds escrow (was: CANCELLED + funds stuck) ---
     import qa
-    # active priced product from C-1? Use a fresh active one with proper qty/price.
     with open(f("product1.jpg"), "rb") as fp:
         rp = sup.req("POST", "/api/products/", files={"image": ("o.jpg", fp, "image/jpeg")},
                      data={"title": f"OrderProd {RUN}", "description": "d", "brand": "QA",
@@ -93,7 +86,6 @@ def main():
     order_pid = rp.json().get("id") if S(rp) == 201 else None
 
     if qa.is_remote():
-        # Seed wallet remotely
         qa.remote_exec(f"""
 from decimal import Decimal
 from apps.accounts.models import User
@@ -104,7 +96,6 @@ w, _ = Wallet.objects.get_or_create(owner=u)
 WalletAccountingService.credit_available(wallet=w, amount=Decimal("50000"),
     reference="verify-seed", idempotency_key="verify-seed-{RUN}", created_by=u)
 """)
-        # Create order
         r = buy.req("POST", "/api/orders/", json_body={
             "product": order_pid, "quantity": 1, "preferred_transit_agent": 10, "transport_mode": "SEA"},
             note="C-3 create order")
@@ -133,7 +124,6 @@ WalletAccountingService.credit_available(wallet=w, amount=Decimal("50000"),
         u = User.objects.get(email__iexact=buy_email); w, _ = Wallet.objects.get_or_create(owner=u)
         WalletAccountingService.credit_available(wallet=w, amount=Decimal("50000"),
             reference="verify-seed", idempotency_key=f"verify-seed-{RUN}", created_by=u)
-        # transit agent id 10 (seeded) has active profile
         r = buy.req("POST", "/api/orders/", json_body={
             "product": order_pid, "quantity": 1, "preferred_transit_agent": 10, "transport_mode": "SEA"},
             note="C-3 create order")

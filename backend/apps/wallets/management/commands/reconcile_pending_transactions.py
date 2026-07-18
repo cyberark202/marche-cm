@@ -125,14 +125,8 @@ class Command(BaseCommand):
             f"  TX {tx_ref} kind={tx.kind} age={age_minutes}m wallet={tx.wallet.owner.username}"
         )
 
-        # --- Try to resolve via NotchPay API query ---
         notchpay_status: str | None = None
         if use_notchpay and tx.kind in {"TOPUP"} and tx_ref:
-            # For topup: the external_transaction_id is the NotchPay reference.
-            # For WITHDRAWAL: the provider-side tx is prefixed WITHDRAW-{id},
-            # which NotchPay uses as the disburse reference — queryable via
-            # NotchPayDisbursementService (not implemented here to keep this
-            # command read-only; the disburse webhook is the authoritative path).
             try:
                 result = NotchPayCheckoutService.confirm_invoice(token=tx_ref)
                 raw_status = str(result.get("status") or "").lower()
@@ -141,7 +135,7 @@ class Command(BaseCommand):
                 elif raw_status in {"failed", "canceled", "cancelled", "expired"}:
                     notchpay_status = "FAILED"
                 else:
-                    notchpay_status = None  # Still pending or unknown
+                    notchpay_status = None
                 self.stdout.write(
                     f"    NotchPay status for {tx_ref}: raw={raw_status!r} → resolved={notchpay_status}"
                 )
@@ -166,8 +160,6 @@ class Command(BaseCommand):
                 stats["resolved_failed"] += 1
                 self.stdout.write(self.style.WARNING(f"    Marked FAILED: {tx_ref}"))
         else:
-            # Cannot determine status — leave as PENDING for now.
-            # Very old transactions (> 2 hours) are flagged in audit log.
             if age_minutes > 120 and not dry_run:
                 from apps.accounts.security import write_audit_log
                 write_audit_log(
@@ -186,7 +178,6 @@ class Command(BaseCommand):
 
     def _mark_success(self, tx) -> None:
         from apps.wallets.views import WalletViewSet
-        # Instantiate with minimal setup just to reuse _mark_transaction_success.
         vs = WalletViewSet()
         vs._mark_transaction_success(tx=tx, payload={"source": "reconciliation_command"}, mark_payout=None)
 

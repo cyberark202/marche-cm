@@ -41,7 +41,6 @@ class RedactLinksTests(SimpleTestCase):
         )
 
     def test_legitimate_text_is_untouched(self):
-        # Montants FCFA, noms de produits et libellés courants : aucun faux positif.
         for raw in (
             "200 bidons a 85.000 FCFA, total 2.320.000",
             "Node.js dernier modele",
@@ -56,15 +55,12 @@ class RedactLinksTests(SimpleTestCase):
 
     def test_phone_redaction_is_opt_in(self):
         raw = "appelle le +237 677 00 00 00 ou 699112233"
-        # OFF par défaut : numéros conservés (ambigu avec les montants).
         self.assertIn("677", redact_links(raw))
-        # ON : numéros masqués (international + bloc 9 chiffres CM).
         cleaned = redact_links(raw, redact_phones=True)
         self.assertNotIn("677", cleaned)
         self.assertNotIn("699112233", cleaned)
 
     def test_phone_redaction_preserves_fcfa_amounts(self):
-        # Montants avec séparateurs : jamais masqués, même quand phones=ON.
         self.assertEqual(
             redact_links("total 2 320 000 et 85.000 FCFA", redact_phones=True),
             "total 2 320 000 et 85.000 FCFA",
@@ -117,7 +113,6 @@ class ChatWhatsAppFlowTests(TestCase):
 
     def test_sender_ticks_progress_sent_delivered_read(self):
         message = self._send(self.buyer_client)
-        # À l'envoi : 1 tick (SENT) — avant correctif, my_state était toujours ''.
         listed = self.buyer_client.get(f"/api/chat/messages/?room={self.room.id}").data["results"]
         self.assertEqual(listed[0]["my_state"], DeliveryState.SENT)
 
@@ -135,7 +130,6 @@ class ChatWhatsAppFlowTests(TestCase):
         response = self.buyer_client.get(f"/api/chat/messages/?room={self.room.id}")
         results = response.data["results"]
         self.assertEqual(len(results), 20)
-        # Page 1 = les plus récents, ordre anté-chronologique.
         self.assertEqual(results[0]["content"], "msg 24")
         self.assertEqual(results[19]["content"], "msg 5")
 
@@ -171,12 +165,10 @@ class ChatWhatsAppFlowTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.data["reactions"][0]["emoji"], "❤️")
 
-        # Un autre emoji REMPLACE (une seule réaction par utilisateur).
         response = self.seller_client.post(url, {"emoji": "👍"})
         self.assertEqual([r["emoji"] for r in response.data["reactions"]], ["👍"])
         self.assertEqual(MessageReaction.objects.count(), 1)
 
-        # Le même emoji RETIRE (toggle).
         response = self.seller_client.post(url, {"emoji": "👍"})
         self.assertEqual(response.data["reactions"], [])
         self.assertEqual(MessageReaction.objects.count(), 0)
@@ -197,7 +189,7 @@ class ChatWhatsAppFlowTests(TestCase):
     def test_rooms_sorted_by_last_activity(self):
         older = ChatRoom.objects.create(name="Ancienne")
         older.participants.add(self.buyer, self.seller)
-        self._send(self.buyer_client)  # active self.room
+        self._send(self.buyer_client)
         self.buyer_client.post(
             "/api/chat/messages/", {"room": older.id, "content": "réveil", "type": "TEXT"}
         )

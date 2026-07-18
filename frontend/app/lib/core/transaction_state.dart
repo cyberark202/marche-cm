@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Canonical transaction states for all wallet/payment flows.
 enum TransactionState {
   idle,
   validating,
@@ -57,9 +56,7 @@ extension TransactionStateX on TransactionState {
   }
 }
 
-// ── AppTransactionBanner ──────────────────────────────────────────────────────
 
-/// Full-width status banner for wallet/payment screens.
 class AppTransactionBanner extends StatelessWidget {
   const AppTransactionBanner({
     super.key,
@@ -110,9 +107,7 @@ class AppTransactionBanner extends StatelessWidget {
   }
 }
 
-// ── AppPendingIndicator ───────────────────────────────────────────────────────
 
-/// Compact inline spinner + label for pending states.
 class AppPendingIndicator extends StatelessWidget {
   const AppPendingIndicator({super.key, required this.label});
 
@@ -135,9 +130,7 @@ class AppPendingIndicator extends StatelessWidget {
   }
 }
 
-// ── AppSyncStateBadge ─────────────────────────────────────────────────────────
 
-/// Small pill badge showing sync freshness (fresh / syncing / stale / offline).
 enum SyncState { fresh, syncing, stale, offline }
 
 class AppSyncStateBadge extends StatelessWidget {
@@ -173,10 +166,7 @@ class AppSyncStateBadge extends StatelessWidget {
   }
 }
 
-// ── AppLoadingButton ──────────────────────────────────────────────────────────
 
-/// FilledButton that shows a spinner when [loading] is true.
-/// Drop-in replacement for financial action buttons.
 class AppLoadingButton extends StatelessWidget {
   const AppLoadingButton({
     super.key,

@@ -27,7 +27,6 @@ def load(path):
 results = load(RES)
 calls = load(CALLS)
 
-# index calls by endpoint substring for evidence lookup (best-effort)
 by_sev = defaultdict(lambda: {"pass": 0, "fail": 0})
 failures = []
 for r in results:

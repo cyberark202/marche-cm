@@ -25,8 +25,6 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
   @override
   void initState() {
     super.initState();
-    // Ask the backend to send a fresh OTP to the buyer as soon as the driver
-    // reaches the doorstep, so the buyer can read it back to confirm handover.
     WidgetsBinding.instance.addPostFrameCallback((_) => _sendCode());
   }
 
@@ -60,11 +58,6 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      // Audit ref: [D-01] Driver-side confirmation. The backend
-      // ShipmentViewSet.confirm_delivery verifies the buyer's OTP, marks the
-      // shipment DELIVERED and releases escrow. (The old call to
-      // validate_delivery was a buyer-only endpoint → 403 for the driver, and
-      // ignored the OTP entirely.)
       await DriverDioClient.dio.post(
         '/api/shipments/${widget.shipmentId}/confirm_delivery/',
         data: {'otp': _otp},
@@ -83,7 +76,6 @@ class _OtpValidationPageState extends State<OtpValidationPage> {
         });
       }
     } finally {
-      // Toujours relâcher le spinner (succès = navigation ; échec = ré-essai).
       if (mounted) setState(() => _busy = false);
     }
   }

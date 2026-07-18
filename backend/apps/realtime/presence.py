@@ -9,7 +9,7 @@ from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
-PRESENCE_TTL = 65  # seconds — client should heartbeat every 30s
+PRESENCE_TTL = 65
 PRESENCE_PREFIX = "presence:"
 
 

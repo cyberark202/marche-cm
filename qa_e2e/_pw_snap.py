@@ -1,5 +1,3 @@
-# Exploration: boot une app Flutter web, active la semantique, dump + capture.
-# Usage: python qa_e2e\_pw_snap.py <url> <label> [wait_s]
 import sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright

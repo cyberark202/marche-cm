@@ -117,11 +117,6 @@ def geocode_with_nominatim(*, city: str, country_code: str) -> GeocodePayload | 
     if email:
         params["email"] = email
     base_url = getattr(settings, "NOMINATIM_BASE_URL", "https://nominatim.openstreetmap.org").rstrip("/")
-    # Audit ref: [M-001] block SSRF — refuse non-HTTPS schemes and any host
-    # that resolves to a private/loopback/link-local range. Without this, a
-    # misconfigured NOMINATIM_BASE_URL pointing at e.g.
-    # http://169.254.169.254/ (cloud metadata) would let any caller of
-    # update_user_location exfiltrate instance credentials.
     if not _is_safe_geocoder_url(base_url):
         return None
     url = f"{base_url}/search?{urllib.parse.urlencode(params)}"
@@ -139,7 +134,7 @@ def geocode_with_nominatim(*, city: str, country_code: str) -> GeocodePayload | 
     )
     timeout = max(int(getattr(settings, "NOMINATIM_TIMEOUT_SECONDS", 10)), 1)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - base_url validated by _is_safe_geocoder_url (M-001 SSRF guard)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode("utf-8")
         payload = json.loads(raw)
     except Exception:
@@ -191,8 +186,6 @@ def _dispatch_geocode_task(user_id: int) -> None:
     try:
         from apps.accounts.tasks import user_geocode_task
 
-        # retry=False so a publish to an unreachable broker fails fast instead of
-        # looping; this runs in a background thread anyway (see below).
         user_geocode_task.apply_async(args=[user_id], retry=False)
     except Exception as exc:  # noqa: BLE001 - best-effort, must not break signup
         logger.warning("user_geocode_enqueue_failed user_id=%s err=%s", user_id, exc)

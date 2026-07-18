@@ -53,22 +53,11 @@ class Shipment(models.Model):
     status = models.CharField(max_length=20, choices=ShipmentStatus.choices, default=ShipmentStatus.PICKUP_PENDING)
     expected_delivery_at = models.DateTimeField(null=True, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
-    # Delivery OTP — issued to the BUYER (SMS/notification) and read back to the
-    # assigned driver at the doorstep. The driver submits it via confirm_delivery;
-    # possessing the buyer's secret proves physical handover + buyer consent.
-    # Only the salted hash is persisted (never the plaintext code).
     delivery_otp_hash = models.CharField(max_length=128, blank=True)
     delivery_otp_expires_at = models.DateTimeField(null=True, blank=True)
-    # Pickup OTP (doc 03 R7) — issued to the SELLER at driver arrival and read
-    # back to the driver; a valid code proves the physical handover of the
-    # parcel to the courier. Same hash-only storage as the delivery OTP.
     pickup_otp_hash = models.CharField(max_length=128, blank=True)
     pickup_otp_expires_at = models.DateTimeField(null=True, blank=True)
-    # 48-hour window after delivery during which quality/quantity disputes may be opened.
     contest_deadline = models.DateTimeField(null=True, blank=True)
-    # Derniere position GPS connue du livreur (mise a jour par TrackingConsumer).
-    # Permet a l'acheteur/vendeur de voir la position des l'ouverture du suivi,
-    # avant le prochain tick WebSocket. La trace complete vit dans ShipmentEvent.
     current_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     current_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     location_updated_at = models.DateTimeField(null=True, blank=True)
@@ -161,9 +150,6 @@ class DeliveryProof(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-# ---------------------------------------------------------------------------
-# Chain of Custody — immutable log of every physical handover
-# ---------------------------------------------------------------------------
 
 class CustodyEventType(models.TextChoices):
     PICKUP = "PICKUP", "Prise en charge par le transporteur"
@@ -202,59 +188,41 @@ class CustodyEvent(models.Model):
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-# ---------------------------------------------------------------------------
-# Disputes
-# ---------------------------------------------------------------------------
 
 class DisputeType(models.TextChoices):
-    # Qualite / conformite produit
     QUALITY_DEFECT = "QUALITY_DEFECT", "Marchandise de mauvaise qualite"
     WRONG_QUANTITY = "WRONG_QUANTITY", "Quantite incomplete"
     COUNTERFEIT = "COUNTERFEIT", "Produit contrefait"
-    # Mauvaise foi acheteur
     FALSE_NON_RECEIPT = "FALSE_NON_RECEIPT", "Fausse declaration de non-reception"
     USED_THEN_DISPUTED = "USED_THEN_DISPUTED", "Produit utilise puis conteste"
-    # Livraison
     DELIVERY_DELAY = "DELIVERY_DELAY", "Retard de livraison"
     LOST_PARCEL = "LOST_PARCEL", "Colis perdu"
     WRONG_RECIPIENT = "WRONG_RECIPIENT", "Livraison au mauvais destinataire"
-    # Escrow
     ESCROW_BLOCKED = "ESCROW_BLOCKED", "Fonds bloques trop longtemps"
     PREMATURE_RELEASE = "PREMATURE_RELEASE", "Liberation prematuree des fonds"
     WALLET_FROZEN = "WALLET_FROZEN", "Gel de wallet injustifie"
-    # Financiers
     DOUBLE_CHARGE = "DOUBLE_CHARGE", "Double debit Mobile Money"
     WITHDRAWAL_ERROR = "WITHDRAWAL_ERROR", "Erreur de retrait wallet"
     CHARGEBACK = "CHARGEBACK", "Chargeback bancaire"
-    # KYC / Conformite
     FAKE_DOCUMENTS = "FAKE_DOCUMENTS", "Faux documents vendeur"
     UNJUST_SUSPENSION = "UNJUST_SUSPENSION", "Suspension injustifiee"
-    # Logistique
     DAMAGED_GOODS = "DAMAGED_GOODS", "Marchandise endommagee durant transport"
     INTERNAL_THEFT = "INTERNAL_THEFT", "Vol interne"
     FALSE_TRACKING = "FALSE_TRACKING", "Fausse mise a jour de suivi"
-    # Publicite / Boost
     MISLEADING_AD = "MISLEADING_AD", "Publicite trompeuse"
     FAKE_STATS = "FAKE_STATS", "Faux chiffres de visibilite campagne"
-    # Donnees personnelles
     DATA_BREACH = "DATA_BREACH", "Fuite de donnees KYC"
     UNAUTHORIZED_ACCESS = "UNAUTHORIZED_ACCESS", "Acces non autorise au compte"
-    # Entre vendeurs
     CATALOG_COPY = "CATALOG_COPY", "Copie de catalogue"
     FAKE_REVIEWS = "FAKE_REVIEWS", "Faux avis negatifs"
-    # Internes plateforme
     MODERATION_BIAS = "MODERATION_BIAS", "Favoritisme dans la moderation"
     HISTORY_TAMPER = "HISTORY_TAMPER", "Modification de l'historique"
-    # Reglementaires
     FINANCIAL_REGULATION = "FINANCIAL_REGULATION", "Activite financiere non autorisee"
     TAX_COMPLIANCE = "TAX_COMPLIANCE", "Non-conformite fiscale"
-    # Multi-acteurs
     MULTI_ACTOR = "MULTI_ACTOR", "Responsabilite multi-acteurs indeterminee"
-    # Generique
     OTHER = "OTHER", "Autre (a preciser dans les details)"
 
 
-# These types require the dispute to be opened within the 48-hour contest window.
 DISPUTE_TYPES_CONTEST_WINDOW = frozenset({
     DisputeType.QUALITY_DEFECT,
     DisputeType.WRONG_QUANTITY,
@@ -262,7 +230,6 @@ DISPUTE_TYPES_CONTEST_WINDOW = frozenset({
     DisputeType.USED_THEN_DISPUTED,
 })
 
-# These types are immediately escalated to GENERAL_ADMIN and trigger protective actions.
 DISPUTE_TYPES_CRITICAL = frozenset({
     DisputeType.COUNTERFEIT,
     DisputeType.FAKE_DOCUMENTS,
@@ -272,7 +239,6 @@ DISPUTE_TYPES_CRITICAL = frozenset({
     DisputeType.FINANCIAL_REGULATION,
 })
 
-# Seller accuses the BUYER (bad-faith buyer behaviour).
 DISPUTE_TYPES_AGAINST_BUYER = frozenset({
     DisputeType.FALSE_NON_RECEIPT,
     DisputeType.USED_THEN_DISPUTED,
@@ -280,7 +246,6 @@ DISPUTE_TYPES_AGAINST_BUYER = frozenset({
     DisputeType.FAKE_REVIEWS,
 })
 
-# Seller accuses the TRANSIT AGENT (logistics misconduct).
 DISPUTE_TYPES_AGAINST_TRANSIT = frozenset({
     DisputeType.INTERNAL_THEFT,
     DisputeType.FALSE_TRACKING,
@@ -289,7 +254,6 @@ DISPUTE_TYPES_AGAINST_TRANSIT = frozenset({
     DisputeType.WRONG_RECIPIENT,
 })
 
-# Buyer accuses the SELLER (product / commerce disputes).
 DISPUTE_TYPES_AGAINST_SELLER = frozenset({
     DisputeType.QUALITY_DEFECT,
     DisputeType.WRONG_QUANTITY,
@@ -301,7 +265,6 @@ DISPUTE_TYPES_AGAINST_SELLER = frozenset({
     DisputeType.CATALOG_COPY,
 })
 
-# Buyer accuses the TRANSIT AGENT (logistics misconduct).
 DISPUTE_TYPES_BUYER_VS_TRANSIT = frozenset({
     DisputeType.LOST_PARCEL,
     DisputeType.DAMAGED_GOODS,
@@ -309,7 +272,6 @@ DISPUTE_TYPES_BUYER_VS_TRANSIT = frozenset({
     DisputeType.FALSE_TRACKING,
 })
 
-# Platform-level disputes — no individual accused party; platform itself is responsible.
 DISPUTE_TYPES_PLATFORM = frozenset({
     DisputeType.WALLET_FROZEN,
     DisputeType.WITHDRAWAL_ERROR,
@@ -354,30 +316,24 @@ class ShipmentDispute(models.Model):
     status = models.CharField(max_length=20, choices=DisputeStatus.choices, default=DisputeStatus.OPEN)
     sla_due_at = models.DateTimeField(null=True, blank=True)
 
-    # Legacy single-file evidence — kept for backward compat; new evidence uses DisputeEvidence
     evidence_file = models.FileField(upload_to="shipment-disputes/", blank=True, null=True)
 
-    # SHA-256 of serialized chat-room messages at dispute-open time (tamper detection)
     chat_integrity_hash = models.CharField(max_length=64, blank=True)
 
-    # Physical inspection workflow
     inspection_required = models.BooleanField(default=False)
     inspection_requested_at = models.DateTimeField(null=True, blank=True)
     inspector_report = models.FileField(upload_to="dispute-inspections/", blank=True, null=True)
     inspector_report_uploaded_at = models.DateTimeField(null=True, blank=True)
 
-    # Guarantee fund — platform absorbs loss when no actor can be held responsible
     guarantee_fund_activated = models.BooleanField(default=False)
     guarantee_fund_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     guarantee_fund_activated_at = models.DateTimeField(null=True, blank=True)
 
-    # Last confirmed custody holder (populated from custody chain analysis)
     last_custody_holder = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="disputes_as_last_holder",
     )
 
-    # Appeal workflow — appeal reviewer must differ from initial decider
     appeal_requested = models.BooleanField(default=False)
     appeal_requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -394,8 +350,7 @@ class ShipmentDispute(models.Model):
     escalation_count = models.PositiveSmallIntegerField(default=0)
     is_multi_actor = models.BooleanField(default=False)
 
-    # Admin resolution
-    admin_decision = models.CharField(max_length=20, blank=True)  # REFUND_BUYER | RELEASE_SELLER | SPLIT
+    admin_decision = models.CharField(max_length=20, blank=True)
     decided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="decided_disputes",
@@ -409,9 +364,6 @@ class ShipmentDispute(models.Model):
         ordering = ["-created_at"]
 
 
-# ---------------------------------------------------------------------------
-# Evidence — multiple files per dispute, each integrity-hashed
-# ---------------------------------------------------------------------------
 
 class DisputeEvidenceType(models.TextChoices):
     PHOTO = "PHOTO", "Photo"
@@ -448,6 +400,6 @@ class TransitAgentRating(models.Model):
     shipment = models.OneToOneField(Shipment, on_delete=models.CASCADE, related_name="transit_rating")
     transit_agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ratings")
     buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transit_agent_ratings")
-    score = models.PositiveIntegerField()  # 1..5
+    score = models.PositiveIntegerField()
     review = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

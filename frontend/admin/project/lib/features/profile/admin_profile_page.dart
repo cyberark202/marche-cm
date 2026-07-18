@@ -9,7 +9,6 @@ import '../auth/session_store.dart';
 import '../config/configuration_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 42 — Admin profile: identity, permissions, security, logout.
 class AdminProfilePage extends StatelessWidget {
   const AdminProfilePage({super.key});
 
@@ -19,7 +18,7 @@ class AdminProfilePage extends StatelessWidget {
     if (refresh != null && refresh.isNotEmpty) {
       try {
         await AuthApiService().logout(refreshToken: refresh);
-      } catch (_) {/* best-effort server-side revoke */}
+      } catch (_) {}
     }
     session.logout();
   }

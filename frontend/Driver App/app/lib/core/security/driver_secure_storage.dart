@@ -15,13 +15,6 @@ class DriverSecureStorage {
   static const _kUsername = 'driver_username';
   static const _kOnboarded = 'driver_onboarded';
 
-  // Coalesce concurrent reads of the same key into a single underlying
-  // `_storage.read()` call. Right after login, the shell fires the dashboard's
-  // first API call *and* opens the realtime WebSocket in the same frame — both
-  // read the access token independently. On web those concurrent reads of the
-  // same key can spuriously throw, which used to trip the corruption-purge
-  // below and delete a token that had just been saved (instant logout right
-  // after a successful login).
   static final Map<String, Future<String?>> _pendingReads = {};
 
   static Future<void> saveTokens({
@@ -45,11 +38,6 @@ class DriverSecureStorage {
     return future;
   }
 
-  // Web: a localStorage ciphertext that no longer matches the WebCrypto key
-  // (key regenerated, port reused by another app) throws OperationError on
-  // every read, blocking boot and all requests. Retry once first — a transient
-  // error unrelated to real corruption must not nuke a valid session — then
-  // purge and treat as logged out only if it fails twice.
   static Future<String?> _readOnce(String key) async {
     try {
       return await _storage.read(key: key);

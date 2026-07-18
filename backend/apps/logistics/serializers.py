@@ -44,9 +44,6 @@ class TransportProfileSerializer(serializers.ModelSerializer):
 
 
 class ShipmentSerializer(serializers.ModelSerializer):
-    # Coordonnees des extremites de l'itineraire, pour tracer la carte cote
-    # livreur/acheteur/vendeur : enlevement = position du vendeur, livraison =
-    # position de l'acheteur. Lecture seule (derivees des profils User).
     pickup_latitude = serializers.FloatField(source="seller.location_latitude", read_only=True)
     pickup_longitude = serializers.FloatField(source="seller.location_longitude", read_only=True)
     dropoff_latitude = serializers.FloatField(source="buyer.location_latitude", read_only=True)
@@ -54,7 +51,6 @@ class ShipmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shipment
-        # Les hashes OTP (collecte + livraison) ne sortent jamais de l'API.
         exclude = ("pickup_otp_hash", "delivery_otp_hash")
         read_only_fields = (
             "buyer",

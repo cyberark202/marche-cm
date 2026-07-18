@@ -20,9 +20,6 @@ from django.test import RequestFactory, TestCase, override_settings
 User = get_user_model()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# migrate_wallet_pin
-# ─────────────────────────────────────────────────────────────────────────────
 
 class MigrateWalletPinTests(TestCase):
     def test_dry_run_does_not_modify(self):
@@ -48,16 +45,10 @@ class MigrateWalletPinTests(TestCase):
         self.assertEqual(u.wallet_pin_failed_attempts, 0)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# verify_audit_chain_integrity
-# ─────────────────────────────────────────────────────────────────────────────
 
 class VerifyAuditChainTests(TestCase):
     def test_clean_chain_reports_no_fork(self):
         from apps.audit.models import AuditEvent
-        # Verify a clean chain in isolation: the verifier scans the whole table
-        # by cohort, so start from an empty table to stay independent of other
-        # suites that may have left audit events behind (test-order robustness).
         AuditEvent.objects.all().delete()
         AuditEvent.objects.create(
             category="AUTH", event_type="x", entity_type="Test", entity_id="1",
@@ -77,7 +68,6 @@ class VerifyAuditChainTests(TestCase):
             category="AUTH", event_type="x", entity_type="Tamper", entity_id="1",
             payload={"a": 1},
         )
-        # Corrupt the chain — direct UPDATE bypasses save().
         AuditEvent.objects.filter(entity_type="Tamper").update(
             chain_hash="deadbeef" * 8,
         )
@@ -86,16 +76,12 @@ class VerifyAuditChainTests(TestCase):
         self.assertGreaterEqual(summary["forks_detected"], 1)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# reconcile_wallet_ledger
-# ─────────────────────────────────────────────────────────────────────────────
 
 class ReconcileWalletLedgerTests(TestCase):
     def test_empty_wallet_no_ledger_account_is_skipped(self):
         User.objects.create_user(
             username="recon0", email="r0@x", first_name="R", password="x",
         )
-        # No wallet at all => no entry in the iteration => no drift.
         from apps.ledger.tasks import reconcile_wallet_ledger
         summary = reconcile_wallet_ledger()
         self.assertEqual(summary["drift_count"], 0)
@@ -107,12 +93,9 @@ class ReconcileWalletLedgerTests(TestCase):
             username="recon1", email="r1@x", first_name="R", password="x",
         )
         wallet = WalletAccountingService.get_wallet_for_update(user=u)
-        # Force a non-zero available without going through the ledger mirror.
         wallet.available_balance = Decimal("50.00")
         wallet.save(update_fields=["available_balance"])
 
-        # Create the ledger account, but no entries — that simulates the
-        # "wallet has money but ledger empty" drift case.
         from apps.ledger.models import (
             AccountSubType, AccountType, LedgerAccount,
         )
@@ -129,9 +112,6 @@ class ReconcileWalletLedgerTests(TestCase):
         self.assertGreaterEqual(summary["drift_count"], 1)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# _client_ip — alternatives to exact-IP TRUSTED_PROXIES
-# ─────────────────────────────────────────────────────────────────────────────
 
 class ClientIpAlternativesTests(TestCase):
     def setUp(self):
@@ -170,7 +150,6 @@ class ClientIpAlternativesTests(TestCase):
         req = self.factory.get(
             "/", HTTP_X_FORWARDED_FOR="8.8.8.8", REMOTE_ADDR="172.16.0.5",
         )
-        # Without the opt-in, even a private REMOTE_ADDR is not auto-trusted.
         self.assertEqual(_client_ip(req), "172.16.0.5")
 
     @override_settings(
@@ -184,7 +163,7 @@ class ClientIpAlternativesTests(TestCase):
             "/",
             HTTP_X_FORWARDED_FOR="8.8.8.8",
             HTTP_X_INTERNAL_PROXY_SECRET="psk-abc",
-            REMOTE_ADDR="203.0.113.42",  # arbitrary public IP
+            REMOTE_ADDR="203.0.113.42",
         )
         self.assertEqual(_client_ip(req), "8.8.8.8")
 

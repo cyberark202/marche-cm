@@ -18,8 +18,6 @@ class WithdrawalPage extends StatefulWidget {
 class _WithdrawalPageState extends State<WithdrawalPage> {
   final _amountCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  // Provider codes must match the backend PaymentProvider choices
-  // (apps/wallets/models.py): MTN MoMo maps to "MOBILE_MONEY".
   String _provider = 'MOBILE_MONEY';
   bool _busy = false;
   String? _error;
@@ -48,8 +46,6 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
       return;
     }
 
-    // Withdrawals are protected by a one-time email challenge (the wallet PIN
-    // was removed product-wide). Collect the code before posting.
     final verification = await collectSensitiveActionCode(
       context,
       actionKey: 'wallet.withdraw',
@@ -59,10 +55,6 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
 
     setState(() { _busy = true; _error = null; });
     try {
-      // Audit ref: [Front-Driver] backend exposes WalletViewSet.withdraw at
-      // /api/wallets/withdraw/ (wallets/views.py:751). Destination is read from
-      // `destination_account`/`destination_phone`; the challenge pair is
-      // mandatory.
       await DriverDioClient.dio.post('/api/wallets/withdraw/', data: {
         'amount': amount,
         'provider': _provider,
@@ -80,7 +72,6 @@ class _WithdrawalPageState extends State<WithdrawalPage> {
     } catch (e) {
       if (mounted) setState(() => _error = ApiError.friendly(e));
     } finally {
-      // Toujours relâcher le spinner (succès = navigation ; échec = ré-essai).
       if (mounted) setState(() => _busy = false);
     }
   }

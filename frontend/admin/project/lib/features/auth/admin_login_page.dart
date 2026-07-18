@@ -8,7 +8,6 @@ import 'auth_api_service.dart';
 import 'session_store.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 02 — Admin login (email + password, security messaging).
 class AdminLoginPage extends StatefulWidget {
   const AdminLoginPage({super.key});
 

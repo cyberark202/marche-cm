@@ -31,10 +31,6 @@ class KYCApplicationViewSet(
         return KYCApplication.objects.filter(user=user).order_by("-created_at")
 
     def perform_create(self, serializer):
-        # Audit ref: [KYC-001] user MUST be injected server-side.
-        # The serializer also lists `user` in read_only_fields, so even a
-        # malicious payload with {"user": <victim_id>} is silently dropped
-        # before reaching here.
         serializer.save(user=self.request.user)
 
     def get_permissions(self):

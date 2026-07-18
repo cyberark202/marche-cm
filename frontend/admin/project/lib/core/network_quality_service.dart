@@ -4,11 +4,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 
 enum NetworkQuality { offline, weak, online }
 
-/// Monitors connectivity and classifies network quality.
-///
-/// Uses connectivity_plus. Weak is defined as mobile data without WiFi —
-/// relevant for low-end Android on 3G in Cameroon. Callers subscribe to
-/// [qualityStream] or read [current] synchronously.
 class NetworkQualityService {
   NetworkQualityService._();
   static final NetworkQualityService instance = NetworkQualityService._();
@@ -26,7 +21,6 @@ class NetworkQualityService {
 
   void init() {
     _sub ??= Connectivity().onConnectivityChanged.listen(_onChanged);
-    // Probe initial state without await — stream will correct shortly.
     Connectivity().checkConnectivity().then(_onChanged);
   }
 
@@ -46,7 +40,6 @@ class NetworkQualityService {
         results.contains(ConnectivityResult.ethernet)) {
       return NetworkQuality.online;
     }
-    // Mobile / bluetooth / other — flag as weak
     return NetworkQuality.weak;
   }
 

@@ -17,7 +17,6 @@ with sync_playwright() as p:
 
     page.goto(URL, wait_until="domcontentloaded", timeout=60000)
     time.sleep(6)
-    # enable semantics (pierce shadow via locator)
     try:
         ph = page.locator("flt-semantics-placeholder")
         if ph.count() > 0:

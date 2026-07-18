@@ -6,7 +6,6 @@ import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Détail commande vendeur — stepper séquestre (PDF 18).
 class SupplierOrderDetailPage extends StatefulWidget {
   const SupplierOrderDetailPage({super.key, required this.order});
   final Map<String, dynamic> order;

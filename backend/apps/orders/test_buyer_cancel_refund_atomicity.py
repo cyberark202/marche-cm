@@ -62,7 +62,6 @@ class BuyerCancelRefundAtomicityTests(TestCase):
         wallet.locked_balance = Decimal("0.00")
         wallet.pending_balance = Decimal("0.00")
         wallet.save(update_fields=["available_balance", "locked_balance", "pending_balance"])
-        # Fund the escrow (LOCAL => single escrow of total+shipping = 8600).
         OrderFinanceService.lock_funds_for_order(
             order=self.order, actor=self.buyer,
             supplier_amount=Decimal("8600.00"), logistics_amount=Decimal("0.00"),
@@ -111,7 +110,6 @@ class BuyerCancelRefundAtomicityTests(TestCase):
             with self.assertRaises(RuntimeError):
                 OrderFinanceService.cancel_order(order=self.order, actor=self.buyer, reason="QA")
         self.order.refresh_from_db()
-        # Nothing changed.
         self.assertEqual(self.order.status, OrderStatus.PENDING)
         self.assertEqual(OrderEscrow.objects.get(order=self.order).status, "LOCKED")
         w = self._wallet()
@@ -123,7 +121,7 @@ class BuyerCancelRefundAtomicityTests(TestCase):
         with self.assertRaises(ValidationError):
             OrderFinanceService.cancel_order(order=self.order, actor=self.buyer, reason="second")
         w = self._wallet()
-        self.assertEqual(w.available_balance, Decimal("50000.00"))  # not 58600 — no double refund
+        self.assertEqual(w.available_balance, Decimal("50000.00"))
         self.assertEqual(w.locked_balance, Decimal("0.00"))
 
     def test_terminal_order_not_cancellable(self):

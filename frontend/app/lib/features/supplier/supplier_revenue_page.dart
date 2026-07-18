@@ -9,7 +9,6 @@ import '../auth/session_store.dart';
 import '../wallet/wallet_withdraw_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Revenus vendeur — wallet & retraits (PDF 20).
 class SupplierRevenuePage extends StatefulWidget {
   const SupplierRevenuePage({super.key});
 

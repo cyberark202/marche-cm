@@ -6,7 +6,6 @@ import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 40 — Audit & activity log with CSV export.
 class AuditPage extends StatefulWidget {
   const AuditPage({super.key});
 

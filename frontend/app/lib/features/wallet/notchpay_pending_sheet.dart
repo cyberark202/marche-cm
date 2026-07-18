@@ -10,21 +10,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 enum _PollResult { pending, success, failed, timedOut }
 
-/// Bottom sheet shown after NotchPay checkout URL is launched.
-///
-/// Polls /api/wallets/transactions/ every 5s for up to 120s looking for
-/// a non-PENDING transaction created after [initiatedAt].
-/// Uses AppLifecycleListener to probe immediately when the user returns
-/// from the payment app (foreground resume).
-///
-/// Usage:
-///   final result = await NotchPayPendingSheet.show(
-///     context: context,
-///     token: token,
-///     provider: _provider,
-///     initiatedAt: DateTime.now(),
-///   );
-///   if (result == true) { /* success */ }
 class NotchPayPendingSheet extends StatefulWidget {
   const NotchPayPendingSheet({
     super.key,
@@ -37,11 +22,6 @@ class NotchPayPendingSheet extends StatefulWidget {
   final String? token;
   final String provider;
   final DateTime initiatedAt;
-  /// ID externe de la transaction (external_transaction_id) retourné par
-  /// l'API au moment du topup. Quand fourni, le polling utilise l'endpoint
-  /// ciblé /api/wallets/transactions/{id}/status/ au lieu de scanner toute
-  /// la liste — évite les faux positifs si une autre transaction se termine
-  /// pendant l'attente.
   final String transactionId;
 
   static Future<bool?> show({
@@ -80,7 +60,7 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
   late final DateTime _deadline;
 
   _PollResult _state = _PollResult.pending;
-  int _elapsed = 0; // seconds
+  int _elapsed = 0;
   bool _polling = false;
 
   @override
@@ -111,12 +91,10 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
       }
       await _probe();
     });
-    // Immediate first probe
     _probe();
   }
 
   void _onAppResume() {
-    // User came back from NotchPay — probe right away
     if (_state == _PollResult.pending) _probe();
   }
 
@@ -128,9 +106,6 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
           (mounted ? context.read<SessionStore>().token : null);
 
       if (widget.transactionId.isNotEmpty) {
-        // Endpoint ciblé: évite de télécharger toute la liste et empêche
-        // qu'une transaction concurrente (retrait, etc.) déclenche un faux
-        // positif de confirmation.
         final tx = await _api.getObject(
           '/api/wallets/transactions/${widget.transactionId}/status/',
           token: token,
@@ -142,7 +117,6 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
           _setResult(_PollResult.failed);
         }
       } else {
-        // Fallback: scan de la liste si transactionId non disponible.
         final txList = await _api.getList(
           '/api/wallets/transactions/',
           token: token,
@@ -151,7 +125,6 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
         if (result != _PollResult.pending) _setResult(result);
       }
     } catch (_) {
-      // Erreur réseau pendant le polling — on continue d'attendre.
     } finally {
       _polling = false;
     }
@@ -194,7 +167,6 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
       AppMetricsService.instance.recordPaymentTimedOut(provider);
     }
 
-    // Auto-close after short delay on terminal states
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) Navigator.of(context).pop(result == _PollResult.success);
     });

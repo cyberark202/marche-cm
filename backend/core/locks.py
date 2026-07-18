@@ -36,9 +36,6 @@ class LockAcquisitionError(DistributedLockError):
     pass
 
 
-# Lua compare-and-delete: returns 1 if the key existed AND held our token, 0
-# otherwise. Eval is atomic from Redis's perspective so no other worker can
-# slip in between the GET and the DEL.
 _RELEASE_LUA = (
     "if redis.call('get', KEYS[1]) == ARGV[1] "
     "then return redis.call('del', KEYS[1]) else return 0 end"
@@ -55,7 +52,6 @@ def _redis_client():
     cache_impl = getattr(cache, "_cache", None) or getattr(cache, "client", None)
     if cache_impl is None:
         return None
-    # Django built-in redis backend exposes `.get_client(...)`
     get_client = getattr(cache_impl, "get_client", None)
     if callable(get_client):
         try:
@@ -66,7 +62,6 @@ def _redis_client():
             except Exception:
                 logger.debug("redis_client_discovery_failed backend=%s", type(cache_impl).__name__, exc_info=True)
                 return None
-    # django-redis style: `.get_client(...)` may sit on a deeper object
     deeper = getattr(cache_impl, "_client", None)
     if deeper is not None:
         get_client = getattr(deeper, "get_client", None)
@@ -85,14 +80,11 @@ def _atomic_release(lock_key: str, token: str) -> bool:
     client = _redis_client()
     if client is not None:
         try:
-            # Django's redis backend prefixes the key; we use cache.make_key
-            # to get the actual stored key name (with prefix/version).
             full_key = cache.make_key(lock_key, version=None)
             removed = client.eval(_RELEASE_LUA, 1, full_key, token)
             return bool(removed)
         except Exception:
             logger.exception("lock_release_lua_failed key=%s", lock_key)
-            # fall through to non-atomic path
     current = cache.get(lock_key)
     if current == token:
         cache.delete(lock_key)
@@ -117,10 +109,6 @@ def acquire_lock(
     token = str(uuid.uuid4())
     acquired = False
 
-    # `cache.add()` is the cross-backend "set if not exists" primitive — works
-    # on both LocMemCache (tests) and the Redis backend (prod). Earlier
-    # versions used cache.set(..., nx=True) which is Redis-only and crashed
-    # under LocMem with "unexpected keyword argument 'nx'".
     for attempt in range(retry_count + 1):
         result = cache.add(lock_key, token, timeout=ttl_seconds)
         if result:
@@ -144,9 +132,5 @@ def acquire_lock(
         else:
             logger.warning(
                 "lock_expired",
-                # Audit ref: [INFRA-P0-007] `msg` est un attribut RÉSERVÉ du
-                # LogRecord — le passer dans `extra` lève
-                # KeyError("Attempt to overwrite 'msg'...") et faisait crasher
-                # toute tâche utilisant un lock (escrow auto-release). Renommé.
                 extra={"key": resource_key, "detail": "Lock expired or held by other before release"},
             )

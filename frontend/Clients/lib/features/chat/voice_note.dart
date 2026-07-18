@@ -6,8 +6,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
-/// Petit contrôleur d'enregistrement (logique, hors widget) partagé par la page
-/// de chat. Encode en AAC/M4A (léger, accepté par le backend, type AUDIO).
 class VoiceRecorder {
   final AudioRecorder _rec = AudioRecorder();
   Timer? _timer;
@@ -30,7 +28,6 @@ class VoiceRecorder {
     return true;
   }
 
-  /// Stoppe et renvoie le chemin du fichier (ou null si annulé/échec).
   Future<String?> stop() async {
     _timer?.cancel();
     recording.value = false;
@@ -61,7 +58,6 @@ String formatSeconds(int s) {
   return '$m:$sec';
 }
 
-/// Barre affichée dans le composer pendant l'enregistrement.
 class VoiceRecordingBar extends StatelessWidget {
   const VoiceRecordingBar({
     super.key,
@@ -145,7 +141,6 @@ class _PulsingDotState extends State<_PulsingDot>
   }
 }
 
-/// Bulle de lecture d'une note vocale (play/pause + barre de progression).
 class AudioMessageBubble extends StatefulWidget {
   const AudioMessageBubble({
     super.key,
@@ -163,7 +158,6 @@ class AudioMessageBubble extends StatefulWidget {
 class _AudioMessageBubbleState extends State<AudioMessageBubble> {
   final AudioPlayer _player = AudioPlayer();
   bool _loaded = false;
-  // Vitesse de lecture cyclique 1x → 1.5x → 2x (façon WhatsApp).
   static const List<double> _speeds = [1.0, 1.5, 2.0];
   double _speed = 1.0;
 
@@ -174,7 +168,6 @@ class _AudioMessageBubbleState extends State<AudioMessageBubble> {
     try {
       await _player.setSpeed(next);
     } catch (_) {
-      // Certains codecs web refusent setSpeed : on garde la lecture normale.
     }
   }
 
@@ -266,7 +259,6 @@ class _AudioMessageBubbleState extends State<AudioMessageBubble> {
                                 fontSize: 11, color: Colors.black45),
                           ),
                         ),
-                        // Vitesse 1x/1.5x/2x, visible dès que l'audio est chargé.
                         if (total != Duration.zero)
                           GestureDetector(
                             onTap: _cycleSpeed,

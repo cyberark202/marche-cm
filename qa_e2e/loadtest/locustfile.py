@@ -76,7 +76,6 @@ class CatalogueUser(HttpUser):
 
     @task(3)
     def detail(self):
-        # product ids are small on a fresh DB; probe a spread, tolerate 404
         pid = random.randint(1, 50)
         with self.client.get(f"/api/products/{pid}/", headers=_headers(),
                              name="GET /products/{id}", catch_response=True) as r:
@@ -109,7 +108,6 @@ class SellerUser(HttpUser):
     def publish(self):
         if not (ALLOW_WRITES and self.token):
             return
-        # 1x1 px JPEG so the upload path (R2) is exercised with minimal bytes
         img = bytes.fromhex(
             "ffd8ffe000104a46494600010100000100010000ffdb004300"
             "080606070605080707070909080a0c140d0c0b0b0c1912130f14"
@@ -154,9 +152,6 @@ class BuyerUser(HttpUser):
 
     @task(2)
     def order_validation(self):
-        # Exercise the order endpoint's validation path WITHOUT funding the
-        # wallet: an unfunded order is rejected (400) before any escrow/money
-        # op. Safe under load. Tolerate 400/403/201.
         if not self.token:
             return
         with self.client.post("/api/orders/", headers=_headers(self.token),
@@ -190,7 +185,6 @@ class WalletUser(HttpUser):
 
     @task(1)
     def topup_validation(self):
-        # Invalid amount -> 400 BEFORE any NotchPay invoice. No money, no link.
         if not self.token or ALLOW_REAL_PAYMENT:
             return
         with self.client.post("/api/wallets/topup/", headers=_headers(self.token),

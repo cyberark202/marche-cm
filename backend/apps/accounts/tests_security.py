@@ -34,7 +34,6 @@ from apps.accounts.security import sanitize_audit_metadata, write_audit_log
 User = get_user_model()
 
 
-# ── Fix 2: PII in AuditLog.metadata ─────────────────────────────────────────
 
 
 class AuditMetadataSanitizerTests(TestCase):
@@ -60,7 +59,6 @@ class AuditMetadataSanitizerTests(TestCase):
         self.assertEqual(result["ref"], "ORD-999")
 
     def test_compound_key_stripped(self):
-        # Compound names like "user_phone_number" or "new_email" must be caught.
         result = sanitize_audit_metadata({"user_phone_number": "...", "new_email": "..."})
         self.assertNotIn("user_phone_number", result)
         self.assertNotIn("new_email", result)
@@ -103,7 +101,6 @@ class AuditMetadataSanitizerTests(TestCase):
         self.assertEqual(log.metadata.get("user_id"), user.id)
 
 
-# ── Fix 3: OTP PBKDF2 hashing ───────────────────────────────────────────────
 
 
 class OtpHashingTests(TestCase):
@@ -132,9 +129,7 @@ class OtpHashingTests(TestCase):
 
     def test_stored_value_is_not_plaintext_otp(self):
         challenge, code = self._create_challenge()
-        # The raw 6-digit code must NOT appear verbatim in code_hash.
         self.assertNotEqual(challenge.code_hash, code)
-        # PBKDF2-SHA256 format from Django is ~77 characters.
         self.assertGreater(len(challenge.code_hash), 50)
 
     def test_correct_code_verifies_via_check_password(self):
@@ -147,22 +142,18 @@ class OtpHashingTests(TestCase):
         self.assertFalse(check_password(wrong, challenge.code_hash))
 
     def test_challenge_token_has_adequate_entropy(self):
-        # token_urlsafe(32) → 43-char base64url string.
         challenge, _ = self._create_challenge()
         self.assertGreaterEqual(len(challenge.challenge_token), 40)
 
     def test_two_challenges_never_share_code_hash(self):
-        # Even the same code must produce different hashes (salted PBKDF2).
         code = "123456"
         hash_a = make_password(code)
         hash_b = make_password(code)
         self.assertNotEqual(hash_a, hash_b)
-        # Both must still verify.
         self.assertTrue(check_password(code, hash_a))
         self.assertTrue(check_password(code, hash_b))
 
 
-# ── Fix 1: BOLA / IDOR on ComplianceDocument ────────────────────────────────
 
 
 class BolaComplianceDocTests(APITestCase):
@@ -266,9 +257,7 @@ class BolaComplianceDocTests(APITestCase):
 
         rows = res.data if not isinstance(res.data, dict) else res.data.get("results", [])
         returned_ids = {row["id"] for row in rows}
-        # Approved doc is visible.
         self.assertIn(self.approved_doc.id, returned_ids)
-        # Pending doc must NOT be visible.
         self.assertNotIn(
             self.pending_doc.id,
             returned_ids,
@@ -283,7 +272,6 @@ class BolaComplianceDocTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
 
 
-# ── Fix 5: Auto-payout startup validator ────────────────────────────────────
 
 
 class AutoPayoutValidatorTests(TestCase):
@@ -310,7 +298,7 @@ class AutoPayoutValidatorTests(TestCase):
             _validate_autopayout_config()
 
     def test_valid_live_config_passes(self):
-        self._run()  # must not raise
+        self._run()
 
     def test_autopayout_disabled_always_passes(self):
         self._run(

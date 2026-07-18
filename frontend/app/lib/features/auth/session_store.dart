@@ -23,13 +23,10 @@ class SessionStore extends ChangeNotifier {
   bool get isAuthenticated => token != null && token!.isNotEmpty;
   String? get authNotice => _authNotice;
 
-  /// Restores tokens from secure storage on cold start and reloads the user
-  /// profile so role/userId/username are populated without requiring re-login.
   Future<void> restoreFromStorage() async {
     final stored = await TokenRepository.getAccessToken();
     if (stored == null || stored.isEmpty) return;
 
-    // Verify the stored token is still valid and load the user profile.
     try {
       final response = await SecureDioClient.dio.get('/api/auth/me/');
       final data = response.data;
@@ -44,7 +41,6 @@ class SessionStore extends ChangeNotifier {
       username = (data['username'] ?? data['name'] ?? '').toString().trim();
       if (username!.isEmpty) username = null;
     } on DioException {
-      // Network error — restore token optimistically; let the first API call fail.
       token = stored;
       refreshToken = await TokenRepository.getRefreshToken();
     } catch (_) {
@@ -146,7 +142,6 @@ class SessionStore extends ChangeNotifier {
     }
   }
 
-  // ── B2: Proactive JWT refresh ─────────────────────────────────────────────
 
   void _scheduleProactiveRefresh(String accessToken) {
     _refreshTimer?.cancel();
@@ -160,7 +155,6 @@ class SessionStore extends ChangeNotifier {
     final delay = refreshAt.difference(DateTime.now().toUtc());
 
     if (delay.inSeconds < 5) {
-      // Already near/past expiry — refresh immediately.
       _doRefresh();
       return;
     }
@@ -170,7 +164,7 @@ class SessionStore extends ChangeNotifier {
   Future<void> _doRefresh() async {
     if (!isAuthenticated) return;
     final result = await TokenRepository.refresh();
-    if (!isAuthenticated) return; // user logged out while awaiting
+    if (!isAuthenticated) return;
     if (result.access != null && result.access!.isNotEmpty) {
       token = result.access;
       if (result.refresh != null && result.refresh!.isNotEmpty) {

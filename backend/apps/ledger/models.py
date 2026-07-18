@@ -74,22 +74,12 @@ class LedgerAccount(models.Model):
     description = models.CharField(max_length=200, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    # Audit ref: V11.3 — materialised balance for hot-account performance.
-    # Avoids `SELECT running_balance FROM ledger_entry WHERE account=... ORDER
-    # BY -created_at LIMIT 1` on every post (especially painful on shared
-    # platform accounts: PROVIDER_FLOAT, PLATFORM_REVENUE, PAYOUT_CLEARING).
-    # Kept in sync atomically inside _post_entries under SELECT FOR UPDATE.
-    # A reconciliation task (apps.ledger.tasks.verify_cached_balances) can
-    # recompute from LedgerEntry and surface any drift.
     cached_balance = models.DecimalField(
         max_digits=18, decimal_places=2, default=Decimal("0.00"),
     )
     cached_balance_updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        # Short names (≤30 chars) — the original migration names exceeded
-        # Django's index-name limit (models.E034); a rename migration aligns
-        # the existing DB.
         indexes = [
             models.Index(fields=["sub_type", "owner"], name="idx_lacct_subtype_owner"),
             models.Index(fields=["account_type", "is_active"], name="idx_lacct_type_active"),

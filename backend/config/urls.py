@@ -203,12 +203,6 @@ urlpatterns = [
     path("api/", include(router.urls)),
 ]
 
-# ── OpenAPI / Swagger ─────────────────────────────────────────────────────
-# The schema enumerates the full API surface — it is reconnaissance material
-# for an attacker. Only mount the documentation routes when explicitly enabled
-# (settings.ENABLE_API_DOCS, default = DEBUG). In production they 404 entirely,
-# and even when enabled the schema JSON itself requires authentication
-# (SPECTACULAR_SETTINGS["SERVE_PERMISSIONS"]).
 if settings.ENABLE_API_DOCS:
     urlpatterns += [
         path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
@@ -216,10 +210,6 @@ if settings.ENABLE_API_DOCS:
         path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     ]
 
-# ── Prometheus metrics ─────────────────────────────────────────────────────
-# Audit ref: [L-002] use the RBAC enum (GENERAL_ADMIN role) instead of
-# Django's is_staff flag — a seed/admin account flagged is_staff but not
-# GENERAL_ADMIN should not be able to read internal latency/error metrics.
 try:
     from django.http import HttpResponse
     from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -236,10 +226,6 @@ except ImportError:
     pass
 
 if settings.DEBUG:
-    # Service media compatible HTTP Range (206) : indispensable pour la lecture
-    # video dans les <video> HTML5 / Flutter web (cf. config/media_views.py).
-    # On NE passe par `static()` (django.views.static.serve) que pour les media
-    # servis localement ; en prod c'est S3/CloudFront qui gere le Range.
     from config.media_views import serve_media_with_range
 
     _media_prefix = settings.MEDIA_URL.lstrip("/")

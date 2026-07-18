@@ -7,9 +7,6 @@ import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// Audit ref: [Front-Driver] backend exposes TransportProfileViewSet at
-// /api/transport-profiles/ (filtered to current user). The /api/accounts/
-// /driver-profile/ path does not exist server-side.
 final _vehicleProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final res = await DriverDioClient.dio.get('/api/transport-profiles/');
@@ -49,9 +46,6 @@ class _VehiclePageState extends ConsumerState<VehiclePage> {
     if (_selectedType == null) return;
     setState(() { _saving = true; _error = null; });
     try {
-      // Audit ref: [Front-Driver] transport-profiles is a regular DRF
-      // ViewSet — update by id (PATCH detail) or create the singleton if
-      // the driver has no profile yet (POST list).
       final current = ref.read(_vehicleProvider).value ?? const {};
       final profileId = current['id'];
       if (profileId != null) {

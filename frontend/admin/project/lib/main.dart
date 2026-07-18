@@ -22,7 +22,6 @@ void main() async {
 
   final session = AdminSessionStore();
 
-  // Single Dio client — reads/writes tokens only through TokenRepository.
   await SecureDioClient.initialize(
     onTokensRefreshed: (accessToken, refreshToken) {
       session.updateTokens(
@@ -34,11 +33,8 @@ void main() async {
         session.logout(notice: 'Session expirée. Veuillez vous reconnecter.'),
   );
 
-  // Restore an admin session from secure storage (survives restarts).
   await session.restoreFromStorage();
 
-  // Firebase (web console). Guarded so a failed init — e.g. an unreachable
-  // Firebase CDN on web — never blanks the console.
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -99,7 +95,6 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
     final session = context.watch<AdminSessionStore>();
     _syncRealtime(session);
 
-    // Surface a one-shot auth notice (expired session, rejected role…).
     final notice = session.authNotice;
     if (!session.isAuthenticated &&
         notice != null &&
@@ -119,8 +114,6 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
     return const AdminShell();
   }
 
-  // Connecte le flux temps réel (/ws/events/) quand un admin est authentifié ;
-  // alimente notamment l'AppGate (topic "system") pour kill switch instantané.
   void _syncRealtime(AdminSessionStore session) {
     if (session.isAuthenticated && session.isAdmin) {
       RealtimeEventsService.instance.connectFromStorage();

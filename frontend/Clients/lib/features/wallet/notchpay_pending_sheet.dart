@@ -9,13 +9,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 enum _PollResult { pending, success, failed, timedOut }
 
-/// Feuille de suivi affichée pendant un paiement NotchPay.
-///
-/// Pour le paiement in-app (Direct Charge mobile money), NotchPay pousse une
-/// demande de validation USSD sur le téléphone : aucun navigateur n'est ouvert,
-/// l'utilisateur reste dans l'app. Cette feuille sonde
-/// `/api/wallets/transactions/{id}/status/` toutes les 5 s pendant 120 s et se
-/// ferme automatiquement sur un état terminal.
 class NotchPayPendingSheet extends StatefulWidget {
   const NotchPayPendingSheet({
     super.key,
@@ -66,7 +59,7 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
   late final DateTime _deadline;
 
   _PollResult _state = _PollResult.pending;
-  int _elapsed = 0; // seconds
+  int _elapsed = 0;
   bool _polling = false;
 
   @override
@@ -127,7 +120,6 @@ class _NotchPayPendingSheetState extends State<NotchPayPendingSheet> {
         if (result != _PollResult.pending) _setResult(result);
       }
     } catch (_) {
-      // Erreur réseau pendant le polling — on continue d'attendre.
     } finally {
       _polling = false;
     }

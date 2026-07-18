@@ -174,7 +174,6 @@ class _AuthPageState extends State<AuthPage> {
           ? payload["user"] as Map<String, dynamic>
           : <String, dynamic>{};
       if (access.isEmpty) {
-        // Defensive fallback (backend without token issuance): send to login.
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text("Inscription reussie. Vous pouvez vous connecter.")),
@@ -182,7 +181,6 @@ class _AuthPageState extends State<AuthPage> {
         setState(() => _showLogin = true);
         return;
       }
-      // Auto-login: open the session straight away (no second login step).
       final session = context.read<SessionStore>();
       session.setSession(
         accessToken: access,
@@ -813,7 +811,6 @@ class _AuthPageState extends State<AuthPage> {
       body: Column(
         children: [
           _heroSection(),
-          // Coin arrondi bas sur le fond vert
           Container(
             height: 24,
             color: const Color(0xFF063D27),

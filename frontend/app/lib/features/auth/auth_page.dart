@@ -36,7 +36,6 @@ class _AuthPageState extends State<AuthPage> {
   final _regCompany = TextEditingController();
   final _regAirPrice = TextEditingController();
   final _regSeaPrice = TextEditingController();
-  // ISOLATION: the professional app registers SUPPLIER / WHOLESALER only.
   String _selectedRole = 'SUPPLIER';
   final CountryService _countryService = CountryService();
   String _defaultCountryCode = "";
@@ -175,8 +174,6 @@ class _AuthPageState extends State<AuthPage> {
         companyName: _regCompany.text.trim(),
       );
       if (!mounted) return;
-      // Point 6 — connexion directe après création de compte. Le backend renvoie
-      // déjà les tokens de session (RegisterView -> _issue_session_tokens).
       final access = (payload["access"] ?? "").toString();
       final refresh = (payload["refresh"] ?? "").toString();
       if (access.isNotEmpty) {
@@ -508,7 +505,6 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Widget _roleSelector() {
-    // Compte « Vendeur » unifié : un seul type de compte professionnel.
     const roles = [
       ('SUPPLIER', 'Vendeur', LucideIcons.store),
     ];
@@ -572,7 +568,6 @@ class _AuthPageState extends State<AuthPage> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       children: [
-        // ── Inscription professionnelle guidée ─────────────
         const Text('Inscription guidée',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
                 color: Color(0xFF334155))),
@@ -592,11 +587,9 @@ class _AuthPageState extends State<AuthPage> {
           Expanded(child: Divider()),
         ]),
         const SizedBox(height: 8),
-        // ── Role selector (SUPPLIER / WHOLESALER uniquement) ─
         _roleSelector(),
         const SizedBox(height: 16),
 
-        // ── Common fields ──────────────────────────────────
         TextField(
           controller: _regName,
           textInputAction: TextInputAction.next,
@@ -641,7 +634,6 @@ class _AuthPageState extends State<AuthPage> {
           ),
         ),
 
-        // ── Business field (entreprise requise) ────────────
         const SizedBox(height: 12),
         TextField(
           controller: _regCompany,

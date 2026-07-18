@@ -8,25 +8,15 @@ import 'package:http/http.dart' as http;
 import 'app_config.dart';
 import 'auth_token_manager.dart';
 
-/// Must be a top-level function — the FCM background isolate cannot access
-/// class state. Firebase is initialized by the system before this runs.
 @pragma('vm:entry-point')
 Future<void> _fcmBackgroundHandler(RemoteMessage message) async {}
 
-/// FCM push notifications for the Clients (buyer) app.
-///
-/// Foreground/background message handling + device-token registration to the
-/// backend. Web push requires a VAPID key + service worker (not configured
-/// yet), so token retrieval is skipped on web; Firebase core still initializes.
 class PushNotificationService {
   PushNotificationService._();
 
-  // In-memory dedup: avoid re-POSTing the same token within a session.
   static String? _lastRegistered;
 
-  /// Call once after Firebase.initializeApp().
   static Future<void> initialize() async {
-    // Web push needs a VAPID key + firebase-messaging-sw.js — defer until set.
     if (kIsWeb) return;
 
     FirebaseMessaging.onBackgroundMessage(_fcmBackgroundHandler);

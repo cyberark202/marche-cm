@@ -20,10 +20,6 @@ def message_preview(message_type: str, content: str) -> str:
 
 
 class ChatRoomSerializer(serializers.ModelSerializer):
-    # Ces trois champs rendent la liste de conversations réelle (façon
-    # WhatsApp) : aperçu du dernier message, compteur de non-lus, fiche de
-    # l'interlocuteur (présence incluse). Ils s'appuient sur les annotations
-    # posées par ChatRoomViewSet.get_queryset — d'où les getattr avec défaut.
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
     peer = serializers.SerializerMethodField()
@@ -71,16 +67,9 @@ class ChatRoomSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     my_state = serializers.SerializerMethodField()
-    # Lightweight quoted-message preview so the client renders the reply without
-    # a second round-trip. Read-only; `reply_to` (the id) stays writable.
     reply_preview = serializers.SerializerMethodField()
-    # Réactions agrégées [{emoji, count, mine}] — rendu direct sous la bulle.
     reactions = serializers.SerializerMethodField()
 
-    # Audit ref: [N-002] defense in depth — the same length/type validation
-    # the WS consumer enforces (apps/realtime/consumers.py) MUST also live in
-    # the REST serializer. Otherwise a client can bypass the WS hardening by
-    # POSTing directly to /api/chat/messages/.
     MAX_CONTENT_LEN = 4000
     ALLOWED_TYPES = {"TEXT", "IMAGE", "VIDEO", "DOCUMENT", "AUDIO"}
 
@@ -94,9 +83,6 @@ class MessageSerializer(serializers.ModelSerializer):
         if not user or not user.is_authenticated:
             return ""
         if obj.sender_id == user.id:
-            # Ticks de l'EXPÉDITEUR : agrégat des receipts destinataires (il n'a
-            # pas de receipt en propre). READ seulement si TOUS ont lu, DELIVERED
-            # si tous ont au moins reçu — sémantique WhatsApp multi-destinataires.
             states = [r.state for r in obj.receipts.all()]
             if not states:
                 return DeliveryState.SENT
@@ -131,8 +117,6 @@ class MessageSerializer(serializers.ModelSerializer):
         }
 
     def validate_reply_to(self, value):
-        # A quote must reference a message in the SAME room (prevents leaking a
-        # snippet across rooms via a crafted reply_to id).
         if value is None:
             return value
         room = self.initial_data.get("room")
@@ -151,8 +135,6 @@ class MessageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 f"Message trop long ({self.MAX_CONTENT_LEN} caracteres max)."
             )
-        # Anti-désintermédiation : aucun lien/e-mail ne doit transiter par le chat.
-        # Numéros de téléphone masqués aussi si CHAT_REDACT_PHONE_NUMBERS=1.
         return redact_links(
             value,
             redact_phones=getattr(settings, "CHAT_REDACT_PHONE_NUMBERS", False),
@@ -186,7 +168,6 @@ class MessageSerializer(serializers.ModelSerializer):
             )
             return value
         if content_type.startswith("audio/"):
-            # Voice notes — recorders emit AAC/M4A, Opus/OGG, MP3 or WAV.
             validate_uploaded_file(
                 value,
                 field_label="Note vocale",

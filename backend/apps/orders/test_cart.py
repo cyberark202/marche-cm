@@ -58,7 +58,6 @@ class CartServerTests(TestCase):
     def test_add_to_cart_is_idempotent_upsert(self):
         r1 = self.client.post("/api/cart/", {"product": self.product_a.id, "quantity": 2}, format="json")
         self.assertEqual(r1.status_code, 201)
-        # Meme produit : met a jour la quantite, ne cree pas de doublon.
         r2 = self.client.post("/api/cart/", {"product": self.product_a.id, "quantity": 3}, format="json")
         self.assertEqual(r2.status_code, 200)
         self.assertEqual(CartItem.objects.filter(buyer=self.buyer).count(), 1)
@@ -79,9 +78,7 @@ class CartServerTests(TestCase):
         self.assertEqual(resp.status_code, 201, resp.content)
         self.assertEqual(resp.json()["count"], 2)
         self.assertEqual(Order.objects.filter(buyer=self.buyer).count(), 2)
-        # Panier vide apres checkout.
         self.assertEqual(CartItem.objects.filter(buyer=self.buyer).count(), 0)
-        # Stock decremente.
         self.product_a.refresh_from_db()
         self.assertEqual(self.product_a.available_qty, 3)
 
@@ -91,12 +88,11 @@ class CartServerTests(TestCase):
 
     def test_checkout_rolls_back_when_funds_insufficient(self):
         wallet = Wallet.objects.get(owner=self.buyer)
-        wallet.available_balance = Decimal("100.00")  # trop peu pour 2000 + livraison
+        wallet.available_balance = Decimal("100.00")
         wallet.save(update_fields=["available_balance"])
         self.client.post("/api/cart/", {"product": self.product_a.id, "quantity": 2}, format="json")
         resp = self.client.post("/api/cart/checkout/")
         self.assertEqual(resp.status_code, 400)
-        # Rien cree, panier intact, stock intact.
         self.assertEqual(Order.objects.filter(buyer=self.buyer).count(), 0)
         self.assertEqual(CartItem.objects.filter(buyer=self.buyer).count(), 1)
         self.product_a.refresh_from_db()

@@ -80,10 +80,6 @@ def decrypt_value(value: str | None) -> str:
             return fernet.decrypt(token_bytes).decode("utf-8")
         except (InvalidToken, ValueError):
             continue
-    # Aucune cle de la chaine n'a pu dechiffrer le payload: cela signale soit
-    # une rotation manquante, soit une donnee corrompue. On log avec un
-    # niveau eleve et on retourne une chaine vide pour ne JAMAIS exposer le
-    # ciphertext brut a l'utilisateur ou via API.
     logger.error(
         "field_crypto.decrypt_failed: aucune cle DATA_ENCRYPTION_KEY ne peut dechiffrer le payload (longueur=%d)",
         len(token_bytes),

@@ -41,11 +41,11 @@ class FraudAssessment(models.Model):
         on_delete=models.CASCADE,
         related_name="fraud_assessments",
     )
-    action_type = models.CharField(max_length=40, db_index=True)  # WITHDRAWAL, ORDER, KYC_SUBMIT, etc.
-    risk_score = models.PositiveSmallIntegerField()  # 0–100
+    action_type = models.CharField(max_length=40, db_index=True)
+    risk_score = models.PositiveSmallIntegerField()
     risk_level = models.CharField(max_length=10, choices=RiskLevel.choices)
     decision = models.CharField(max_length=8, choices=FraudDecision.choices)
-    signals = models.JSONField(default=list)  # list of {type, weight, detail}
+    signals = models.JSONField(default=list)
     entity_type = models.CharField(max_length=60, blank=True)
     entity_id = models.CharField(max_length=80, blank=True)
     correlation_id = models.CharField(max_length=80, blank=True)
@@ -60,7 +60,7 @@ class FraudAssessment(models.Model):
         blank=True,
         related_name="reviewed_fraud_assessments",
     )
-    review_outcome = models.CharField(max_length=10, blank=True)  # CONFIRMED | DISMISSED
+    review_outcome = models.CharField(max_length=10, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

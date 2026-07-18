@@ -12,26 +12,20 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Surveillance connectivité (bannière hors-ligne du shell).
   NetworkQualityService.instance.init();
 
-  // Portrait only — delivery app is portrait-first
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Status bar styling
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
   ));
 
-  // Initialize Dio with JWT refresh
   await DriverDioClient.initialize();
 
-  // Firebase (push notifications). Guarded so a failed init — e.g. an
-  // unreachable Firebase CDN on web — never blanks the app.
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,

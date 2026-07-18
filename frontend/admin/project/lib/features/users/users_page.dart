@@ -9,7 +9,6 @@ import 'create_managed_user_page.dart';
 import 'user_detail_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 33 — Users directory with search + role filters.
 class UsersPage extends StatefulWidget {
   const UsersPage({super.key});
 
@@ -43,9 +42,6 @@ class _UsersPageState extends State<UsersPage> {
     await _future;
   }
 
-  /// Server-side search so results are not capped at the first paginated page
-  /// (PAGE_SIZE=20). Triggered on submit; local [_filter] still refines the
-  /// loaded set by role bucket / KYC instantly.
   void _searchOnServer() {
     setState(() => _future = _repo.users(query: _search.text));
   }

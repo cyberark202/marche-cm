@@ -20,9 +20,6 @@ from django.utils import timezone
 
 logger = logging.getLogger("security.device")
 
-# ---------------------------------------------------------------------------
-# Device fingerprint
-# ---------------------------------------------------------------------------
 
 _FINGERPRINT_SECRET_ATTR = "DEVICE_FINGERPRINT_SECRET"
 
@@ -36,8 +33,6 @@ def _fingerprint_secret() -> bytes:
     explicit = getattr(settings, _FINGERPRINT_SECRET_ATTR, "").strip()
     if explicit:
         return explicit.encode()
-    # Derive from SECRET_KEY with domain separation — safe but suboptimal.
-    # Operators SHOULD set DEVICE_FINGERPRINT_SECRET explicitly.
     sk = getattr(settings, "SECRET_KEY", "").encode()
     return hashlib.sha256(b"device-fingerprint:" + sk).digest()
 
@@ -79,13 +74,10 @@ class DeviceFingerprint:
         """Constant-time comparison to prevent timing attacks."""
         computed = self.compute()
         if not stored_fingerprint:
-            return True  # No fingerprint stored — first request after migration
+            return True
         return hmac.compare_digest(computed, stored_fingerprint)
 
 
-# ---------------------------------------------------------------------------
-# JWT device binding via custom SimpleJWT token class
-# ---------------------------------------------------------------------------
 
 def enrich_token_payload(token_payload: dict, request) -> dict:
     """
@@ -109,7 +101,6 @@ def validate_token_device(token_payload: dict, request) -> bool:
     """
     stored_dfp = token_payload.get("dfp", "")
     if not stored_dfp:
-        # Pre-migration token — log but allow. Force re-login after expiry.
         return True
 
     current = DeviceFingerprint.from_request(request).compute()
@@ -125,9 +116,6 @@ def validate_token_device(token_payload: dict, request) -> bool:
     return match
 
 
-# ---------------------------------------------------------------------------
-# Trusted device model helpers (uses TrustedDevice model defined in models.py)
-# ---------------------------------------------------------------------------
 
 def register_device_if_new(user, request) -> bool:
     """
@@ -162,8 +150,5 @@ def register_device_if_new(user, request) -> bool:
 
 
 def _client_ip(request) -> str:
-    # Audit ref: [N-005] route every call site through the canonical helper
-    # that honours settings.TRUSTED_PROXIES. Keeping a thin wrapper here
-    # avoids breaking the public symbol used by accounts.security/middleware.
     from config.middleware import _client_ip as _canonical_client_ip
     return _canonical_client_ip(request)

@@ -15,14 +15,12 @@ def main():
     c = Client("buyer")
     c.login(BUYER, PWD)
 
-    # --- T2.1 Profile update WITHOUT challenge -> 403 (sensitive gate) ---
     r = c.req("POST", "/api/auth/profile/", json_body={"city": "Douala"}, note="profile no challenge")
     record("T2.1", "Update profil sans challenge 2FA refusé", "major",
            r is not None and r.status_code == 403,
            "403 (vérification requise)", f"status={r.status_code if r else 'NA'} body={r.text[:120] if r else ''}",
            endpoint="/api/auth/profile/", be_file="apps/accounts/views.py:ProfileUpdateView")
 
-    # --- T2.2 Profile update WITH challenge -> 200 + DB check (name field) ---
     import time as _t
     new_name = f"QA Buyer {int(_t.time())}"
     c.req("POST", "/api/auth/sensitive-action/request/", json_body={"action_key": "profile.update"}, note="req profile otp")
@@ -45,7 +43,6 @@ def main():
            f"200 + first_name='{new_name}' en base", f"status={r.status_code if r else 'NA'} db_name={db_name}",
            endpoint="/api/auth/profile/")
 
-    # --- T2.3 Email change requires a SEPARATE email challenge -> 403 if missing ---
     c.req("POST", "/api/auth/sensitive-action/request/", json_body={"action_key": "profile.update"}, note="req profile otp 2")
     tok2, code2 = set_sensitive_otp(BUYER, "profile.update")
     r = c.req("POST", "/api/auth/profile/", json_body={
@@ -56,7 +53,6 @@ def main():
            "403 (confirmation email requise)", f"status={r.status_code if r else 'NA'} body={r.text[:120] if r else ''}",
            endpoint="/api/auth/profile/")
 
-    # --- T2.4 Password change wrong current -> 400 ---
     r = c.req("POST", "/api/auth/password-change/", json_body={
         "current_password": "WRONGcurrent1!", "new_password": "BrandNew123!",
     }, note="pwd wrong current")
@@ -65,7 +61,6 @@ def main():
            "400", f"status={r.status_code if r else 'NA'} body={r.text[:120] if r else ''}",
            endpoint="/api/auth/password-change/")
 
-    # --- T2.5 Password change weak new -> 400 ---
     r = c.req("POST", "/api/auth/password-change/", json_body={
         "current_password": PWD, "new_password": "123",
     }, note="pwd weak new")
@@ -74,7 +69,6 @@ def main():
            "400", f"status={r.status_code if r else 'NA'}",
            endpoint="/api/auth/password-change/")
 
-    # --- T2.6 Password change same as old -> 400 ---
     r = c.req("POST", "/api/auth/password-change/", json_body={
         "current_password": PWD, "new_password": PWD,
     }, note="pwd same")
@@ -83,7 +77,6 @@ def main():
            "400", f"status={r.status_code if r else 'NA'}",
            endpoint="/api/auth/password-change/")
 
-    # --- T2.7 Password change valid (challenge) then login with new, then revert ---
     NEW = "FreshPass456!"
     c.req("POST", "/api/auth/sensitive-action/request/", json_body={"action_key": "auth.password.change"}, note="req pwd otp")
     tok3, code3 = set_sensitive_otp(BUYER, "auth.password.change")
@@ -94,7 +87,6 @@ def main():
     changed = r is not None and r.status_code == 200
     login_new = Client("buyer_new").login(BUYER, NEW) if changed else None
     new_works = login_new is not None and login_new.status_code == 200
-    # revert to original
     if new_works:
         cc = Client("buyer_new2"); cc.login(BUYER, NEW)
         cc.req("POST", "/api/auth/sensitive-action/request/", json_body={"action_key": "auth.password.change"}, note="req pwd otp revert")
@@ -108,7 +100,6 @@ def main():
            "200 + login nouveau mdp OK", f"change={r.status_code if r else 'NA'} login_new={login_new.status_code if login_new else 'NA'}",
            endpoint="/api/auth/password-change/")
 
-    # --- T2.8 KYC invalid doc_type -> 400 ---
     c2 = Client("buyer_kyc"); c2.login(BUYER, PWD)
     with open(f("product1.jpg"), "rb") as fp:
         r = c2.req("POST", "/api/auth/kyc/submit/", files={"file": ("cni.jpg", fp, "image/jpeg")},
@@ -118,7 +109,6 @@ def main():
            "400", f"status={r.status_code if r else 'NA'}",
            endpoint="/api/auth/kyc/submit/")
 
-    # --- T2.9 KYC valid CNI (image + signature + consent) -> 201 + DB PENDING ---
     with open(f("product1.jpg"), "rb") as fp, open(f("product2.png"), "rb") as sig:
         r = c2.req("POST", "/api/auth/kyc/submit/",
                    files={"file": ("cni.jpg", fp, "image/jpeg"), "signature": ("sig.png", sig, "image/png")},
@@ -140,7 +130,6 @@ def main():
            f"status={r.status_code if r else 'NA'} db_status={db_status} body={r.text[:160] if r else ''}",
            endpoint="/api/auth/kyc/submit/", be_file="apps/accounts/views.py:BuyerKycSubmitView")
 
-    # --- T2.10 KYC PROOF_ADDRESS (view allows, serializer ALLOWED_DOC_TYPES may not) ---
     with open(f("product1.jpg"), "rb") as fp:
         r = c2.req("POST", "/api/auth/kyc/submit/", files={"file": ("addr.jpg", fp, "image/jpeg")},
                    data={"doc_type": "PROOF_ADDRESS", "consent_accepted": "true"}, note="kyc PROOF_ADDRESS")
@@ -151,7 +140,6 @@ def main():
            endpoint="/api/auth/kyc/submit/",
            be_file="views.py:BuyerKycSubmitView.IDENTITY_DOC_TYPES vs serializers.py:ComplianceDocumentSerializer.ALLOWED_DOC_TYPES")
 
-    # --- T2.11 KYC SELFIE (same suspected mismatch) ---
     with open(f("product1.jpg"), "rb") as fp:
         r = c2.req("POST", "/api/auth/kyc/submit/", files={"file": ("selfie.jpg", fp, "image/jpeg")},
                    data={"doc_type": "SELFIE", "consent_accepted": "true"}, note="kyc SELFIE")
@@ -161,7 +149,6 @@ def main():
            f"status={r.status_code if r else 'NA'} body={r.text[:200] if r else ''}",
            endpoint="/api/auth/kyc/submit/")
 
-    # --- T2.12 KYC polyglot/script file as image -> must reject (magic bytes) ---
     with open(f("evil.jpg"), "rb") as fp:
         r = c2.req("POST", "/api/auth/kyc/submit/", files={"file": ("evil.jpg", fp, "image/jpeg")},
                    data={"doc_type": "CNI"}, note="kyc polyglot")
@@ -170,10 +157,6 @@ def main():
            "400 (contenu != extension)", f"status={r.status_code if r else 'NA'} body={r.text[:160] if r else ''}",
            endpoint="/api/auth/kyc/submit/", be_file="apps/accounts/upload_security.py")
 
-    # --- T2.13 Display-name uniqueness on profile update (inconsistency vs register) ---
-    # Register removed the first_name existence check (H-005), but ProfileUpdateSerializer
-    # still rejects a display name already used by ANOTHER user. Try to set buyer's name
-    # to the seeded supplier's display name.
     import qa
     if qa.is_remote():
         other_name = qa.remote_eval("from apps.accounts.models import User as U3; other = U3.objects.filter(email__iexact='supplier@marche-cm.local').first(); val = other.first_name if other else 'Compte'", "val")
@@ -187,8 +170,6 @@ def main():
     r = c.req("POST", "/api/auth/profile/", json_body={
         "name": other_name, "challenge_token": tokn, "verification_code": coden,
     }, note="dup display name")
-    # This documents behaviour: a 400 here = display names forced globally unique
-    # (UX defect + enumeration), inconsistent with registration which allows dups.
     is_rejected_for_dup = r is not None and r.status_code == 400
     record("T2.13", "Nom d'affichage NON imposé unique au profil (cohérence avec inscription)", "minor",
            not is_rejected_for_dup,

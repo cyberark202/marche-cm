@@ -27,9 +27,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger("security.throttle")
 
 
-# ---------------------------------------------------------------------------
-# Base: sliding-window Redis throttle
-# ---------------------------------------------------------------------------
 
 class SlidingWindowThrottle(BaseThrottle):
     """
@@ -40,9 +37,8 @@ class SlidingWindowThrottle(BaseThrottle):
     of next window = effective 200/window bypass on fixed window limiters).
     """
 
-    # Subclasses must define these.
     scope: str = ""
-    rate: str = ""          # e.g. "60/minute", "1000/hour"
+    rate: str = ""
     cache_format: str = "throttle:{scope}:{key}"
 
     def __init__(self) -> None:
@@ -54,7 +50,6 @@ class SlidingWindowThrottle(BaseThrottle):
         count = int(count_str)
         period = period.lower().strip()
         periods = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
-        # Allow abbreviated: "min", "hr", "sec"
         for full, secs in periods.items():
             if period.startswith(full[:3]):
                 return count, secs
@@ -72,7 +67,6 @@ class SlidingWindowThrottle(BaseThrottle):
         return self._get_ip(request)
 
     def allow_request(self, request: Request, view: APIView) -> bool:
-        # Check for loadtest bypass token to allow performance testing from trusted tools
         bypass_token = getattr(settings, "LOADTEST_BYPASS_TOKEN", "")
         if bypass_token and request.headers.get("x-loadtest-bypass-token") == bypass_token:
             return True
@@ -87,15 +81,12 @@ class SlidingWindowThrottle(BaseThrottle):
         try:
             now = time.time()
             window_start = now - self._window_secs
-            # Use a list-based sliding window: store timestamps of requests.
-            # For high-traffic endpoints, use an atomic INCR approach instead.
             hits = self._sliding_window_hits(key, now, window_start)
             if hits > self._limit:
                 self._log_breach(request, hits)
                 return False
             return True
         except Exception:
-            # Never fail a request due to throttle backend errors.
             logger.exception("Throttle backend error — allowing request")
             return True
 
@@ -111,15 +102,10 @@ class SlidingWindowThrottle(BaseThrottle):
         counter_key = f"{key}:count"
 
         try:
-            # Attempt to set the initial count of 1. If this succeeds, the key did
-            # not exist, and its TTL is correctly set to _window_secs.
             if backend.add(counter_key, 1, timeout=self._window_secs):
                 return 1
-            # If the key already existed, increment the counter. This maintains the
-            # original TTL (does not extend or reset it).
             return backend.incr(counter_key)
         except Exception:
-            # Fallback block to ensure the request is not dropped on cache backend error
             try:
                 current_count = backend.get(counter_key)
                 if current_count is None:
@@ -129,8 +115,6 @@ class SlidingWindowThrottle(BaseThrottle):
                 backend.set(counter_key, new_count, timeout=self._window_secs)
                 return new_count
             except Exception:
-                # Fail-open : mieux vaut laisser passer la requete que la bloquer
-                # sur une panne cache, mais la panne doit rester visible.
                 logger.exception("throttle_cache_unavailable key=%s", counter_key)
                 return 0
 
@@ -155,9 +139,6 @@ class SlidingWindowThrottle(BaseThrottle):
         return _client_ip(request)
 
 
-# ---------------------------------------------------------------------------
-# Concrete throttle classes
-# ---------------------------------------------------------------------------
 
 class GlobalAnonThrottle(SlidingWindowThrottle):
     """100 req/minute per IP for unauthenticated requests."""
@@ -169,7 +150,7 @@ class GlobalAnonThrottle(SlidingWindowThrottle):
 
     def allow_request(self, request: Request, view: APIView) -> bool:
         if request.user and request.user.is_authenticated:
-            return True  # Authenticated users use GlobalUserThrottle
+            return True
         return super().allow_request(request, view)
 
 
@@ -186,7 +167,7 @@ class GlobalUserThrottle(SlidingWindowThrottle):
 
     def allow_request(self, request: Request, view: APIView) -> bool:
         if not (request.user and request.user.is_authenticated):
-            return True  # Anonymous users use GlobalAnonThrottle
+            return True
         return super().allow_request(request, view)
 
 
@@ -296,9 +277,6 @@ class WebhookThrottle(SlidingWindowThrottle):
         return self._get_ip(request)
 
 
-# ---------------------------------------------------------------------------
-# IP-level hard block (Redis-backed)
-# ---------------------------------------------------------------------------
 
 def is_ip_blocked(ip: str) -> bool:
     """Check whether an IP has been hard-blocked (e.g. by Fail2ban integration)."""

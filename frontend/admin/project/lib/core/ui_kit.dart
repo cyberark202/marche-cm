@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Reusable visual components shared across all admin screens. Self-contained
-/// (depends only on [AppTheme]) so the admin app carries no i18n coupling.
 
-// ── State views ──────────────────────────────────────────────────────────────
 
 class AppLoadingState extends StatelessWidget {
   const AppLoadingState({super.key, this.label = "Chargement…"});
@@ -118,7 +115,6 @@ class AppErrorState extends StatelessWidget {
   }
 }
 
-// ── Cards & sections ──────────────────────────────────────────────────────────
 
 class SectionCard extends StatelessWidget {
   const SectionCard({
@@ -187,7 +183,6 @@ class SectionLabel extends StatelessWidget {
   }
 }
 
-/// KPI tile used on the dashboard grid.
 class KpiCard extends StatelessWidget {
   const KpiCard({
     super.key,
@@ -255,7 +250,6 @@ class KpiCard extends StatelessWidget {
   }
 }
 
-/// Colored status pill (KYC VALIDÉ, OUVERT, URGENT…).
 class StatusPill extends StatelessWidget {
   const StatusPill(this.label, {super.key, this.color = AppPalette.primary, this.filled = false});
   final String label;
@@ -283,7 +277,6 @@ class StatusPill extends StatelessWidget {
   }
 }
 
-/// Circular avatar with initials.
 class AvatarChip extends StatelessWidget {
   const AvatarChip(this.initials,
       {super.key, this.size = 42, this.color = AppPalette.primary});
@@ -313,7 +306,6 @@ class AvatarChip extends StatelessWidget {
   }
 }
 
-/// A row inside a section card: leading avatar/icon, title, subtitle, trailing.
 class TileRow extends StatelessWidget {
   const TileRow({
     super.key,
@@ -367,7 +359,6 @@ class TileRow extends StatelessWidget {
   }
 }
 
-/// Gradient hero used at the top of dashboard-like screens.
 class HeroPanel extends StatelessWidget {
   const HeroPanel({
     super.key,
@@ -394,7 +385,6 @@ class HeroPanel extends StatelessWidget {
   }
 }
 
-/// Tiny snackbar helper.
 void showSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()

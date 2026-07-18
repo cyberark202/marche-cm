@@ -2,29 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Design System — Clients (acheteurs)
-///
-/// Tonalité : marketplace camerounaise, chaleureuse, de confiance.
-/// Palette : vert forêt #0F7A4F (primary), corail (secondary), ambre (accent).
 class AppPalette {
-  // ── Brand ──────────────────────────────────────────────────────────────
   static const Color primary = Color(0xFF0F7A4F);
   static const Color primaryDark = Color(0xFF0A5A3A);
   static const Color primaryLight = Color(0xFF16A34A);
   static const Color primarySoft = Color(0xFFE6F2EC);
 
-  static const Color secondary = Color(0xFFE5484D); // Coral Red (#E5484D)
+  static const Color secondary = Color(0xFFE5484D);
   static const Color secondaryDark = Color(0xFFDC2626);
   static const Color secondaryLight = Color(0xFFFEECEC);
   static const Color secondarySoft = Color(0xFFFEECEC);
 
-  static const Color accent = Color(0xFFF5B400); // Sunburst Yellow (#F5B400)
+  static const Color accent = Color(0xFFF5B400);
   static const Color accentDark = Color(0xFFC68F00);
   static const Color accentSoft = Color(0xFFFEF4D6);
 
   static const Color accentWarm = Color(0xFFE5484D);
 
-  // ── Status ─────────────────────────────────────────────────────────────
   static const Color danger = Color(0xFFDC2626);
   static const Color dangerSoft = Color(0xFFFEECEC);
   static const Color success = Color(0xFF16A34A);
@@ -34,7 +28,6 @@ class AppPalette {
   static const Color info = Color(0xFF2563EB);
   static const Color infoSoft = Color(0xFFE0E7FF);
 
-  // ── Surfaces ───────────────────────────────────────────────────────────
   static const Color bg = Color(0xFFFAF7F0);
   static const Color bgSoft = Color(0xFFF1ECDE);
   static const Color bgDeep = Color(0xFFE8E2D2);
@@ -43,17 +36,14 @@ class AppPalette {
   static const Color border = Color(0xFFE5DECC);
   static const Color borderSoft = Color(0xFFEDE7D6);
 
-  // ── Text ───────────────────────────────────────────────────────────────
   static const Color text = Color(0xFF0E1F18);
   static const Color textMuted = Color(0xFF5C6B64);
   static const Color textFaint = Color(0xFF8F9C96);
 
-  // ── Cameroun (drapeau) ─────────────────────────────────────────────────
   static const Color cmGreen = Color(0xFF0F7A4F);
   static const Color cmRed = Color(0xFFE5484D);
   static const Color cmYellow = Color(0xFFF5B400);
 
-  // ── Gradients ──────────────────────────────────────────────────────────
   static const LinearGradient gradientPrimary = LinearGradient(
     colors: [Color(0xFF0F7A4F), Color(0xFF063D27)],
     begin: Alignment.topLeft,
@@ -90,7 +80,6 @@ class AppPalette {
     end: Alignment.bottomRight,
   );
 
-  // ── Shadows ────────────────────────────────────────────────────────────
   static List<BoxShadow> shadowSoft = [
     BoxShadow(
       color: const Color(0xFF0F1F1A).withValues(alpha: 0.04),

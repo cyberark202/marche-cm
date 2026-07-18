@@ -16,12 +16,11 @@ def stats(name, samples):
     samples_ms = [round(s*1000,1) for s in samples]
     print(f"{name}: n={len(samples)} min={min(samples_ms)} p50={round(statistics.median(samples_ms),1)} max={max(samples_ms)} ms")
 
-# PG per-query RTT on a warm connection
 try:
     import psycopg
     with psycopg.connect(db_url, connect_timeout=15) as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1")  # warm
+            cur.execute("SELECT 1")
             xs = []
             for _ in range(10):
                 t=time.time(); cur.execute("SELECT 1"); cur.fetchone(); xs.append(time.time()-t)
@@ -29,11 +28,10 @@ try:
 except Exception as e:
     print("PG probe FAIL", type(e).__name__, e)
 
-# Redis per-PING RTT on a warm connection
 try:
     import redis
     r = redis.from_url(redis_url, socket_connect_timeout=15, ssl_cert_reqs=None)
-    r.ping()  # warm
+    r.ping()
     xs=[]
     for _ in range(10):
         t=time.time(); r.ping(); xs.append(time.time()-t)
@@ -41,12 +39,11 @@ try:
 except Exception as e:
     print("REDIS probe FAIL", type(e).__name__, e)
 
-# HTTP latency to deployed backend health endpoint
 try:
     import requests
     url = public.rstrip('/') + "/api/health/"
     s = requests.Session()
-    r0 = s.get(url, timeout=30)  # warm + status
+    r0 = s.get(url, timeout=30)
     print(f"HTTP {url} -> {r0.status_code}")
     xs=[]
     for _ in range(8):

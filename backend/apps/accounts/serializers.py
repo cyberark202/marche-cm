@@ -134,9 +134,6 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         return username
 
     def validate_name(self, value):
-        # Audit ref: [m-1] Display name (first_name) is NOT globally unique —
-        # harmonised with RegisterSerializer, which dropped this check (H-005,
-        # anti-enumeration). Two users may legitimately share a display name.
         name = (value or "").strip()
         if not name:
             return name
@@ -193,15 +190,9 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
     preview_url = serializers.SerializerMethodField()
     signature_url = serializers.SerializerMethodField()
-    # Write-only KYC consent inputs (catalogue screen 46). The PNG signature is
-    # stored as `signature_image`; accepting the consent stamps a server-side
-    # timestamp + version (legal proof of record).
     signature = serializers.ImageField(write_only=True, required=False)
     consent_accepted = serializers.BooleanField(write_only=True, required=False, default=False)
 
-    # Audit ref: [M-2][M-3] single source of truth — see apps/accounts/kyc_constants.py.
-    # CERTIFICATION_TYPES are unique-per-user; DRIVER_DOC_TYPES (identity docs,
-    # incl. PROOF_ADDRESS / SELFIE) are re-submittable (replace on re-upload).
     CERTIFICATION_TYPES = CERTIFICATION_DOC_TYPES
     DRIVER_DOC_TYPES = IDENTITY_DOC_TYPES
     ALLOWED_DOC_TYPES = CERTIFICATION_DOC_TYPES | IDENTITY_DOC_TYPES
@@ -242,8 +233,6 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(_("Type de document invalide."))
         request = self.context.get("request")
         if request and request.user and request.user.is_authenticated:
-            # Driver KYC documents can be replaced (overwrite old ones)
-            # Business certifications are unique per user.
             if value not in self.DRIVER_DOC_TYPES:
                 exists = ComplianceDocument.objects.filter(user=request.user, doc_type=value)
                 if self.instance:
@@ -283,8 +272,6 @@ class ComplianceDocumentSerializer(serializers.ModelSerializer):
         return scrub_image_metadata(value)
 
     def _apply_consent(self, validated_data):
-        # Map the write-only consent inputs onto the model. Accepting consent
-        # stamps a server-side timestamp + version for legal proof of record.
         signature = validated_data.pop("signature", None)
         consent = bool(validated_data.pop("consent_accepted", False))
         if signature is not None:
@@ -398,7 +385,6 @@ class ManagedUserCreateSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password")
         user = User(**validated_data)
         user.set_password(password)
-        # Aucun PIN par defaut: l'utilisateur le definira via /api/wallets/wallet/set_pin/.
         user.save()
         if role == UserRole.TRANSIT_AGENT:
             TransportProfile.objects.update_or_create(
@@ -411,8 +397,6 @@ class ManagedUserCreateSerializer(serializers.ModelSerializer):
                     "is_active": True,
                 },
             )
-        # Audit ref: [M-1] geocoding is offloaded to Celery so registration
-        # returns immediately and is never blocked by the Nominatim HTTP call.
         enqueue_user_geocode(user)
         return user
 
@@ -423,10 +407,6 @@ class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     city = serializers.CharField(required=False, allow_blank=True, max_length=120)
 
-    # M1 — Public self-registration is restricted to BUYER only.
-    # Professional roles (SUPPLIER, WHOLESALER, TRANSIT_AGENT) require admin
-    # approval and are assigned via ManagedUserCreateSerializer (admin-only).
-    # Any role value submitted by the client is silently overridden.
     role = serializers.HiddenField(default=UserRole.BUYER)
 
     class Meta:
@@ -441,8 +421,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         normalized = (value or "").strip().lower()
         if not normalized:
             raise serializers.ValidationError("Email obligatoire.")
-        # M2 — Anti-enumeration: do not confirm whether the email is already
-        # registered. A genuine user can log in or use password reset.
         if User.objects.filter(email__iexact=normalized).exists():
             raise serializers.ValidationError(
                 "Ce compte ne peut pas etre cree. Essayez de vous connecter ou utilisez un autre email."
@@ -450,11 +428,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return normalized
 
     def validate_name(self, value):
-        # Audit ref: [H-005] enum bypass via validate_name.
-        # The previous existence check leaked whether a first_name was already
-        # registered, breaking the anti-enumeration effort done on email. The
-        # collision is now resolved silently in create() with a numeric suffix
-        # on the derived username — first_name itself stays free-form.
         name = (value or "").strip()
         if len(name) < 2:
             raise serializers.ValidationError("Nom obligatoire.")
@@ -469,20 +442,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         return validate_password_strength(value)
 
     def validate(self, attrs):
-        # Role is always BUYER for public registration (HiddenField above).
         return attrs
 
     def create(self, validated_data):
-        # M1 — role is always BUYER (HiddenField). Professional accounts are
-        # created exclusively via ManagedUserCreateSerializer (admin endpoint).
         full_name = validated_data.pop("name").strip()
         password = validated_data.pop("password")
         role = validated_data.get("role", UserRole.BUYER)
 
         base_username = re.sub(r"[^a-zA-Z0-9_]+", "_", full_name.lower()).strip("_") or "user"
-        # Audit ref: [H-005] silently disambiguate username collisions instead of
-        # leaking existence of accounts. Append a numeric suffix until free,
-        # capped at 50 attempts (then random suffix) to bound DB hits.
         username = base_username[:120]
         suffix = 1
         while User.objects.filter(username__iexact=username).exists():
@@ -504,8 +471,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         user.set_password(password)
         user.save()
-        # Audit ref: [M-1] geocoding is offloaded to Celery so registration
-        # returns immediately and is never blocked by the Nominatim HTTP call.
         enqueue_user_geocode(user)
         return user
 
@@ -523,11 +488,7 @@ class SellerRegisterSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(required=True, min_length=8, max_length=30)
     password = serializers.CharField(write_only=True, min_length=8)
     city = serializers.CharField(required=False, allow_blank=True, max_length=120)
-    # company_name is accepted for UX parity but is not stored on User; the
-    # business identity is established later through compliance documents.
     company_name = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=180)
-    # Compte vendeur unifié : seul SUPPLIER (« Vendeur ») est sélectionnable.
-    # `required=False` + défaut SUPPLIER → le client n'a plus à choisir un type.
     role = serializers.ChoiceField(
         choices=[
             (UserRole.SUPPLIER, UserRole.SUPPLIER.label),
@@ -578,8 +539,6 @@ class SellerRegisterSerializer(serializers.ModelSerializer):
         )
         user.set_password(password)
         user.save()
-        # Audit ref: [M-1] geocoding is offloaded to Celery so registration
-        # returns immediately and is never blocked by the Nominatim HTTP call.
         enqueue_user_geocode(user)
         return user
 
@@ -650,8 +609,6 @@ class DriverRegisterSerializer(serializers.ModelSerializer):
                 "is_active": True,
             },
         )
-        # Audit ref: [M-1] geocoding is offloaded to Celery so registration
-        # returns immediately and is never blocked by the Nominatim HTTP call.
         enqueue_user_geocode(user)
         return user
 
@@ -660,9 +617,6 @@ class LoginRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True, write_only=True)
 
-    # M2 — Constant-time dummy hash used when the user is not found.
-    # This ensures the response time is indistinguishable from a real
-    # failed authentication, preventing user enumeration via timing.
     _DUMMY_HASH = (
         "pbkdf2_sha256$600000$dummysalt0000000$"
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
@@ -676,16 +630,12 @@ class LoginRequestSerializer(serializers.Serializer):
         user = User.objects.filter(email__iexact=email).first()
 
         if user is None:
-            # Always run a real PBKDF2 comparison to equalise response time
-            # regardless of whether the email exists in the database.
             _check_pw(password, self._DUMMY_HASH)
             raise AuthenticationFailed("Identifiants invalides.")
 
         if not user.check_password(password):
             raise AuthenticationFailed("Identifiants invalides.")
 
-        # Audit ref: [M-6] suspended accounts get a clear message (checked before
-        # the generic is_active branch, since suspension also clears is_active).
         if getattr(user, "is_suspended", False):
             raise AuthenticationFailed("Compte suspendu. Contactez le support.")
 

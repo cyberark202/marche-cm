@@ -12,12 +12,6 @@ import '../../core/app_theme.dart';
 import '../auth/session_store.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// KYC onboarding acheteur — wizard fidèle au design `screens-kyc.jsx` (6 écrans) :
-/// intro → type de compte → documents → signature → récapitulatif → succès.
-///
-/// Backend : `POST /api/auth/kyc/submit/` (multipart) par document, avec la
-/// signature manuscrite + `consent_accepted` (horodaté serveur) sur le premier
-/// envoi. doc_type ∈ {CNI, PROOF_ADDRESS, SELFIE}.
 enum _KycStage { intro, type, docs, signature, review, success }
 
 enum _AccountType { individual, company, pro }
@@ -123,7 +117,6 @@ class _KycVerificationPageState extends State<KycVerificationPage> {
     });
     final token = context.read<SessionStore>().token;
     try {
-      // 1) CNI — porte la signature + le consentement (horodaté serveur).
       await _api.postMultipart(
         '/api/auth/kyc/submit/',
         fields: const {'doc_type': 'CNI', 'consent_accepted': 'true'},
@@ -133,14 +126,12 @@ class _KycVerificationPageState extends State<KycVerificationPage> {
           (field: 'signature', bytes: _signatureBytes!, filename: 'signature.png'),
         ],
       );
-      // 2) Justificatif de domicile.
       await _api.postMultipart(
         '/api/auth/kyc/submit/',
         fields: const {'doc_type': 'PROOF_ADDRESS'},
         file: _docs['address'],
         token: token,
       );
-      // 3) Selfie avec CNI.
       await _api.postMultipart(
         '/api/auth/kyc/submit/',
         fields: const {'doc_type': 'SELFIE'},
@@ -704,7 +695,6 @@ class _KycVerificationPageState extends State<KycVerificationPage> {
   }
 }
 
-// ── Sous-widgets ──────────────────────────────────────────────────────────
 
 class _KycProgress extends StatelessWidget {
   final int step;
@@ -1124,7 +1114,6 @@ class _SuccessScreen extends StatelessWidget {
   }
 }
 
-// ── Signature pad ─────────────────────────────────────────────────────────
 
 class _SignaturePad extends StatefulWidget {
   const _SignaturePad({super.key, required this.onChanged});

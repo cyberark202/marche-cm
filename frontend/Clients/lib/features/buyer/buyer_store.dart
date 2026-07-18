@@ -140,10 +140,6 @@ class BuyerStore extends ChangeNotifier {
         .toSet();
   }
 
-  // Synchronisation panier serveur (best-effort, configurée après login).
-  // Rend le panier persistant et multi-appareils. Les callbacks avalent leurs
-  // erreurs : une panne réseau ne doit jamais casser l'UI (le push au checkout
-  // réconcilie de toute façon).
   Future<void> Function(int productId, int quantity)? _onCartUpsert;
   Future<void> Function(int productId)? _onCartRemove;
   Future<void> Function()? _onCartClear;
@@ -158,7 +154,6 @@ class BuyerStore extends ChangeNotifier {
     _onCartClear = onClear;
   }
 
-  /// Remplace le panier local par l'état serveur (au démarrage authentifié).
   void hydrateCart(List<CartEntry> items) {
     _cart
       ..clear()

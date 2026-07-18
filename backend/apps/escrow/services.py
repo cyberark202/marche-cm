@@ -59,9 +59,6 @@ _MIGRATION_HINT = (
 
 
 class EscrowService:
-    # ────────────────────────────────────────────────────────────────────
-    # Refused write paths — formerly ghost methods that lost money.
-    # ────────────────────────────────────────────────────────────────────
 
     def create_order_escrow(self, *args, **kwargs):  # noqa: ARG002
         raise EscrowServiceUnsupportedError(_MIGRATION_HINT.format(name="create_order_escrow"))
@@ -72,9 +69,6 @@ class EscrowService:
     def refund_to_payer(self, *args, **kwargs):  # noqa: ARG002
         raise EscrowServiceUnsupportedError(_MIGRATION_HINT.format(name="refund_to_payer"))
 
-    # ────────────────────────────────────────────────────────────────────
-    # State-only helpers — safe, never touch wallets.
-    # ────────────────────────────────────────────────────────────────────
 
     def freeze_for_dispute(self, hold: EscrowHold, actor, reason: str) -> EscrowHold:
         """
@@ -108,7 +102,6 @@ class EscrowService:
         (or its sibling helpers) — never by this loop.
         """
         now = timezone.now()
-        # Tight queryset: only state=LOCKED rows whose timer has elapsed.
         holds = EscrowHold.objects.filter(
             state=EscrowState.LOCKED,
             auto_release_at__lte=now,
@@ -127,9 +120,6 @@ class EscrowService:
                 logger.exception("auto_release_error hold=%s", hold.pk)
         return count
 
-    # ────────────────────────────────────────────────────────────────────
-    # Display record creation — strictly read-only mirror of OrderEscrow.
-    # ────────────────────────────────────────────────────────────────────
 
     @staticmethod
     def attach_display_record(*, order_escrow, idempotency_key: str) -> EscrowHold:

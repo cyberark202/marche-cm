@@ -5,7 +5,6 @@ import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 36 — Document review: preview, verification checklist, decision.
 class DocumentReviewPage extends StatefulWidget {
   const DocumentReviewPage({
     super.key,
@@ -58,7 +57,6 @@ class _DocumentReviewPageState extends State<DocumentReviewPage> {
     } catch (e) {
       if (mounted) showSnack(context, _repo.errorMessage(e));
     } finally {
-      // Toujours relâcher le spinner (succès = navigation ; échec = ré-essai).
       if (mounted) setState(() => _submitting = false);
     }
   }

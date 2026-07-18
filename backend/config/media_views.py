@@ -37,7 +37,6 @@ _CHUNK = 8192
 def _safe_full_path(relative_path: str) -> str:
     media_root = os.path.abspath(settings.MEDIA_ROOT)
     full_path = os.path.abspath(os.path.join(media_root, relative_path))
-    # Protection path traversal : le chemin resolu doit rester sous MEDIA_ROOT.
     if os.path.commonpath([media_root, full_path]) != media_root:
         raise Http404("Chemin media invalide.")
     if not os.path.isfile(full_path):
@@ -49,7 +48,6 @@ def serve_media_with_range(request, path: str):
     full_path = _safe_full_path(path)
     statobj = os.stat(full_path)
 
-    # Respecte If-Modified-Since (304) comme django.views.static.serve.
     if not was_modified_since(
         request.META.get("HTTP_IF_MODIFIED_SINCE"), statobj.st_mtime
     ):
@@ -66,7 +64,7 @@ def serve_media_with_range(request, path: str):
         end = int(end_str) if end_str else file_size - 1
         end = min(end, file_size - 1)
         if start > end or start >= file_size:
-            resp = HttpResponse(status=416)  # Range Not Satisfiable
+            resp = HttpResponse(status=416)
             resp["Content-Range"] = f"bytes */{file_size}"
             return _allow_cross_origin(resp)
 

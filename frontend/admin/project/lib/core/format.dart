@@ -1,8 +1,6 @@
-/// Lightweight formatting helpers (no intl dependency) for the admin console.
 class Fmt {
   const Fmt._();
 
-  /// Group thousands with a thin space: 1248500 -> "1 248 500".
   static String thousands(num value) {
     final isNeg = value < 0;
     final digits = value.abs().round().toString();
@@ -14,10 +12,8 @@ class Fmt {
     return isNeg ? '-${buffer.toString()}' : buffer.toString();
   }
 
-  /// "14 500 FCFA"
   static String fcfa(num value) => '${thousands(value)} FCFA';
 
-  /// Compact money for KPIs: 684200000 -> "684,2 M", 14800000 -> "14,8 M".
   static String compact(num value) {
     final v = value.abs();
     String body;
@@ -41,14 +37,12 @@ class Fmt {
 
   static String compactFcfa(num value) => '${compact(value)} FCFA';
 
-  /// Parse a backend numeric/string amount safely.
   static num amount(dynamic raw) {
     if (raw is num) return raw;
     if (raw is String) return num.tryParse(raw.replaceAll(' ', '')) ?? 0;
     return 0;
   }
 
-  /// "il y a 2 min" / "il y a 3 j" style relative time from an ISO string.
   static String relative(dynamic isoRaw) {
     final iso = (isoRaw ?? '').toString();
     if (iso.isEmpty) return '';
@@ -63,7 +57,6 @@ class Fmt {
     return 'il y a ${(diff.inDays / 30).floor()} mois';
   }
 
-  /// "12 mai · 09:42" style absolute timestamp.
   static String dateTime(dynamic isoRaw) {
     final iso = (isoRaw ?? '').toString();
     if (iso.isEmpty) return '';
@@ -79,7 +72,6 @@ class Fmt {
     return '${l.day} ${months[l.month - 1]} · $hh:$mm';
   }
 
-  /// Initials for an avatar chip: "Tropical Foods" -> "TF".
   static String initials(String? name) {
     final n = (name ?? '').trim();
     if (n.isEmpty) return '?';

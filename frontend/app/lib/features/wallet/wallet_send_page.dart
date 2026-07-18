@@ -221,9 +221,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
       final status = (result['status'] ?? '').toString().toUpperCase();
       final initiatedAt = DateTime.now();
 
-      // In-app Direct Charge (mobile money): NotchPay a poussé une demande de
-      // validation USSD sur le téléphone — pas de navigateur externe. On ouvre
-      // directement la feuille de suivi qui sonde le statut.
       if (paymentMode == 'direct_charge' ||
           (checkoutUrl.isEmpty && status == 'PENDING')) {
         final paid = await NotchPayPendingSheet.show(
@@ -236,7 +233,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
         if (!mounted) return;
         if (paid == true) Navigator.of(context).pop(true);
       } else if (checkoutUrl.isNotEmpty) {
-        // Flux hébergé (carte / PayPal) : redirection navigateur puis suivi.
         await _launchTransferCode(checkoutUrl);
         if (!mounted) return;
         final paid = await NotchPayPendingSheet.show(
@@ -248,7 +244,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
         );
         if (!mounted) return;
         if (paid == true) Navigator.of(context).pop(true);
-        // paid == false/null: timeout or cancel — stay on page so user can retry
       } else {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Recharge effectuee.')));

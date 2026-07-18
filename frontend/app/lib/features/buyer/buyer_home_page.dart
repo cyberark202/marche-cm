@@ -61,9 +61,6 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
 
   Future<void> _loadWallet() async {
     try {
-      // Audit ref: [Front-marche_cm] no /api/wallets/me/ endpoint exists.
-      // WalletViewSet.list is auto-filtered to owner=request.user, so the
-      // first (and only) row is always the caller's own wallet.
       final resp = await SecureDioClient.dio.get('/api/wallets/');
       final data = resp.data;
       Map<String, dynamic> wallet = {};
@@ -113,7 +110,6 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
         color: AppPalette.primary,
         child: CustomScrollView(
           slivers: [
-            // ── App bar ──────────────────────────────────────────────────
             SliverAppBar(
               floating: true,
               backgroundColor: Colors.white,
@@ -155,7 +151,6 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
               ],
             ),
 
-            // ── Wallet card ──────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Container(
                 margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -230,7 +225,6 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
               ),
             ),
 
-            // ── Search bar ───────────────────────────────────────────────
             SliverToBoxAdapter(
               child: GestureDetector(
                 onTap: () {},
@@ -258,7 +252,6 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
               ),
             ),
 
-            // ── KYC banner ───────────────────────────────────────────────
             SliverToBoxAdapter(
               child: GestureDetector(
                 onTap: () => Navigator.push(
@@ -297,7 +290,6 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
               ),
             ),
 
-            // ── Categories 4×2 grid ───────────────────────────────────────
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
@@ -326,7 +318,6 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
               ),
             ),
 
-            // ── Products header ───────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding:
@@ -352,7 +343,6 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
               ),
             ),
 
-            // ── Products grid ─────────────────────────────────────────────
             if (_loading)
               const SliverToBoxAdapter(child: _ShimmerGrid())
             else if (_recommended.isEmpty)
@@ -384,7 +374,6 @@ class _BuyerHomePageState extends State<BuyerHomePage> {
   }
 }
 
-// ── Wallet action button ───────────────────────────────────────────────────────
 
 class _WalletAction extends StatelessWidget {
   final IconData icon;
@@ -418,7 +407,6 @@ class _WalletAction extends StatelessWidget {
       );
 }
 
-// ── Category tile ─────────────────────────────────────────────────────────────
 
 class _Cat {
   final String name;
@@ -460,7 +448,6 @@ class _CategoryTile extends StatelessWidget {
       );
 }
 
-// ── Product card ──────────────────────────────────────────────────────────────
 
 class _ProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
@@ -539,7 +526,6 @@ class _ProductCard extends StatelessWidget {
       );
 }
 
-// ── Shimmer & empty ───────────────────────────────────────────────────────────
 
 class _ShimmerGrid extends StatelessWidget {
   const _ShimmerGrid();

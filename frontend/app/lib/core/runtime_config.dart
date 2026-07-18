@@ -6,8 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_config.dart';
 
-/// Config runtime servie par le backend (/api/app/runtime-config/).
-/// Pilote la porte de démarrage : forced-update, maintenance, kill switch, flags.
 class RuntimeConfig {
   const RuntimeConfig({
     required this.configVersion,
@@ -35,10 +33,8 @@ class RuntimeConfig {
   final bool killSwitch;
   final Map<String, dynamic> featureFlags;
 
-  /// L'app doit afficher un écran bloquant (rien d'autre n'est accessible).
   bool get isBlocking => killSwitch || updateRequired || maintenance;
 
-  /// Lecture d'un feature flag (dark launch d'une fonctionnalité déjà livrée).
   bool flag(String key, {bool fallback = false}) {
     final v = featureFlags[key];
     return v is bool ? v : fallback;
@@ -84,8 +80,6 @@ class RuntimeConfig {
       };
 }
 
-/// Récupère et met en cache la config runtime. Singleton exposant un
-/// [ValueNotifier] auquel la porte (AppGate) réagit.
 class RuntimeConfigService {
   RuntimeConfigService._();
   static final RuntimeConfigService instance = RuntimeConfigService._();
@@ -96,9 +90,6 @@ class RuntimeConfigService {
 
   String get _platform => kIsWeb ? 'web' : 'android';
 
-  /// Charge la dernière config persistée. Appliquée AVANT le réseau pour que le
-  /// kill switch / forced-update reçus précédemment restent actifs hors-ligne
-  /// (fail-closed) — une app figée ne peut pas les contourner en coupant le net.
   Future<void> loadCached() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -108,13 +99,9 @@ class RuntimeConfigService {
             RuntimeConfig.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       }
     } catch (_) {
-      // cache illisible — on ignore, le réseau prendra le relais.
     }
   }
 
-  /// Rafraîchit depuis le serveur. Fail-open réseau : en cas d'échec on conserve
-  /// le cache (potentiellement fail-closed). Appelée au boot, périodiquement, et
-  /// sur réception d'un évènement WebSocket topic "system".
   Future<void> refresh() async {
     final uri = Uri.parse(
       '${AppConfig.apiBaseUrl}/api/app/runtime-config/'
@@ -132,7 +119,6 @@ class RuntimeConfigService {
         } catch (_) {}
       }
     } catch (_) {
-      // réseau indisponible — on garde le cache déjà chargé.
     }
   }
 }

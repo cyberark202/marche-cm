@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-# Pre-vol E2E 2026-06-16 : credite le wallet acheteur + verifie KYC vendeur.
-# Lance via : Get-Content qa_e2e\_e2e_setup.py | python backend\manage.py shell
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -20,7 +18,6 @@ seller = User.objects.filter(email__iexact=SELLER_EMAIL).first()
 print("=== PRE-VOL SETUP ===")
 print("buyer:", buyer.id if buyer else None, "| seller:", seller.id if seller else None)
 
-# --- 1. Verifier KYC vendeur (requis par les controles anti-fraude international)
 if seller:
     changed = []
     if not seller.is_verified:
@@ -33,7 +30,6 @@ if seller:
         seller.save(update_fields=changed)
     print("seller is_verified=%s kyc_level=%s (changed=%s)" % (seller.is_verified, seller.kyc_level, changed))
 
-# --- 2. Crediter le wallet acheteur (idempotent)
 if buyer:
     with transaction.atomic():
         w = WalletAccountingService.get_wallet_for_update(user=buyer)

@@ -19,9 +19,6 @@ class VideoPostPlayer extends StatefulWidget {
   final String videoUrl;
   final String coverUrl;
 
-  /// `true` uniquement pour la page actuellement visible du feed. Les pages
-  /// voisines sont initialisees (prechargement) mais NE jouent pas, ce qui
-  /// evite plusieurs videos/audios simultanes (pattern « seul le courant joue »).
   final bool isActive;
 
   @override
@@ -34,23 +31,11 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
   ChewieController? _chewieController;
   bool _ready = false;
   bool _failed = false;
-  // La video ne joue QUE si elle est a la fois la page active du feed,
-  // physiquement a l'ecran (pas couverte par une route / un autre onglet
-  // IndexedStack), et l'app au premier plan. Sinon -> pause (pas de lecture en
-  // arriere-plan). Geres respectivement par isActive, VisibilityDetector et le
-  // cycle de vie de l'app.
   bool _onScreen = true;
   bool _appResumed = true;
-  // Sur le web, l'autoplay AVEC son est bloque par le navigateur tant qu'il n'y
-  // a pas eu de geste utilisateur : la video resterait figee sur la 1re frame.
-  // On demarre donc en muet sur le web (l'utilisateur peut reactiver le son),
-  // ce qui autorise la lecture automatique. Sur mobile, autoplay sonore est OK.
-  // Le choix mute/son PERSISTE pour toute la session de scroll (facon TikTok :
-  // on ne re-coupe pas le son a chaque nouvelle video du feed).
   static bool _sessionMuted = kIsWeb;
   bool _muted = _sessionMuted;
   String? _errorText;
-  // Position en cours de glissement sur la barre de seek (null = pas de drag).
   double? _dragProgress;
 
   @override
@@ -69,8 +54,6 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
     }
   }
 
-  /// Source unique de verite pour lecture/pause : on ne joue que si la video est
-  /// active (page courante), a l'ecran ET l'app au premier plan.
   void _syncPlayback() {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
@@ -101,8 +84,6 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
 
       final chewieController = ChewieController(
         videoPlayerController: controller,
-        // La lecture est pilotee par _syncPlayback (active + a l'ecran + app au
-        // premier plan), pas par l'autoplay de Chewie.
         autoPlay: false,
         looping: true,
         showControls: false,
@@ -121,8 +102,6 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
       });
       _syncPlayback();
     } catch (e) {
-      // On NE masque plus l'erreur : la cause (codec non supporte, transport,
-      // CORS, 403...) est exposee en debug pour diagnostiquer encodage/transport.
       debugPrint("VideoPostPlayer init failed: $e");
       if (mounted) {
         setState(() {
@@ -148,10 +127,6 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
       _init();
       return;
     }
-    // Meme video, seul isActive a change : on joue/pause sans recreer le
-    // controleur (pattern « seul le courant joue », sans rebuffering inutile).
-    // La position est CONSERVEE : revenir sur la video reprend ou on s'etait
-    // arrete (reprise TikTok), tant que le player voisin reste monte.
     if (oldWidget.isActive != widget.isActive) {
       _syncPlayback();
     }
@@ -167,9 +142,6 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
 
   @override
   Widget build(BuildContext context) {
-    // VisibilityDetector : des que la video sort de l'ecran (changement
-    // d'onglet IndexedStack, route poussee par-dessus, scroll), on coupe la
-    // lecture -> jamais d'audio/video en arriere-plan.
     return VisibilityDetector(
       key: Key("video-vis-${widget.videoUrl}"),
       onVisibilityChanged: (info) {
@@ -186,8 +158,6 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
 
   Widget _buildContent(BuildContext context) {
     if (_failed) {
-      // En debug, on superpose la cause de l'echec pour diagnostiquer
-      // l'encodage/transport sans ouvrir la console.
       if (kDebugMode && (_errorText ?? "").isNotEmpty) {
         return Stack(
           fit: StackFit.expand,
@@ -248,8 +218,6 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
                 child: Chewie(controller: _chewieController!),
               ),
             ),
-            // Indicateur de buffering : visible tant que la video se met en
-            // memoire tampon et n'avance pas encore.
             if (value.isBuffering && !value.isPlaying)
               const Center(
                 child: CircularProgressIndicator(
@@ -308,7 +276,6 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Barre de seek interactive : glisser pour avancer/reculer.
                     SliderTheme(
                       data: const SliderThemeData(
                         trackHeight: 3,
@@ -368,11 +335,6 @@ class _VideoPostPlayerState extends State<VideoPostPlayer>
     if (controller == null) {
       return;
     }
-    // Sur le web, la 1re video demarre en muet (politique autoplay du
-    // navigateur). Un utilisateur qui tape sur la video s'attend a entendre
-    // le son, pas a la mettre en pause : ce geste sert donc d'abord a
-    // reactiver le son (comme TikTok/Instagram), la pause reste accessible
-    // via un 2e tap une fois le son actif.
     if (_muted) {
       _toggleMute();
       return;

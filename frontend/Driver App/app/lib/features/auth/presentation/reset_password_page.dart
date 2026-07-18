@@ -6,7 +6,6 @@ import '../../../core/theme/driver_theme.dart';
 import '../infrastructure/driver_auth_api.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Forgot-password flow (2 steps): email → emailed code + new password.
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
 

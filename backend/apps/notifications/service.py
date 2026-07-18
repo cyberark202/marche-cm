@@ -51,12 +51,10 @@ def create_realtime_notification(
     )
     push_allowed = is_forced or not prefs or prefs.push_enabled
     if push_allowed:
-        # Best-effort FCM push for users whose app is closed or backgrounded.
         try:
             from .push_service import send_push_notification
             send_push_notification(user=user, title=title, body=body, data=event_payload)
         except Exception:
-            # Never let push failure break the in-app notification path.
             logger.warning("fcm_push_failed user=%d", user.id, exc_info=True)
 
     return notification

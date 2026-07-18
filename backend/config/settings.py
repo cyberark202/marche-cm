@@ -7,9 +7,6 @@ from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Local development override: if marche-cm.local.env exists it takes precedence
-# over the production marche-cm.env. The local file is git-ignored and only
-# present on developer machines, so production deployments are unaffected.
 _local_env_file = BASE_DIR / "marche-cm.local.env"
 load_dotenv(_local_env_file if _local_env_file.exists() else BASE_DIR / "marche-cm.env")
 
@@ -103,20 +100,11 @@ if not SECRET_KEY:
     else:
         raise ImproperlyConfigured("SECRET_KEY is required when DEBUG=False.")
 
-# Audit ref: [N-006] development IP removed from the default. Production
-# operators MUST set ALLOWED_HOSTS explicitly via env; the default only
-# covers local-loopback hostnames for dev runs.
 ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
 
-# Audit ref: [N-005] reverse-proxy IPs that are allowed to set X-Forwarded-For.
-# Empty by default — the canonical _client_ip helper refuses XFF when REMOTE_ADDR
-# is not in this list, so an attacker connecting directly cannot forge their IP.
 TRUSTED_PROXIES = _env_list("TRUSTED_PROXIES", "")
 TRUST_PRIVATE_PROXIES = _env_bool("TRUST_PRIVATE_PROXIES", False)
 BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://127.0.0.1:8000")
-# Audit ref: [M-003] reject plaintext HTTP for callback URLs in production —
-# NotchPay would otherwise be told to deliver payment receipts and OAuth
-# redirects over an unencrypted channel.
 if not DEBUG and BACKEND_PUBLIC_URL.lower().startswith("http://"):
     raise ImproperlyConfigured(
         "BACKEND_PUBLIC_URL must use HTTPS in production. "
@@ -127,18 +115,8 @@ DATA_ENCRYPTION_KEY = os.getenv("DATA_ENCRYPTION_KEY", "").strip()
 DATA_ENCRYPTION_FALLBACK_KEYS = _env_list("DATA_ENCRYPTION_FALLBACK_KEYS")
 AUTH_LOCKDOWN = _env_bool("AUTH_LOCKDOWN", False)
 
-# Audit ref: [API-DOCS] The OpenAPI schema + Swagger/Redoc UIs map the entire
-# API surface (every route, payload, auth requirement). For a fintech this is
-# reconnaissance material. Disabled by default in production; only served when
-# explicitly enabled (e.g. a staging environment) or in local DEBUG.
 ENABLE_API_DOCS = _env_bool("ENABLE_API_DOCS", DEBUG)
 
-# Debug authentication bypass — hardened against accidental production activation.
-# Audit ref: [H-001] DebugBypassAuthentication peut créer un superuser
-# Rules:
-#   1. The env var ENABLE_DEBUG_BYPASS=1 is REFUSED at startup if DEBUG=False.
-#   2. The auth class is NEVER registered when DEBUG=False, even if the env vars leak.
-#   3. DEBUG_BYPASS_TOKEN is REFUSED at startup if shorter than 32 chars (entropy).
 _debug_bypass_env_enabled = _env_bool("ENABLE_DEBUG_BYPASS", False)
 DEBUG_BYPASS_TOKEN = os.getenv("DEBUG_BYPASS_TOKEN", "").strip()
 if not DEBUG and _debug_bypass_env_enabled:
@@ -152,14 +130,10 @@ if _debug_bypass_env_enabled and DEBUG_BYPASS_TOKEN and len(DEBUG_BYPASS_TOKEN) 
     )
 ENABLE_DEBUG_BYPASS = DEBUG and _debug_bypass_env_enabled and bool(DEBUG_BYPASS_TOKEN)
 
-# Keep common local dev hosts accepted (Android emulator, localhost variants),
-# avoiding DisallowedHost errors while testing mobile builds against local API.
 if DEBUG:
     for host in ("127.0.0.1", "localhost", "10.0.2.2", "10.0.3.2", "[::1]"):
         if host not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(host)
-    # Auto-detect this machine's LAN IPs so a *physical* phone on the same WiFi
-    # can reach `runserver 0.0.0.0:8000` by IP without hand-editing this list.
     try:
         import socket as _socket
 
@@ -184,10 +158,6 @@ if _public_host and _public_host not in ALLOWED_HOSTS:
 
 SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", not DEBUG)
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", not DEBUG)
-# Audit ref: [N-013] Strict SameSite for session and CSRF cookies — Django's
-# default "Lax" still lets a top-level GET cross-site request carry the
-# session, which is insufficient for a fintech admin surface. Strict forbids
-# the cookie from riding any cross-site navigation.
 SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Strict")
 CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Strict")
 CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", not DEBUG)
@@ -205,23 +175,16 @@ if _render_external_hostname:
 if _env_bool("USE_X_FORWARDED_PROTO", not DEBUG):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# Browser-origin policy configuration for frontend web clients.
 CORS_ALLOW_ALL_ORIGINS = _env_bool("CORS_ALLOW_ALL_ORIGINS", False)
 CORS_ALLOWED_ORIGINS = _env_list("CORS_ALLOWED_ORIGINS")
 CORS_ALLOWED_ORIGIN_REGEXES = _env_list("CORS_ALLOWED_ORIGIN_REGEXES")
 
-# In local debug, allow localhost dynamic ports (Flutter web/Vite/etc.)
-# when no explicit CORS origin configuration is provided.
 if DEBUG and not CORS_ALLOW_ALL_ORIGINS and not CORS_ALLOWED_ORIGINS and not CORS_ALLOWED_ORIGIN_REGEXES:
     CORS_ALLOWED_ORIGIN_REGEXES = [
         r"^http://localhost:\d+$",
         r"^http://127\.0\.0\.1:\d+$",
     ]
 
-# Custom request headers emitted by the Flutter web clients (SecureDioClient
-# security stack). Without these in the allow-list, the browser CORS preflight
-# fails and the request never reaches Django (surfaces as an XMLHttpRequest
-# onError / "connection error" in Dio, NOT a 4xx).
 from corsheaders.defaults import default_headers as _cors_default_headers  # noqa: E402
 
 CORS_ALLOW_HEADERS = list(_cors_default_headers) + [
@@ -271,14 +234,11 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    # Correlation ID first — every downstream log will carry it.
     "config.middleware.CorrelationIDMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
-    # Security headers after SecurityMiddleware (which sets HSTS/SSL).
     "config.middleware.SecurityHeadersMiddleware",
-    # Block oversized requests before sessions/auth parse the body.
     "config.middleware.RequestSizeLimitMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -286,7 +246,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # Suspicious activity detection last — has full request context.
     "config.middleware.SuspiciousRequestMiddleware",
 ]
 
@@ -336,9 +295,6 @@ else:
 if default_database["ENGINE"] == "django.db.backends.postgresql":
     default_database["CONN_MAX_AGE"] = DB_CONN_MAX_AGE
     _db_options = {"connect_timeout": DB_CONNECT_TIMEOUT}
-    # TLS pour les bases managées (AWS RDS, etc.). Piloté par env et désactivé
-    # par défaut pour ne pas casser un Postgres conteneurisé sans SSL. En prod
-    # RDS : DB_SSLMODE=require (ou verify-full + DB_SSLROOTCERT = bundle CA RDS).
     _db_sslmode = os.getenv("DB_SSLMODE", "").strip()
     if _db_sslmode:
         _db_options["sslmode"] = _db_sslmode
@@ -370,11 +326,6 @@ MEDIA_ROOT = BASE_DIR / "media"
 USE_S3_STORAGE = _env_bool("USE_S3_STORAGE", False)
 REQUIRE_REMOTE_PROOF_STORAGE = _env_bool("REQUIRE_REMOTE_PROOF_STORAGE", not DEBUG)
 
-# IMPORTANT (Django 5.x) — la configuration du stockage passe désormais par le
-# réglage STORAGES. Les anciens DEFAULT_FILE_STORAGE / STATICFILES_STORAGE ont
-# été RETIRÉS en Django 5.1 : les définir n'a AUCUN effet (le S3 serait
-# silencieusement ignoré). On conserve DEFAULT_FILE_STORAGE comme simple miroir
-# de chaîne car OrderFinanceService valide le backend des preuves dessus.
 _media_backend = os.getenv(
     "DEFAULT_FILE_STORAGE", "django.core.files.storage.FileSystemStorage"
 ).strip()
@@ -389,17 +340,10 @@ if USE_S3_STORAGE:
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
     AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE", "auto").strip()
-    # s3v4 est requis par la plupart des régions AWS récentes (Paris, etc.).
     AWS_S3_SIGNATURE_VERSION = os.getenv("AWS_S3_SIGNATURE_VERSION", "s3v4").strip()
     AWS_DEFAULT_ACL = None
-    # Deux fichiers homonymes uploadés par deux utilisateurs ne doivent pas
-    # s'écraser (preuves de livraison, KYC) — django-storages suffixe alors.
     AWS_S3_FILE_OVERWRITE = _env_bool("AWS_S3_FILE_OVERWRITE", False)
-    # URLs publiques signées (querystring) ou non. False = URLs publiques
-    # (images produit + CDN). Mettre True pour des médias privés signés.
     AWS_QUERYSTRING_AUTH = _env_bool("AWS_QUERYSTRING_AUTH", False)
-    # Public media URL: use a custom domain (CDN) when available, otherwise
-    # derive from the endpoint + bucket (works for Cloudflare R2 public buckets).
     _s3_custom_domain = os.getenv("AWS_S3_CUSTOM_DOMAIN", "").strip()
     if _s3_custom_domain:
         AWS_S3_CUSTOM_DOMAIN = _s3_custom_domain
@@ -407,7 +351,6 @@ if USE_S3_STORAGE:
     elif AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
         MEDIA_URL = f"{AWS_S3_ENDPOINT_URL.rstrip('/')}/{AWS_STORAGE_BUCKET_NAME}/"
 
-# Miroir pour le code legacy qui lit settings.DEFAULT_FILE_STORAGE.
 DEFAULT_FILE_STORAGE = _media_backend
 STORAGES = {
     "default": {"BACKEND": _media_backend},
@@ -425,27 +368,18 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": tuple(_auth_classes),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_THROTTLE_CLASSES": (
-        # Global limits applied to every request regardless of endpoint.
         "config.throttles.GlobalAnonThrottle",
         "config.throttles.GlobalUserThrottle",
-        # Endpoint-specific scoped throttles are applied via @throttle_classes decorator.
     ),
-    "DEFAULT_THROTTLE_RATES": {},   # Rates live in throttle class definitions.
+    "DEFAULT_THROTTLE_RATES": {},
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
-    # OpenAPI schema generator. Required by drf-spectacular — without it the
-    # generator raises E001 on every APIView (e.g. the CSV AuditLogExportView)
-    # because DRF's stock AutoSchema is incompatible.
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    # Never expose internal Python exception details to clients.
     "EXCEPTION_HANDLER": "config.exceptions.security_exception_handler",
 }
 
-# Access token lifetime: 15 min default (fintech best practice).
-# Refresh token: 7 days with rotation (client handles silent refresh via interceptor).
 JWT_ACCESS_TOKEN_MINUTES = _env_int("JWT_ACCESS_TOKEN_MINUTES", 15)
 JWT_REFRESH_TOKEN_DAYS = _env_int("JWT_REFRESH_TOKEN_DAYS", 7)
-# Legacy hour-based env vars kept for backward compat during migration.
 _legacy_access_hours = _env_int("JWT_ACCESS_TOKEN_HOURS", 0)
 _legacy_refresh_hours = _env_int("JWT_REFRESH_TOKEN_HOURS", 0)
 if _legacy_access_hours > 0 and JWT_ACCESS_TOKEN_MINUTES == 15:
@@ -456,7 +390,6 @@ if _legacy_refresh_hours > 0 and JWT_REFRESH_TOKEN_DAYS == 7:
 if JWT_ACCESS_TOKEN_MINUTES <= 0 or JWT_REFRESH_TOKEN_DAYS <= 0:
     raise ImproperlyConfigured("JWT_ACCESS_TOKEN_MINUTES and JWT_REFRESH_TOKEN_DAYS must be > 0.")
 
-# Warn operators if they set dangerously long access token lifetimes.
 if JWT_ACCESS_TOKEN_MINUTES > 60 and not DEBUG:
     import warnings
     warnings.warn(
@@ -470,16 +403,12 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=JWT_REFRESH_TOKEN_DAYS),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    # Use RS256 in production (asymmetric) if SIGNING_KEY is set to an RSA private key.
-    # Falls back to HS256 (symmetric) with SECRET_KEY.
     "ALGORITHM": os.getenv("JWT_ALGORITHM", "HS256"),
     "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY", "").strip() or None,
     "VERIFYING_KEY": os.getenv("JWT_VERIFYING_KEY", "").strip() or None,
-    # Additional security claims
     "UPDATE_LAST_LOGIN": True,
     "JTI_CLAIM": "jti",
 }
-# If no explicit signing key, SimpleJWT falls back to SECRET_KEY (HS256).
 if not SIMPLE_JWT["SIGNING_KEY"]:
     del SIMPLE_JWT["SIGNING_KEY"]
 if not SIMPLE_JWT["VERIFYING_KEY"]:
@@ -490,9 +419,6 @@ DEVICE_FINGERPRINT_SECRET = os.getenv("DEVICE_FINGERPRINT_SECRET", "").strip()
 SECURITY_HARD_BLOCK_SCANNERS = _env_bool("SECURITY_HARD_BLOCK_SCANNERS", not DEBUG)
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
-# Audit ref: [AUDIT-001] Redis is mandatory in production — LocMemCache
-# makes throttling per-worker, so rate-limits become trivially bypassable
-# in multi-instance deployments (Render auto-scale, Docker replicas, etc.).
 if not DEBUG and not REDIS_URL:
     raise ImproperlyConfigured(
         "REDIS_URL is required when DEBUG=False. "
@@ -540,9 +466,6 @@ else:
     }
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
-# Audit ref: [AUDIT-002] Console email backend in production silently discards
-# OTP codes (or worse, leaks them into stdout/logs). Step-up 2FA for financial
-# actions becomes a DoS or a secret leak.
 if not DEBUG and EMAIL_BACKEND.endswith(".console.EmailBackend"):
     raise ImproperlyConfigured(
         "EMAIL_BACKEND is set to console in production. "
@@ -635,7 +558,6 @@ NOTCHPAY_STORE_PHONE = _env_str_alias("NOTCHPAY_STORE_PHONE", "PAYDUNYA_STORE_PH
 NOTCHPAY_STORE_WEBSITE = _env_str_alias("NOTCHPAY_STORE_WEBSITE", "PAYDUNYA_STORE_WEBSITE")
 NOTCHPAY_STORE_LOGO_URL = _env_str_alias("NOTCHPAY_STORE_LOGO_URL", "PAYDUNYA_STORE_LOGO_URL")
 
-# Backward-compat aliases (to avoid breaking code paths not yet migrated).
 PAYDUNYA_ENABLED = NOTCHPAY_ENABLED
 PAYDUNYA_MODE = NOTCHPAY_MODE
 PAYDUNYA_API_BASE = NOTCHPAY_API_BASE
@@ -700,30 +622,19 @@ WALLET_PIN_LOCK_MINUTES = _env_int("WALLET_PIN_LOCK_MINUTES", 10)
 SENSITIVE_ACTION_2FA_ENABLED = _env_bool("SENSITIVE_ACTION_2FA_ENABLED", True)
 SENSITIVE_ACTION_CODE_TTL_MINUTES = _env_int("SENSITIVE_ACTION_CODE_TTL_MINUTES", 10)
 SENSITIVE_ACTION_CODE_MAX_ATTEMPTS = _env_int("SENSITIVE_ACTION_CODE_MAX_ATTEMPTS", 5)
-# Forgot-password (unauthenticated) reset code: short-lived, attempt-capped.
 PASSWORD_RESET_CODE_TTL_MINUTES = _env_int("PASSWORD_RESET_CODE_TTL_MINUTES", 15)
 PASSWORD_RESET_MAX_ATTEMPTS = _env_int("PASSWORD_RESET_MAX_ATTEMPTS", 5)
 RECONCILIATION_REQUIRE_PROVIDER_BALANCE = _env_bool("RECONCILIATION_REQUIRE_PROVIDER_BALANCE", not DEBUG)
 MAX_UPLOAD_IMAGE_MB = _env_int("MAX_UPLOAD_IMAGE_MB", 5)
 MAX_UPLOAD_VIDEO_MB = _env_int("MAX_UPLOAD_VIDEO_MB", 200)
 MAX_UPLOAD_DOCUMENT_MB = _env_int("MAX_UPLOAD_DOCUMENT_MB", 20)
-# Voice notes (chat) — short clips; a small cap keeps them cheap to store/stream.
 MAX_UPLOAD_AUDIO_MB = _env_int("MAX_UPLOAD_AUDIO_MB", 15)
 UPLOAD_SCRUB_IMAGE_METADATA = _env_bool("UPLOAD_SCRUB_IMAGE_METADATA", True)
 
-# ── Tarification livraison ───────────────────────────────────────────────────
-# L'acheteur ne choisit plus de transitaire ni de mode de transport. Le cout de
-# livraison est derive de la distance vendeur -> acheteur (Haversine) au tarif
-# ci-dessous, sequestre avec le prix produit. La plateforme preleve une
-# commission sur le montant verse au livreur lors de la liberation logistique.
 SHIPPING_RATE_PER_KM = os.getenv("SHIPPING_RATE_PER_KM", "150").strip() or "150"
-# Distance de repli quand l'une des parties n'a pas de coordonnees GPS.
 SHIPPING_DEFAULT_DISTANCE_KM = os.getenv("SHIPPING_DEFAULT_DISTANCE_KM", "5").strip() or "5"
-# Plancher de distance facturable (evite un frais nul pour vendeur ~ acheteur).
 SHIPPING_MIN_DISTANCE_KM = os.getenv("SHIPPING_MIN_DISTANCE_KM", "1").strip() or "1"
-# Commission plateforme prelevee sur le payout livreur (0.10 = 10%).
 LOGISTICS_PLATFORM_COMMISSION_RATE = os.getenv("LOGISTICS_PLATFORM_COMMISSION_RATE", "0.10").strip() or "0.10"
-# Commission plateforme prelevee sur le payout vendeur a la libération (0.10 = 10%).
 PLATFORM_COMMISSION_RATE = os.getenv("PLATFORM_COMMISSION_RATE", "0.10").strip() or "0.10"
 
 LOGGING = {
@@ -743,11 +654,6 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "INFO"},
 }
 
-# ---------------------------------------------------------------------------
-# Startup safety validator — auto-payout (OWASP ASVS V10.2 / deny-by-default)
-# ---------------------------------------------------------------------------
-# Placeholder phone numbers that were previously hardcoded as defaults.
-# These must NEVER appear in a live auto-payout configuration.
 _PLACEHOLDER_PHONE_NUMBERS: frozenset[str] = frozenset({
     "670766331",
     "695605502",
@@ -775,7 +681,7 @@ def _validate_autopayout_config() -> None:
         )
 
     if NOTCHPAY_MODE != "live":
-        return  # sandbox/test — phone numbers are dummy by design
+        return
 
     errors: list[str] = []
     for env_var, value in (
@@ -800,20 +706,12 @@ def _validate_autopayout_config() -> None:
 _validate_autopayout_config()
 
 
-# ---------------------------------------------------------------------------
-# Startup webhook secret validator — H3 / PCI-DSS Req. 6.4
-# ---------------------------------------------------------------------------
-# In production (DEBUG=False), both webhook HMAC secrets MUST be configured.
-# Without them the webhook verification layer rejects every incoming call,
-# meaning no topup or withdrawal will ever be confirmed.  Fail at startup
-# rather than silently dropping all payments in production.
-# ---------------------------------------------------------------------------
 
 def _validate_webhook_secrets() -> None:
     if DEBUG:
-        return  # Local dev: verification layer still enforces auth on each call.
+        return
     if not NOTCHPAY_ENABLED:
-        return  # NotchPay disabled — webhooks not in use.
+        return
     missing: list[str] = []
     if not NOTCHPAY_CHECKOUT_WEBHOOK_SECRET:
         missing.append("NOTCHPAY_CHECKOUT_WEBHOOK_SECRET")
@@ -830,24 +728,12 @@ def _validate_webhook_secrets() -> None:
 _validate_webhook_secrets()
 
 
-# ---------------------------------------------------------------------------
-# JWT algorithm check — M3 / OWASP ASVS V3.5.3
-# ---------------------------------------------------------------------------
-# Migration to RS256:
-#   openssl genrsa -out jwt_private.pem 2048
-#   openssl rsa -in jwt_private.pem -pubout -out jwt_public.pem
-#   Set: JWT_ALGORITHM=RS256  JWT_SIGNING_KEY=<private>  JWT_VERIFYING_KEY=<public>
-# ---------------------------------------------------------------------------
 
 _jwt_verifying_key = os.getenv("JWT_VERIFYING_KEY", "").strip() or None
 if _jwt_verifying_key:
     SIMPLE_JWT["VERIFYING_KEY"] = _jwt_verifying_key
 
 if not DEBUG and SIMPLE_JWT.get("ALGORITHM", "HS256") == "HS256":
-    # Audit ref: [H-002] JWT HS256 par défaut + warning seulement
-    # HS256 = symmetric. A leak of SECRET_KEY (env dump, logs, backup) lets an
-    # attacker forge any token. RS256/ES256 confine the blast radius to the
-    # private signing key, which never leaves the secrets manager.
     if not _env_bool("ALLOW_HS256_IN_PRODUCTION", False):
         raise ImproperlyConfigured(
             "JWT_ALGORITHM=HS256 is forbidden in production. "
@@ -862,7 +748,6 @@ if not DEBUG and SIMPLE_JWT.get("ALGORITHM", "HS256") == "HS256":
         stacklevel=1,
     )
 
-# RS256/ES256 require both SIGNING_KEY (private) and VERIFYING_KEY (public).
 _jwt_algo = SIMPLE_JWT.get("ALGORITHM", "HS256")
 if _jwt_algo in ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512"):
     if not SIMPLE_JWT.get("SIGNING_KEY") or not SIMPLE_JWT.get("VERIFYING_KEY"):
@@ -871,43 +756,25 @@ if _jwt_algo in ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512"):
             "and JWT_VERIFYING_KEY (public PEM) to be set."
         )
 
-# ---------------------------------------------------------------------------
-# Wallet PIN tuning — M8
-# ---------------------------------------------------------------------------
-# Configurable exponential backoff for PIN lockout to counter parallel brute-force.
 WALLET_PIN_LOCK_MINUTES_EXTENDED = _env_int("WALLET_PIN_LOCK_MINUTES_EXTENDED", 60)
 
-# ---------------------------------------------------------------------------
-# Celery — broker + result backend
-# Celery reads settings prefixed with CELERY_ (namespace="CELERY" in celery.py).
-# Defaults fall back to REDIS_URL so a single env var covers both in dev.
-# ---------------------------------------------------------------------------
 _celery_broker_default = REDIS_URL.replace("/0", "/1") if REDIS_URL else "redis://localhost:6379/1"
 _celery_result_default = REDIS_URL.replace("/0", "/2") if REDIS_URL else "redis://localhost:6379/2"
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", _celery_broker_default).strip()
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", _celery_result_default).strip()
 
-# ---------------------------------------------------------------------------
-# Feature flags / runtime knobs read by the remediation patches.
-# Audit refs: NEW-001/002, FIN-001, M-007, WS-002.
-# ---------------------------------------------------------------------------
 LEDGER_DOUBLE_ENTRY_ENABLED = _env_bool("LEDGER_DOUBLE_ENTRY_ENABLED", True)
 WEBHOOK_REQUIRE_TIMESTAMP = _env_bool("WEBHOOK_REQUIRE_TIMESTAMP", False)
 WEBHOOK_TIMESTAMP_WINDOW_SECONDS = _env_int("WEBHOOK_TIMESTAMP_WINDOW_SECONDS", 300)
 WALLET_PIN_MIN_LENGTH = _env_int("WALLET_PIN_MIN_LENGTH", 6)
 WALLET_PIN_VERIFY_MIN_LENGTH = _env_int("WALLET_PIN_VERIFY_MIN_LENGTH", 4)
 WS_ALLOW_TOKEN_QUERY_STRING = _env_bool("WS_ALLOW_TOKEN_QUERY_STRING", False)
-# Anti-désintermédiation : masquer aussi les numéros de téléphone dans le chat.
-# OFF par défaut car ambigu avec les montants FCFA (cf. core/text_sanitize._PHONE).
 CHAT_REDACT_PHONE_NUMBERS = _env_bool("CHAT_REDACT_PHONE_NUMBERS", False)
 UPLOAD_SCRUB_IMAGE_METADATA = _env_bool("UPLOAD_SCRUB_IMAGE_METADATA", True)
 LOADTEST_BYPASS_TOKEN = os.getenv("LOADTEST_BYPASS_TOKEN", "").strip()
 
 
-# ---------------------------------------------------------------------------
-# drf-spectacular — OpenAPI schema settings
-# ---------------------------------------------------------------------------
 SPECTACULAR_SETTINGS = {
     "TITLE": "Marché CM API",
     "DESCRIPTION": (
@@ -916,8 +783,6 @@ SPECTACULAR_SETTINGS = {
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
-    # Never expose the raw schema JSON to anonymous clients, even when docs are
-    # enabled: require an authenticated session/token to download it.
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
     "SCHEMA_PATH_PREFIX": r"/api/",
     "COMPONENT_SPLIT_REQUEST": True,

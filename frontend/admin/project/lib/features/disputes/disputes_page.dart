@@ -9,7 +9,6 @@ import 'dispute_helpers.dart';
 import 'dispute_multiview_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Screen 37 — Disputes list with status filters.
 class DisputesPage extends StatefulWidget {
   const DisputesPage({super.key});
 

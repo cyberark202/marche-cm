@@ -1,13 +1,3 @@
-/// C-1 — Single source of truth for the supplier product creation/update
-/// payload. Guarantees the Flutter client speaks the exact contract expected by
-/// the backend `ProductSerializer`:
-///   * `category_name` (not `category`)
-///   * `min_order_qty` / `max_order_qty` (not `min_qty` / `max_qty`)
-///   * `price_for_min_qty` = unit price at the MINIMUM quantity (low volume,
-///     higher price); `price_for_max_qty` = unit price at the MAXIMUM quantity
-///     (bulk, lower price). With a volume discount: priceForMinQty >= priceForMaxQty.
-///
-/// `is_active` is intentionally NOT sent: activation is server-controlled (C-2).
 class ProductRequestModel {
   ProductRequestModel({
     required this.title,
@@ -29,16 +19,12 @@ class ProductRequestModel {
   final int minOrderQty;
   final int maxOrderQty;
 
-  /// Unit price for the minimum quantity (low volume — higher unit price).
   final num priceForMinQty;
 
-  /// Unit price for the maximum quantity (bulk — lower unit price).
   final num priceForMaxQty;
   final num weightKg;
   final int? availableQty;
 
-  /// Returns a user-facing French error string, or `null` when valid.
-  /// Mirrors the server-side validation so the user gets instant feedback.
   String? validate() {
     if (title.trim().isEmpty) return "Le nom du produit est obligatoire.";
     if (categoryName.trim().isEmpty) return "La catégorie est obligatoire.";

@@ -14,8 +14,6 @@ Future<void> markEscrowOnboardingSeen() async {
   await prefs.setBool(_prefKey, true);
 }
 
-/// Shows the escrow onboarding if the user hasn't seen it yet.
-/// Call this before the first transaction flow.
 Future<void> showEscrowOnboardingIfNeeded(BuildContext context) async {
   final seen = await hasSeenEscrowOnboarding();
   if (seen || !context.mounted) return;
@@ -101,7 +99,6 @@ class _EscrowOnboardingPageState extends State<EscrowOnboardingPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Skip button
             Align(
               alignment: Alignment.topRight,
               child: TextButton(
@@ -111,7 +108,6 @@ class _EscrowOnboardingPageState extends State<EscrowOnboardingPage> {
               ),
             ),
 
-            // Slides
             Expanded(
               child: PageView.builder(
                 controller: _controller,
@@ -121,7 +117,6 @@ class _EscrowOnboardingPageState extends State<EscrowOnboardingPage> {
               ),
             ),
 
-            // Dot indicators
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_slides.length, (i) {
@@ -140,7 +135,6 @@ class _EscrowOnboardingPageState extends State<EscrowOnboardingPage> {
 
             const SizedBox(height: 24),
 
-            // Action button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SizedBox(

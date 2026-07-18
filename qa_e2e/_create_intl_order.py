@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-# Repli: cree la commande INTERNATIONAL via l'API EXACTE que le panier Clients appelle
-# (POST /api/orders/ avec product/quantity/preferred_transit_agent/transport_mode).
-# A n'utiliser que si la carte-panier ne se peint pas sur web (Finding #4).
 import json
 import sys
 import urllib.request
@@ -22,14 +19,12 @@ def post(path, payload, token=None):
         return e.code, json.loads(e.read().decode() or "{}")
 
 
-# 1) login buyer
 st, body = post("/api/auth/login/", {"email": "buyer@marche-cm.local", "password": "ChangeMe123!"})
 print("login:", st)
 token = body.get("access")
 if not token:
     print("LOGIN FAILED", body); sys.exit(1)
 
-# 2) place order (meme payload que cart_page._checkout)
 st, body = post("/api/orders/", {
     "product": 9,
     "quantity": 1,

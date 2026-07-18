@@ -20,9 +20,6 @@ import 'voice_note.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// Filet de sécurité côté client : masque tout lien/e-mail dans le TEXTE affiché
-// d'un message. Le backend redige déjà à la source (aucun lien n'est stocké) ;
-// ceci couvre l'affichage des messages créés avant cette règle.
 final RegExp _kChatEmail =
     RegExp(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}');
 final RegExp _kChatScheme =
@@ -41,7 +38,6 @@ String maskChatLinks(String input) {
       .replaceAll(_kChatDomain, '[lien retiré]');
 }
 
-/// Palette de réactions rapides (long-press sur une bulle, façon WhatsApp).
 const List<String> kQuickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 class ChatHubPage extends StatefulWidget {
@@ -61,8 +57,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
   StreamSubscription<Map<String, dynamic>>? _eventsSub;
 
   List<Map<String, dynamic>> _rooms = const [];
-  // Messages du salon ouvert, ordre ANTÉ-chronologique (index 0 = plus récent),
-  // aligné sur l'API et rendu par une ListView reverse (ouverture en bas).
   List<Map<String, dynamic>> _messages = const [];
   bool _loading = true;
   String? _error;
@@ -75,15 +69,12 @@ class _ChatHubPageState extends State<ChatHubPage> {
   final VoiceRecorder _voice = VoiceRecorder();
   Map<String, dynamic>? _replyingTo;
   String _query = "";
-  int _selectedFilter = 0; // 0=Tous, 1=Vendeurs, 2=Livreurs, 3=Support
+  int _selectedFilter = 0;
 
-  // Envoi optimiste : ids locaux négatifs, remplacés par la réponse serveur.
   int _localIdSeq = -1;
-  // Typing : throttle d'émission + timer d'effacement de l'indicateur reçu.
   DateTime? _typingSentAt;
   bool _peerTyping = false;
   Timer? _typingClearTimer;
-  // Surbrillance temporaire après un saut vers le message cité.
   int? _highlightedId;
   Timer? _highlightTimer;
 
@@ -134,9 +125,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     if (mounted) setState(() => _loading = false);
   }
 
-  // ── Temps réel incrémental ────────────────────────────────────────────────
-  // Chaque événement met à jour l'état local ; le rechargement complet est
-  // réservé au resync (trous après reconnexion).
 
   void _onChatEvent(Map<String, dynamic> event) {
     final type = (event["type"] ?? "").toString();
@@ -156,7 +144,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
       case "room_created":
         _loadRooms();
       default:
-        // resync (reconnexion) ou événement inconnu : re-synchronisation REST.
         _loadRooms();
         if (_selectedRoomId != null) _loadMessages(reset: true);
     }
@@ -172,7 +159,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
       _markRoomRead(roomId as int);
       if (!_showScrollDown) _scrollToBottomSoon();
     } else if (id is int) {
-      // Salon non ouvert : accusé « délivré » (l'app a reçu le message).
       _postBestEffort("/api/chat/messages/$id/mark_delivered/");
     }
     _loadRooms();
@@ -186,7 +172,7 @@ class _ChatHubPageState extends State<ChatHubPage> {
       _messages = _messages.map((m) {
         if (m["id"] != id) return m;
         final current = (m["my_state"] ?? "").toString();
-        if (current == "READ") return m; // jamais de rétrogradation
+        if (current == "READ") return m;
         return {...m, "my_state": state};
       }).toList();
     });
@@ -214,8 +200,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     });
   }
 
-  /// Convertit le payload serveur [{emoji,count,user_ids}] vers la forme
-  /// sérialisée des messages [{emoji,count,mine}].
   List<Map<String, dynamic>> _mapReactions(dynamic raw, int? myId) {
     if (raw is! List) return const [];
     return raw.whereType<Map>().map((entry) {
@@ -238,14 +222,12 @@ class _ChatHubPageState extends State<ChatHubPage> {
     _typingClearTimer?.cancel();
     setState(() => _peerTyping = data["is_typing"] == true);
     if (_peerTyping) {
-      // Effacement auto : signal éphémère, jamais de « écrit… » fantôme.
       _typingClearTimer = Timer(const Duration(seconds: 5), () {
         if (mounted) setState(() => _peerTyping = false);
       });
     }
   }
 
-  /// Émission du signal typing, throttlée (max ~1 toutes les 2,5 s).
   void _sendTyping() {
     final roomId = _selectedRoomId;
     if (roomId == null) return;
@@ -259,7 +241,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
         .send({"type": "typing", "room": roomId, "is_typing": true});
   }
 
-  // ── Chargements REST ──────────────────────────────────────────────────────
 
   Future<void> _loadRooms() async {
     final token = context.read<SessionStore>().token;
@@ -293,8 +274,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
       setState(() {
         _page = nextPage;
         _hasMore = rows.length >= 20;
-        // API anté-chronologique : page 1 = plus récents, pages suivantes =
-        // historique, ajouté en FIN de liste (haut du fil en rendu inversé).
         _messages = reset ? rows : [..._messages, ...rows];
       });
       _error = null;
@@ -322,7 +301,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     _markRoomRead(roomId);
   }
 
-  /// Marque TOUT le salon lu (un POST) et remet le badge local à zéro.
   void _markRoomRead(int roomId) {
     final token = context.read<SessionStore>().token;
     setState(() {
@@ -330,7 +308,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
           .map((r) => r["id"] == roomId ? {...r, "unread_count": 0} : r)
           .toList();
     });
-    // Best-effort : un échec réseau sera rattrapé au prochain resync.
     _api.post("/api/chat/rooms/$roomId/mark_read/", {}, token: token).catchError((_) => <String, dynamic>{});
   }
 
@@ -339,7 +316,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     _api.post(path, {}, token: token).catchError((_) => <String, dynamic>{});
   }
 
-  // ── Envois ────────────────────────────────────────────────────────────────
 
   Future<void> _startRecording() async {
     if (_selectedRoomId == null) return;
@@ -383,8 +359,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     }
   }
 
-  /// Envoi optimiste : la bulle apparaît immédiatement (horloge), puis est
-  /// remplacée par la version serveur ; en échec, état « renvoyer » au tap.
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty || _selectedRoomId == null) return;
@@ -483,8 +457,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
         fields: {
           "room": _selectedRoomId.toString(),
           "content": _messageController.text.trim(),
-          // Typage précis pour que la bulle rende le média (image inline,
-          // vidéo lisible in-app) au lieu d'un lien générique.
           "type": _attachmentType(selected.name),
           if (replyId != null) "reply_to": replyId.toString(),
         },
@@ -506,7 +478,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     }
   }
 
-  // ── Réactions ─────────────────────────────────────────────────────────────
 
   Future<void> _react(Map<String, dynamic> message, String emoji) async {
     final id = message["id"];
@@ -531,7 +502,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     }
   }
 
-  /// Menu contextuel de bulle (long-press) : réactions rapides + actions.
   void _showMessageActions(Map<String, dynamic> message) {
     final mineReaction = (message["reactions"] is List)
         ? (message["reactions"] as List)
@@ -602,17 +572,14 @@ class _ChatHubPageState extends State<ChatHubPage> {
     );
   }
 
-  // ── Scroll / navigation dans le fil ──────────────────────────────────────
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final p = _scrollController.position;
-    // ListView reverse : offset 0 = bas du fil (messages récents).
     final farFromBottom = p.pixels > 400;
     if (farFromBottom != _showScrollDown) {
       setState(() => _showScrollDown = farFromBottom);
     }
-    // Près du HAUT (fin de l'offset) : charger l'historique plus ancien.
     if (_hasMore && !_loading && p.pixels >= p.maxScrollExtent - 180) {
       _loadMessages(reset: false);
     }
@@ -634,7 +601,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     );
   }
 
-  /// Saute (approximativement) vers le message cité et le surligne ~1 s.
   void _jumpToMessage(int messageId) {
     final index = _messages.indexWhere((m) => m["id"] == messageId);
     if (index < 0) {
@@ -658,7 +624,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     });
   }
 
-  // ── Helpers d'affichage ───────────────────────────────────────────────────
 
   bool _isMine(Map<String, dynamic> msg) {
     final myId = context.read<SessionStore>().userId;
@@ -716,7 +681,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
         "Pièce jointe";
   }
 
-  /// Libellé de séparateur de jour (Aujourd'hui / Hier / JJ-MM-AAAA).
   String _dayLabel(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -735,7 +699,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     return "$hh:$mm";
   }
 
-  /// Horodatage compact pour la liste de conversations.
   String _inboxTimeLabel(String rawIso) {
     final date = DateTime.tryParse(rawIso)?.toLocal();
     if (date == null) return "";
@@ -748,7 +711,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     return label == "Hier" ? "Hier" : label;
   }
 
-  /// Ligne de présence sous le nom (header de conversation).
   String _presenceLabel(Map<String, dynamic>? peer) {
     if (_peerTyping) return "écrit…";
     if (peer == null) return "";
@@ -762,9 +724,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     return "vu le $day";
   }
 
-  /// `true` si un séparateur de jour doit précéder (visuellement) le message
-  /// d'index [index] — liste anté-chronologique rendue en reverse : le message
-  /// ouvre sa journée quand le message PLUS ANCIEN (index+1) est d'un autre jour.
   bool _needsDayDivider(int index) {
     final current = _createdAt(_messages[index]);
     if (current == null) return false;
@@ -776,7 +735,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
         current.day != older.day;
   }
 
-  /// Ticks WhatsApp : ✓ envoyé, ✓✓ livré (gris), ✓✓ lu (bleu).
   Widget _statusTicks(Map<String, dynamic> msg) {
     if (msg["pending"] == true) {
       return const Icon(LucideIcons.clock, size: 13, color: Colors.black38);
@@ -807,7 +765,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     );
   }
 
-  /// Encart du message cité, rendu en tête de bulle. Tap → saut vers l'original.
   Widget _replyQuote(Map<String, dynamic> msg) {
     final preview = msg["reply_preview"];
     if (preview is! Map) return const SizedBox.shrink();
@@ -834,7 +791,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     );
   }
 
-  /// Pastilles de réactions agrégées sous la bulle (tap = toggle si à moi).
   Widget _reactionPills(Map<String, dynamic> msg) {
     final raw = msg["reactions"];
     if (raw is! List || raw.isEmpty) return const SizedBox.shrink();
@@ -927,9 +883,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  /// Renders a message: inline image for image attachments, in-app playback
-  /// for audio/video, a tappable file chip for other attachments, plain text
-  /// otherwise. The raw file link is never shown as bare text.
   Widget _messageBody(Map<String, dynamic> msg) {
     final content = maskChatLinks((msg["content"] ?? "").toString());
     final type = (msg["type"] ?? "TEXT").toString();
@@ -1034,7 +987,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -1085,7 +1037,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
   Widget _buildInbox() {
     return Column(
       children: [
-        // Barre de recherche (filtre local des conversations)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: TextField(
@@ -1109,7 +1060,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
           ),
         ),
         const SizedBox(height: 12),
-        // Chips filtres (par rôle de l'interlocuteur)
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1298,7 +1248,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     return SafeArea(
       child: Column(
         children: [
-          // Header : interlocuteur + présence/typing
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             color: Colors.white,
@@ -1373,7 +1322,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
               ],
             ),
           ),
-          // Messages (reverse : index 0 en bas = plus récent)
           Expanded(
             child: Stack(
               children: [
@@ -1448,7 +1396,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
           _replyQuote(msg),
           _messageBody(msg),
           const SizedBox(height: 3),
-          // Heure + ticks de statut (façon WhatsApp).
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1488,8 +1435,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
             key: ValueKey("chat-msg-${msg["id"]}"),
             direction: DismissDirection.startToEnd,
             dismissThresholds: const {DismissDirection.startToEnd: 0.25},
-            // Swipe-to-reply : le geste n'écarte jamais la bulle, il arme la
-            // réponse et revient en place (confirmDismiss=false).
             confirmDismiss: (_) async {
               HapticFeedback.lightImpact();
               setState(() => _replyingTo = msg);
@@ -1608,7 +1553,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
     );
   }
 
-  /// Barre au-dessus du composer indiquant le message auquel on répond.
   Widget _buildReplyBar() {
     final replying = _replyingTo;
     final snippet = replying == null ? "" : _previewOf(replying);
@@ -1643,7 +1587,6 @@ class _ChatHubPageState extends State<ChatHubPage> {
   }
 }
 
-// ── Widgets helpers ───────────────────────────────────────────────────────────
 
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
@@ -1682,7 +1625,6 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-/// Séparateur de jour centré (Aujourd'hui / Hier / date).
 class _DayDivider extends StatelessWidget {
   const _DayDivider({required this.label});
   final String label;
@@ -1711,7 +1653,6 @@ class _DayDivider extends StatelessWidget {
   }
 }
 
-/// Visionneuse plein écran zoomable pour les images du chat (sans dépendance).
 class _ImageViewerPage extends StatelessWidget {
   const _ImageViewerPage({required this.imageUrl});
   final String imageUrl;
@@ -1751,8 +1692,6 @@ class _ImageViewerPage extends StatelessWidget {
   }
 }
 
-/// Lecture plein écran d'une vidéo reçue dans le chat (réutilise le player du
-/// feed : contrôles seek/mute, pause auto hors écran).
 class _ChatVideoPage extends StatelessWidget {
   const _ChatVideoPage({required this.videoUrl});
   final String videoUrl;

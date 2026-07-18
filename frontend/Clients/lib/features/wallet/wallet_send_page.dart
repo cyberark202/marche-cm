@@ -238,8 +238,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
       final status = (result['status'] ?? '').toString().toUpperCase();
       final initiatedAt = DateTime.now();
 
-      // Paiement in-app (Direct Charge mobile money) : NotchPay pousse une
-      // demande de validation USSD sur le téléphone, aucun navigateur ouvert.
       if (paymentMode == 'direct_charge' ||
           (checkoutUrl.isEmpty && status == 'PENDING')) {
         final paid = await NotchPayPendingSheet.show(
@@ -253,7 +251,6 @@ class _WalletTopupPageState extends State<WalletTopupPage> {
         if (paid == true) Navigator.of(context).pop(true);
         return;
       } else if (checkoutUrl.isNotEmpty) {
-        // Flux hébergé (carte / PayPal) : redirection puis suivi.
         await _launchTransferCode(checkoutUrl);
         if (!mounted) return;
         final paid = await NotchPayPendingSheet.show(

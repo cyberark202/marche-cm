@@ -19,10 +19,8 @@ def _extract_token_from_subprotocols(scope) -> str:
     subprotocols = scope.get("subprotocols") or []
     if not subprotocols:
         return ""
-    # Format A: list of subprotocols, e.g. ["bearer", "<token>"]
     if len(subprotocols) >= 2 and subprotocols[0].strip().lower() == "bearer":
         return subprotocols[1].strip()
-    # Format B: single subprotocol containing comma, e.g. ["bearer, <token>"]
     if len(subprotocols) == 1 and "," in subprotocols[0]:
         parts = subprotocols[0].split(",", 1)
         if parts[0].strip().lower() == "bearer":
@@ -58,10 +56,6 @@ def authenticate_scope_user(scope):
 
     token = _extract_token_from_subprotocols(scope) or _extract_token_from_headers(scope)
     if not token:
-        # Audit ref: [WS-002] JWT exposé dans la query string.
-        # In production the query-string fallback is REFUSED. It leaks the
-        # bearer token into nginx/Render/Cloudflare access logs, APM products,
-        # and browser history. Allowed only in DEBUG to keep local dev flows.
         debug = bool(getattr(settings, "DEBUG", False))
         allow_qs = bool(getattr(settings, "WS_ALLOW_TOKEN_QUERY_STRING", False))
         if debug or allow_qs:
@@ -92,7 +86,6 @@ def authenticate_scope_user(scope):
         validated_token = authenticator.get_validated_token(token)
         user = authenticator.get_user(validated_token)
     except Exception:
-        # Token expiré/forgé = flux normal de reconnexion, pas une erreur serveur.
         logger.debug("ws_auth_invalid_token remote=%s path=%s", _peer_ip(scope), scope.get("path", ""))
         return None
 

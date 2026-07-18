@@ -30,18 +30,15 @@ def security_exception_handler(exc, context):
     2. For unhandled exceptions: log the full traceback, return an opaque 500.
     3. Never include stack traces, file paths, or SQL in the response body.
     """
-    # First, let DRF handle it normally.
     response = exception_handler(exc, context)
 
     if response is not None:
-        # DRF handled it — add correlation ID and return.
         request = context.get("request")
         if request is not None:
             from config.middleware import get_correlation_id
             response["X-Error-ID"] = get_correlation_id(request)
         return response
 
-    # Unhandled exception — log fully, respond with opaque error.
     error_id = str(uuid.uuid4())
     request = context.get("request")
     view = context.get("view")
@@ -55,7 +52,6 @@ def security_exception_handler(exc, context):
         traceback.format_exc(),
     )
 
-    # In debug mode, include the exception type (not the message) for developers.
     detail = (
         f"Erreur interne ({type(exc).__name__})"
         if settings.DEBUG

@@ -1,23 +1,11 @@
-/// Device security service — root/jailbreak, Frida, emulator, debugger detection.
-///
-/// Architecture:
-///   - Checks run at app launch and before every sensitive operation.
-///   - Detection is layered: each signal adds to a suspicion score.
-///   - Score >= BLOCK_THRESHOLD → hard block (sensitive features disabled).
-///   - All checks are best-effort: a sophisticated attacker may bypass some.
-///     Defense-in-depth: backend verification is the authoritative gate.
-///
-/// OWASP MASVS-RESILIENCE-1 through MASVS-RESILIENCE-4
 library;
 
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-/// Minimum suspicion score that triggers hard-blocking of sensitive features.
 const int _blockThreshold = 3;
 
-/// Result of a device security assessment.
 class DeviceSecurityResult {
   final int score;
   final List<String> signals;
@@ -36,10 +24,6 @@ class DeviceSecurityResult {
 class DeviceSecurityService {
   DeviceSecurityService._();
 
-  /// Run all device security checks and return a composite result.
-  ///
-  /// In debug builds, all checks are skipped (returns score=0) so developers
-  /// are not blocked during local development.
   static Future<DeviceSecurityResult> assess() async {
     if (kDebugMode) {
       return const DeviceSecurityResult(score: 0, signals: ['debug_mode_bypass']);
@@ -67,11 +51,8 @@ class DeviceSecurityService {
     return DeviceSecurityResult(score: score, signals: signals);
   }
 
-  // ── Android root detection ─────────────────────────────────────────────────
 
   static Future<bool> _androidIsRooted() async {
-    // Check for well-known root indicators — each alone is weak,
-    // but together they form a reliable signal.
     final rootPaths = [
       '/system/app/Superuser.apk',
       '/system/app/SuperSU.apk',
@@ -100,29 +81,23 @@ class DeviceSecurityService {
       if (await File(path).exists()) return true;
     }
 
-    // Check if /system partition is writable (on a rooted device it often is).
     try {
       final testFile = File('/system/.root_check_test');
       await testFile.writeAsString('test');
       await testFile.delete();
-      return true; // Should never succeed on stock Android
+      return true;
     } catch (_) {
-      // Expected — /system is read-only on stock devices.
     }
 
     return false;
   }
 
   static bool _androidEmulatorDetected() {
-    // Emulator-specific environment signals (best-effort via Platform APIs).
-    // For stronger detection, use a platform channel to read Build.FINGERPRINT,
-    // Build.MODEL, Build.MANUFACTURER from native code.
     if (Platform.environment['ANDROID_EMULATOR_SDK'] != null) return true;
     if (Platform.environment['ANDROID_AVD_NAME'] != null) return true;
     return false;
   }
 
-  // ── iOS jailbreak detection ─────────────────────────────────────────────────
 
   static Future<bool> _iosIsJailbroken() async {
     final jailbreakPaths = [
@@ -154,24 +129,19 @@ class DeviceSecurityService {
       if (await Directory(path).exists()) return true;
     }
 
-    // Attempt to write outside sandbox — jailbroken devices allow this.
     try {
       final testPath = '/private/jailbreak_test_${DateTime.now().millisecondsSinceEpoch}';
       await File(testPath).writeAsString('test');
       await File(testPath).delete();
       return true;
     } catch (_) {
-      // Expected — sandbox prevents this on stock iOS.
     }
 
     return false;
   }
 
-  // ── Frida / instrumentation framework detection ────────────────────────────
 
   static Future<bool> _fridaDetected() async {
-    // Frida injects a gadget and opens a local server on a known port.
-    // Attempting to connect to that port is a reliable detection signal.
     const fridaPorts = [27042, 27043];
 
     for (final port in fridaPorts) {
@@ -182,13 +152,11 @@ class DeviceSecurityService {
           timeout: const Duration(milliseconds: 200),
         );
         await socket.close();
-        return true; // Connection succeeded — Frida is listening
+        return true;
       } catch (_) {
-        // Expected — port closed on clean device
       }
     }
 
-    // Check for Frida-related files on Android.
     if (Platform.isAndroid) {
       final fridaFiles = [
         '/data/local/tmp/frida-server',
@@ -202,12 +170,8 @@ class DeviceSecurityService {
     return false;
   }
 
-  // ── Debugger detection ─────────────────────────────────────────────────────
 
   static bool _debuggerAttached() {
-    // In release mode, the VM should not be in debug/profile mode.
-    // kDebugMode and kProfileMode are compile-time constants — tree-shaken
-    // in release builds, so this check is a no-op in release.
     if (kDebugMode || kProfileMode) return true;
     return false;
   }

@@ -15,8 +15,6 @@ class LedgerAccountViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, vie
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Audit ref: [NEW-004] enum comparison — a rename of the role enum
-        # would otherwise silently expose ALL ledger accounts to non-admins.
         user = self.request.user
         if getattr(user, "role", None) == UserRole.GENERAL_ADMIN:
             return LedgerAccount.objects.all()

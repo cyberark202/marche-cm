@@ -6,8 +6,6 @@ import '../../core/app_theme.dart';
 import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
 
-/// Modération produits (docs 12/22) : lister par statut, suspendre / refuser /
-/// rétablir avec motif. Un statut posé ici ne peut pas être levé par le vendeur.
 class ModerationPage extends StatefulWidget {
   const ModerationPage({super.key});
 

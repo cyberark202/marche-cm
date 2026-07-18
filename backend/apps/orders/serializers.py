@@ -124,11 +124,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "payable_total",
             "has_review",
             "review",
-            # L'acheteur ne choisit plus le transitaire : assigne plus tard via
-            # le systeme de devis (TransportQuote), jamais a la commande.
             "preferred_transit_agent",
             "logistics_price",
-            # Validation vendeur (doc 13) — fixes par le serveur uniquement.
             "seller_response_deadline",
             "seller_accepted_at",
         )
@@ -156,17 +153,10 @@ class OrderSerializer(serializers.ModelSerializer):
 
         product = validated_data["product"]
         quantity = validated_data["quantity"]
-        # Audit ref: [BUG-03] reject orders on inactive products or
-        # suspended/deactivated sellers (catalogue hides them, but the order
-        # endpoint must enforce it independently — defense in depth).
         if not product.is_active:
             raise serializers.ValidationError("Ce produit n'est plus disponible.")
         if not getattr(product.seller, "is_active", True) or getattr(product.seller, "is_suspended", False):
             raise serializers.ValidationError("Ce vendeur n'est plus disponible.")
-        # L'acheteur ne choisit plus de transitaire ni de mode de transport :
-        # le transitaire reel est assigne plus tard via le systeme de devis
-        # (TransportQuote / shipment.transit_agent). On ignore toute valeur
-        # entrante (defense en profondeur — le champ est read-only).
         preferred_transit_agent = None
         join_grouping = validated_data.get("join_grouping", False)
         explicit_order_type = str(validated_data.get("order_type") or "").strip().upper()
@@ -181,8 +171,6 @@ class OrderSerializer(serializers.ModelSerializer):
         if quantity < product.min_order_qty or quantity > product.max_order_qty:
             raise serializers.ValidationError("Quantite hors plage min/max.")
 
-        # Docs 03 R13 / 12 : les offres d'emploi ne sont pas commandables ; les
-        # services et produits numeriques n'ont aucun flux logistique.
         from apps.catalog.models import LISTING_TYPES_WITHOUT_LOGISTICS, ListingType
 
         if product.listing_type == ListingType.JOB:
@@ -193,18 +181,12 @@ class OrderSerializer(serializers.ModelSerializer):
         if quantity == product.max_order_qty:
             unit_price = product.price_for_max_qty
         total_price = Decimal(quantity) * Decimal(unit_price)
-        # Cout de livraison = tarif/km * distance vendeur -> acheteur (Haversine),
-        # sequestre avec le prix produit. Le mode de transport par defaut est
-        # conserve sur le shipment (SEA) mais n'influe plus sur le tarif.
         shipping_fee = (
             compute_shipping_fee(product.seller, self.context["request"].user)
             if requires_logistics
             else Decimal("0.00")
         )
         transport_mode = TransportMode.SEA
-        # Le taux de commission est fixe par la plateforme (config a chaud,
-        # doc 01) : taux par categorie si defini, sinon taux par defaut.
-        # Jamais controle par le client.
         from apps.appconfig.models import get_platform_setting
 
         category_rates = get_platform_setting("commission.category_rates") or {}
@@ -232,10 +214,6 @@ class OrderSerializer(serializers.ModelSerializer):
         )
         request_user = self.context["request"].user
         with transaction.atomic():
-            # Audit ref: [BUG-02] enforce stock and decrement it under a row
-            # lock to prevent overselling. ``available_qty IS NULL`` means
-            # "no inventory cap" (the supplier flow leaves it unset), so it is
-            # skipped. Stock is restored on cancellation / refund (services.py).
             locked_product = Product.objects.select_for_update().get(pk=product.pk)
             if locked_product.available_qty is not None:
                 if quantity > locked_product.available_qty:
@@ -268,10 +246,6 @@ class OrderSerializer(serializers.ModelSerializer):
                     shipment.save(update_fields=fields_to_update)
 
             try:
-                # Le prix produit va a l'escrow vendeur ; le cout de livraison va
-                # systematiquement a un escrow logistique distinct (local ET
-                # international), libere au livreur reel a la confirmation de
-                # livraison, diminue de la commission plateforme.
                 OrderFinanceService.lock_funds_for_order(
                     order=order,
                     actor=request_user,
@@ -281,7 +255,4 @@ class OrderSerializer(serializers.ModelSerializer):
                 )
             except InsufficientFundsError as exc:
                 raise serializers.ValidationError(str(exc)) from exc
-        # Doc 03 R6 : « tant que le vendeur n'a pas accepté, aucun livreur n'est
-        # sollicité ». Le dispatch des livreurs est déclenché par l'acceptation
-        # vendeur (OrderViewSet.accept), plus jamais à la création.
         return order

@@ -8,7 +8,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 enum _RunsTab { quotes, active, delivered }
 
-/// Mes courses — devis / en cours / historique (PDF 26).
 final _runsProvider =
     FutureProvider.autoDispose<Map<String, List<Map<String, dynamic>>>>(
         (ref) async {

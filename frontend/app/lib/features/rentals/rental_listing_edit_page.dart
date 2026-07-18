@@ -6,10 +6,6 @@ import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../auth/session_store.dart';
 
-/// Création / édition d'une annonce de location (doc 14).
-///
-/// La preuve de propriété est obligatoire à la création (exigence backend,
-/// KYC niveau 2 requis). L'image est envoyée dans un second appel PATCH.
 class RentalListingEditPage extends StatefulWidget {
   const RentalListingEditPage({super.key, this.listing});
 

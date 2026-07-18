@@ -129,7 +129,6 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  // ─── Sliver Header ────────────────────────────────────────────────────────
 
   Widget _buildSliverHeader(SessionStore session) {
     final balance = (_wallet['balance'] ?? '0').toString();
@@ -149,7 +148,6 @@ class _WalletPageState extends State<WalletPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title row
                 Row(
                   children: [
                     Expanded(
@@ -194,7 +192,6 @@ class _WalletPageState extends State<WalletPage> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                // Balance card
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(22),
@@ -265,7 +262,6 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  // ─── Quick Actions ────────────────────────────────────────────────────────
 
   Widget _buildQuickActions(BuildContext context) {
     return Column(
@@ -320,7 +316,6 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  // ─── Transactions ─────────────────────────────────────────────────────────
 
   Widget _buildTransactions() {
     final filtered = _transactions.where((tx) {
@@ -354,7 +349,6 @@ class _WalletPageState extends State<WalletPage> {
           ],
         ),
         const SizedBox(height: 10),
-        // Filters
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -529,7 +523,6 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
 
   static String _formatDate(String raw) {
     final dt = DateTime.tryParse(raw);
@@ -544,7 +537,6 @@ class _WalletPageState extends State<WalletPage> {
 
 }
 
-// ─── Reusable widgets ─────────────────────────────────────────────────────────
 
 class _BalanceChip extends StatelessWidget {
   const _BalanceChip({

@@ -8,9 +8,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 final _missionsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  // Audit ref: [Front-Driver] no /api/logistics/missions/available/ endpoint
-  // exists. Backend exposes /api/shipments/ (router) — we filter to status
-  // PENDING with no transit_agent assigned to surface assignable missions.
   final res = await DriverDioClient.dio.get(
     '/api/shipments/',
     queryParameters: {'status': 'PENDING', 'assignable': '1'},
@@ -50,7 +47,6 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ─────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Row(children: [
@@ -79,7 +75,6 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
               ]),
             ),
 
-            // ── Filter chips ───────────────────────────────────────────────
             SizedBox(
               height: 50,
               child: ListView.separated(
@@ -114,7 +109,6 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
             ),
             const Divider(height: 1, color: T.line2),
 
-            // ── List ───────────────────────────────────────────────────────
             Expanded(
               child: missionsAsync.when(
                 loading: () => const Center(
@@ -173,7 +167,6 @@ class _MissionsListPageState extends ConsumerState<MissionsListPage> {
   }
 }
 
-// ── Local widgets ─────────────────────────────────────────────────────────────
 
 class _HeaderBtn extends StatelessWidget {
   final IconData icon;
@@ -232,7 +225,6 @@ class _MissionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Badge row + fee
             Row(children: [
               if (isUrgent) ...[
                 const _Badge(
@@ -255,7 +247,6 @@ class _MissionCard extends StatelessWidget {
                       letterSpacing: -0.3)),
             ]),
             const SizedBox(height: 10),
-            // Route dots
             Row(children: [
               Container(
                   width: 9,
@@ -293,7 +284,6 @@ class _MissionCard extends StatelessWidget {
               ),
             ]),
             const SizedBox(height: 8),
-            // Details chip row
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(

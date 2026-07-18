@@ -7,14 +7,9 @@ import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// Audit ref: [Front-Driver] backend exposes /api/wallets/ (list, filtered to
-// owner=current_user) and /api/wallets/transactions/. The /api/wallets/driver/*
-// paths do not exist server-side.
 
 final _walletProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  // The list endpoint returns paginated results; the first row is the user's
-  // own wallet thanks to the queryset filter (owner=request.user).
   final res = await DriverDioClient.dio.get('/api/wallets/');
   final data = res.data;
   if (data is Map<String, dynamic> && data['results'] is List) {

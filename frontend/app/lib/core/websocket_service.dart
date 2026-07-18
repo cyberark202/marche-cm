@@ -12,8 +12,6 @@ class WebSocketService {
   Timer? _pingTimer;
 
   Stream<Map<String, dynamic>> connect() {
-    // Prefer Sec-WebSocket-Protocol subprotocol — token never appears in proxy logs.
-    // Backend (config/websocket_auth.py) reads subprotocols[0]=="bearer", subprotocols[1]==<token>.
     final protocols = (token != null && token!.isNotEmpty)
         ? <String>['bearer', token!]
         : <String>[];
@@ -23,8 +21,6 @@ class WebSocketService {
       protocols: protocols.isEmpty ? null : protocols,
     );
 
-    // Keep-alive ping every 25 s — prevents load-balancer/NAT idle timeouts.
-    // The backend ignores unknown message types gracefully.
     _pingTimer?.cancel();
     _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) {
       try {

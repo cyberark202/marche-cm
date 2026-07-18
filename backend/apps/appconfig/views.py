@@ -66,7 +66,6 @@ class RuntimeConfigView(APIView):
         )
 
         if release is None:
-            # Fail-open : pas de config => app pleinement autorisée.
             return Response(
                 {
                     "app": app,
@@ -107,9 +106,6 @@ class RuntimeConfigView(APIView):
         )
 
 
-# ---------------------------------------------------------------------------
-# Paramètres plateforme (docs 01/05/16/17) — lecture + écriture admin
-# ---------------------------------------------------------------------------
 
 
 def _is_number(value) -> bool:
@@ -138,8 +134,6 @@ def _validate_kyc_limits(value) -> bool:
     return True
 
 
-# Registre fermé clé → validateur. Une valeur refusée n'est jamais écrite :
-# un paramètre financier corrompu casserait checkout et retraits.
 _SETTING_VALIDATORS = {
     "commission.default_rate": _validate_rate,
     "commission.category_rates": _validate_category_rates,

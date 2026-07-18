@@ -25,8 +25,6 @@ ALLOWED_TOPICS = {
 
 
 class EventsConsumer(AsyncWebsocketConsumer):
-    # Anti-spam typing : 1 signal / 2 s / (utilisateur, salon) — le client
-    # throttle déjà, ceci borne un client malveillant.
     _TYPING_RATE_KEY_FMT = "ws:typing:{user_id}:{room_id}"
     _TYPING_RATE_WINDOW_SECONDS = 2
 
@@ -50,9 +48,6 @@ class EventsConsumer(AsyncWebsocketConsumer):
         self.user_group = f"user_{self.user.id}"
         await self.channel_layer.group_add(self.user_group, self.channel_name)
         await self.accept()
-        # Présence : /ws/events/ est LE canal que les 4 apps maintiennent ouvert,
-        # c'est donc ici que « en ligne / vu à » se mesure (l'historique
-        # NotificationConsumer n'est connecté par aucun client).
         await self._set_online(True)
 
     async def disconnect(self, close_code):

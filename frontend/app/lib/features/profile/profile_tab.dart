@@ -273,7 +273,6 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 }
 
-// ─── Profile Header ───────────────────────────────────────────────────────────
 
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
@@ -315,7 +314,6 @@ class _ProfileHeader extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
             child: Column(
               children: [
-                // Avatar + info
                 Row(
                   children: [
                     Container(
@@ -381,7 +379,6 @@ class _ProfileHeader extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 20),
-                // Wallet mini card
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -530,7 +527,6 @@ class _KycBadge extends StatelessWidget {
   }
 }
 
-// ─── Settings Group ───────────────────────────────────────────────────────────
 
 class _SettingsGroup extends StatelessWidget {
   const _SettingsGroup({

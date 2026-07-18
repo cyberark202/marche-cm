@@ -105,25 +105,19 @@ class EscrowHold(models.Model):
     commission_amount = models.DecimalField(
         max_digits=14, decimal_places=2, default=Decimal("0.00"),
     )
-    # Reference to the domain entity (e.g., Order, Shipment)
     entity_type = models.CharField(max_length=60, db_index=True)
     entity_id = models.CharField(max_length=80, db_index=True)
-    # Release conditions — all must be met before READY_TO_RELEASE
-    required_conditions = models.JSONField(default=list)   # list of ReleaseCondition values
-    met_conditions = models.JSONField(default=list)        # conditions already satisfied
-    # Auto-release timer
+    required_conditions = models.JSONField(default=list)
+    met_conditions = models.JSONField(default=list)
     auto_release_at = models.DateTimeField(null=True, blank=True)
-    # Freeze info
     frozen_reason = models.CharField(max_length=300, blank=True)
     frozen_at = models.DateTimeField(null=True, blank=True)
     frozen_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name="frozen_escrow_holds",
     )
-    # Release info
     released_at = models.DateTimeField(null=True, blank=True)
     refunded_at = models.DateTimeField(null=True, blank=True)
-    # Idempotency
     idempotency_key = models.CharField(max_length=120, unique=True)
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

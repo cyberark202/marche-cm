@@ -1,7 +1,5 @@
 import '../../core/api_service.dart';
 
-/// Single gateway to every backend endpoint the admin console consumes.
-/// Keeps endpoint strings in one place and gives screens typed-ish helpers.
 class AdminRepository {
   AdminRepository._();
   static final AdminRepository instance = AdminRepository._();
@@ -10,14 +8,9 @@ class AdminRepository {
 
   String errorMessage(Object e) => _api.toUserMessage(e);
 
-  // ── Dashboard ────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> dashboard() =>
       _api.getObject('/api/admin/dashboard/');
 
-  // ── Users ─────────────────────────────────────────────────────────────────
-  /// [query] is matched server-side (username/email/name/reference) so the
-  /// directory is not capped at the first paginated page. Without it, any user
-  /// past the first 20 rows was invisible and unsearchable.
   Future<List<Map<String, dynamic>>> users({String query = ''}) {
     final q = query.trim();
     final path = q.isEmpty
@@ -30,32 +23,25 @@ class AdminRepository {
   Future<Map<String, dynamic>> user(int id) =>
       _api.getObject('/api/users/$id/');
 
-  /// Suspend a non-admin account (login + tokens + websocket revoked server-side).
   Future<Map<String, dynamic>> suspendUser(int id, {required String reason}) =>
       _api.post('/api/users/$id/suspend/', {'reason': reason});
 
-  /// Lift a suspension and restore access.
   Future<Map<String, dynamic>> unsuspendUser(int id) =>
       _api.post('/api/users/$id/unsuspend/', const {});
 
-  /// Create a managed business account (SUPPLIER / WHOLESALER / TRANSIT_AGENT).
-  /// The backend forbids creating a GENERAL_ADMIN here.
   Future<Map<String, dynamic>> createManagedUser(
           Map<String, dynamic> payload) =>
       _api.post('/api/users/create_managed_user/', payload);
 
-  // ── Orders & shipments (aggregates) ────────────────────────────────────────
   Future<List<Map<String, dynamic>>> orders() => _api.getList('/api/orders/');
   Future<List<Map<String, dynamic>>> shipments() =>
       _api.getList('/api/shipments/');
 
-  // ── Compliance / KYC ───────────────────────────────────────────────────────
   Future<List<Map<String, dynamic>>> complianceDocuments() =>
       _api.getList('/api/compliance-documents/');
   Future<void> reviewDocument(int id, String status) =>
       _api.post('/api/compliance-documents/$id/review/', {'status': status});
 
-  // ── Disputes ────────────────────────────────────────────────────────────────
   Future<List<Map<String, dynamic>>> shipmentDisputes() =>
       _api.getList('/api/shipment-disputes/');
   Future<Map<String, dynamic>> shipmentDispute(int id) =>
@@ -71,15 +57,12 @@ class AdminRepository {
         'resolution_note': resolutionNote,
       });
 
-  // ── Wallet / escrow / reconciliation ────────────────────────────────────────
   Future<List<Map<String, dynamic>>> escrowHolds() =>
       _api.getList('/api/escrow/holds/');
 
-  /// Reconcile a single pending transaction. Requires a prior step-up:
-  /// [challengeToken] + [verificationCode] from the 2FA email.
   Future<void> reconcile({
     required String transactionId,
-    required String status, // SUCCESS | FAILED
+    required String status,
     required String challengeToken,
     required String verificationCode,
     String reason = 'Réconciliation manuelle',
@@ -92,13 +75,11 @@ class AdminRepository {
         'reason': reason,
       });
 
-  // ── Audit ────────────────────────────────────────────────────────────────────
   Future<List<Map<String, dynamic>>> auditEvents() =>
       _api.getList('/api/audit/events/');
   Future<String> exportAuditCsv() =>
       _api.downloadText('/api/admin/audit/export/');
 
-  // ── Platform config ───────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> uiConfig() =>
       _api.getObject('/api/ui-config/');
 }

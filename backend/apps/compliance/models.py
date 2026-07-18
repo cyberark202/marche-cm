@@ -84,15 +84,12 @@ class KYCDocument(models.Model):
         related_name="documents",
     )
     document_type = models.CharField(max_length=24, choices=KYCDocumentType.choices)
-    storage_key = models.CharField(max_length=400)  # S3/R2 object key
-    file_hash = models.CharField(max_length=64)  # SHA-256 for integrity
+    storage_key = models.CharField(max_length=400)
+    file_hash = models.CharField(max_length=64)
     file_size_bytes = models.PositiveIntegerField(default=0)
     mime_type = models.CharField(max_length=60, blank=True)
     ocr_extracted = models.JSONField(default=dict, blank=True)
     is_verified = models.BooleanField(default=False)
-    # Date d'expiration du document (doc 06) : CNI/passeport/permis ont une
-    # validité limitée. Un document expiré suspend les fonctionnalités sensibles
-    # jusqu'à mise à jour du dossier ; l'utilisateur est averti 30 jours avant.
     expiry_date = models.DateField(null=True, blank=True, db_index=True)
     expiry_warning_sent_at = models.DateTimeField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -111,11 +108,11 @@ class AMLScreening(models.Model):
         on_delete=models.CASCADE,
         related_name="aml_screenings",
     )
-    screening_type = models.CharField(max_length=30)  # ONBOARDING | TRANSACTION | PERIODIC
+    screening_type = models.CharField(max_length=30)
     entity_type = models.CharField(max_length=60, blank=True)
     entity_id = models.CharField(max_length=80, blank=True)
-    result = models.CharField(max_length=10, default="CLEAR")  # CLEAR | HIT | PENDING
-    hits = models.JSONField(default=list)  # list of matched sanctions/PEP entries
+    result = models.CharField(max_length=10, default="CLEAR")
+    hits = models.JSONField(default=list)
     provider = models.CharField(max_length=40, default="INTERNAL")
     screened_at = models.DateTimeField(auto_now_add=True)
     metadata = models.JSONField(default=dict, blank=True)
@@ -127,8 +124,8 @@ class AMLScreening(models.Model):
 
 class SanctionsList(models.Model):
     """Local sanctions/PEP list for offline screening."""
-    list_name = models.CharField(max_length=60)  # UN_SANCTIONS | OFAC | EU_SANCTIONS
-    entry_type = models.CharField(max_length=20)  # INDIVIDUAL | ENTITY | VESSEL
+    list_name = models.CharField(max_length=60)
+    entry_type = models.CharField(max_length=20)
     full_name = models.CharField(max_length=300, db_index=True)
     aliases = models.JSONField(default=list)
     country = models.CharField(max_length=4, blank=True)

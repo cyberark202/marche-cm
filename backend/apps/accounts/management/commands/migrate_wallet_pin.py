@@ -63,8 +63,6 @@ class Command(BaseCommand):
             )
             return
 
-        # Find every user with a non-blank PIN hash. We can't introspect the
-        # original PIN length from the hash, so we treat all of them as legacy.
         qs = User.objects.exclude(wallet_pin_hash="").only(
             "id", "wallet_pin_hash", "wallet_pin_failed_attempts",
         )

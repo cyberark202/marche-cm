@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/app_logo.dart';
 import '../../core/app_theme.dart';
 
-/// Screen 01 — Splash / brand intro for the admin console.
 class AdminSplash extends StatefulWidget {
   const AdminSplash({super.key, required this.onCompleted});
   final VoidCallback onCompleted;

@@ -6,11 +6,6 @@ import '../../core/app_theme.dart';
 import '../../core/ui_kit.dart';
 import '../data/admin_repository.dart';
 
-/// Litiges de location (doc 14) : arbitrage admin de la caution.
-///
-/// L'admin fixe la part de caution attribuée au propriétaire (0..caution) ;
-/// le loyer est toujours libéré au propriétaire (net de commission) et le
-/// reste de la caution revient au locataire.
 class RentalDisputesPage extends StatefulWidget {
   const RentalDisputesPage({super.key});
 

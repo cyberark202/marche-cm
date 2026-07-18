@@ -19,9 +19,6 @@ from .models import AuditLog, SensitiveActionChallenge, UserRole
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Role → allowed action map (deny-by-default: unlisted actions are forbidden)
-# ---------------------------------------------------------------------------
 
 _DISPUTE_PARTICIPANT_ACTIONS = {
     "logistics.dispute.open",
@@ -57,8 +54,6 @@ _ADMIN_ALL_ACTIONS = {
     "admin.settings.manage",
 }
 
-# Docs 16/17 : chaque sous-rôle admin n'accède qu'aux actions de son périmètre.
-# Un scope vide (admins historiques) équivaut à SUPER.
 ADMIN_SCOPE_ACTIONS = {
     "SUPER": _ADMIN_ALL_ACTIONS,
     "OPERATIONS": {
@@ -106,30 +101,17 @@ SENSITIVE_ACTIONS_REQUIRING_2FA = {
     "auth.phone.change",
 }
 
-# ---------------------------------------------------------------------------
-# Audit log PII sanitizer
-# OWASP ASVS V7.1.1 — Logs must not contain PII or authentication secrets.
-# ---------------------------------------------------------------------------
 
-# Exact field names and substrings that identify PII / secret data.
-# Any metadata key matching one of these patterns will be STRIPPED before
-# the audit entry is persisted.  Callers must use user_id / reference_code
-# instead of raw PII values.
 _PII_BLOCKED_PATTERNS: frozenset[str] = frozenset({
-    # Identity / contact
     "phone", "phone_number", "telephone", "mobile",
     "email", "mail", "address",
-    # Credentials / secrets
     "password", "passwd", "pwd",
     "pin", "wallet_pin",
     "otp", "code", "verification_code",
     "token", "secret", "key", "api_key",
-    # Financial PII
     "card_number", "iban", "bban", "cvv", "account_number",
-    # Identity documents
     "national_id", "id_card", "passport", "cni",
     "kyc", "document", "tax_cert", "rccm", "insurance",
-    # Location (high-precision)
     "latitude", "longitude", "gps", "coordinates",
 })
 
@@ -137,10 +119,8 @@ _PII_BLOCKED_PATTERNS: frozenset[str] = frozenset({
 def _is_pii_key(key: str) -> bool:
     """Return True if *key* resembles a PII or secret field name."""
     normalized = key.lower().strip()
-    # Exact match
     if normalized in _PII_BLOCKED_PATTERNS:
         return True
-    # Substring match for compound names (e.g. "user_phone_number", "new_email")
     return any(pattern in normalized for pattern in _PII_BLOCKED_PATTERNS)
 
 
@@ -165,7 +145,6 @@ def sanitize_audit_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     sanitized: dict[str, Any] = {}
     for key, value in metadata.items():
         if _is_pii_key(str(key)):
-            # Alert developers: the call site should be fixed to never pass PII.
             logger.warning(
                 "[security.sanitize] Blocked PII field '%s' from audit log. "
                 "Fix the call site — pass identifiers (user_id, reference_code) instead.",
@@ -177,9 +156,6 @@ def sanitize_audit_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     return sanitized
 
 
-# ---------------------------------------------------------------------------
-# Core security helpers
-# ---------------------------------------------------------------------------
 
 def has_action_permission(user, action_key: str) -> bool:
     """Return True iff *user* is authorized to perform *action_key*.
@@ -261,11 +237,9 @@ def verify_sensitive_action_challenge(
     if challenge.expires_at <= timezone.now():
         return False, "Le code de securite a expire. Demandez-en un nouveau."
 
-    # PBKDF2 timing-safe verification — never compare plaintext OTPs.
     if not check_password(code, challenge.code_hash):
         challenge.attempts += 1
         if challenge.attempts >= max(1, settings.SENSITIVE_ACTION_CODE_MAX_ATTEMPTS):
-            # Expire the challenge atomically to prevent further brute-force.
             challenge.expires_at = timezone.now()
             challenge.save(update_fields=["attempts", "expires_at"])
             return False, "Trop de tentatives. Code invalide et challenge expire."
@@ -273,7 +247,6 @@ def verify_sensitive_action_challenge(
         remaining = max(0, settings.SENSITIVE_ACTION_CODE_MAX_ATTEMPTS - challenge.attempts)
         return False, f"Code de securite invalide. Tentatives restantes: {remaining}."
 
-    # Atomically mark as used — prevents replay attacks.
     challenge.used_at = timezone.now()
     challenge.save(update_fields=["used_at"])
     return True, ""

@@ -39,10 +39,6 @@ def _peek_magic_bytes(uploaded_file, length: int = 16) -> bytes:
     return head
 
 
-# Audit ref: [UP-001] coverage extended to office/media formats. Previously
-# unknown extensions (docx, xlsx, mp4, mp3) were waved through magic-byte
-# validation, allowing a polyglot upload (e.g. PHP renamed as .docx) to land
-# unchecked.
 _MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
     ".pdf": (b"%PDF-",),
     ".jpg": (b"\xff\xd8\xff",),
@@ -50,31 +46,20 @@ _MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
     ".png": (b"\x89PNG\r\n\x1a\n",),
     ".webp": (b"RIFF",),
     ".gif": (b"GIF87a", b"GIF89a"),
-    # ZIP-container Office formats (docx/xlsx/pptx) — all start with PK\x03\x04
     ".docx": (b"PK\x03\x04",),
     ".xlsx": (b"PK\x03\x04",),
     ".pptx": (b"PK\x03\x04",),
     ".odt": (b"PK\x03\x04",),
-    # Plain ZIP for archive uploads
     ".zip": (b"PK\x03\x04", b"PK\x05\x06"),
-    # MP4 container: variable first 4 bytes (size) followed by "ftyp" at off 4
     ".mp4": (b"ftyp", b"\x00\x00\x00"),
-    # MP3 frame sync OR ID3v2 tag header
     ".mp3": (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"),
-    # MOV/M4V: same container as MP4 (ftyp box at offset 4)
     ".mov": (b"ftyp", b"\x00\x00\x00"),
     ".m4v": (b"ftyp", b"\x00\x00\x00"),
-    # WebM/Matroska: EBML header magic
     ".webm": (b"\x1a\x45\xdf\xa3",),
-    # Voice-note audio formats.
-    # M4A/AAC-in-MP4: ftyp box at offset 4 (handled like mp4 below).
     ".m4a": (b"ftyp", b"\x00\x00\x00"),
-    # Raw AAC (ADTS) frame sync, or an ID3-tagged stream.
     ".aac": (b"\xff\xf1", b"\xff\xf9", b"ID3"),
-    # Ogg / Opus container.
     ".ogg": (b"OggS",),
     ".opus": (b"OggS",),
-    # WAV: RIFF container with "WAVE" at offset 8 (handled specially below).
     ".wav": (b"RIFF",),
 }
 
@@ -82,16 +67,12 @@ _MAGIC_SIGNATURES: dict[str, tuple[bytes, ...]] = {
 def _content_matches_extension(ext: str, head: bytes) -> bool:
     expected = _MAGIC_SIGNATURES.get(ext)
     if not expected:
-        # Audit ref: [UP-001] unknown extensions are now REJECTED, not waved
-        # through. Callers must update `_MAGIC_SIGNATURES` when adding a new
-        # accepted extension to the per-endpoint allowed_extensions list.
         return False
     if ext == ".webp":
         return head.startswith(b"RIFF") and b"WEBP" in head[:16]
     if ext == ".wav":
         return head.startswith(b"RIFF") and b"WAVE" in head[:16]
     if ext in (".mp4", ".mov", ".m4v", ".m4a"):
-        # ftyp box at offset 4: head[4:8] == b"ftyp"
         return len(head) >= 8 and head[4:8] == b"ftyp"
     return any(head.startswith(sig) for sig in expected)
 
@@ -124,8 +105,6 @@ def validate_uploaded_file(
     if allowed_content_types:
         content_type = str(getattr(uploaded_file, "content_type", "") or "").lower().strip()
         allowed_types = {str(item).lower().strip() for item in allowed_content_types}
-        # Audit ref: [UP-001] Content-Type must be PRESENT and on the whitelist
-        # — previously a missing/octet-stream value bypassed this check entirely.
         if not content_type or content_type == "application/octet-stream":
             raise ValidationError(
                 f"{field_label}: type MIME requis (Content-Type manquant)."
@@ -135,9 +114,6 @@ def validate_uploaded_file(
                 f"{field_label}: type MIME non autorise ({content_type})."
             )
 
-    # Defense en profondeur: verifier les magic bytes du fichier pour empecher
-    # un attaquant de renommer un .exe en .pdf ou d'uploader du HTML/JS dans un
-    # champ image. La whitelist d'extensions ci-dessus n'est pas suffisante.
     head = _peek_magic_bytes(uploaded_file)
     if head and not _content_matches_extension(ext, head):
         raise ValidationError(
@@ -161,11 +137,6 @@ def scrub_image_metadata(uploaded_file):
         logger.warning("exif_scrub_skipped: Pillow non installe")
         return uploaded_file
 
-    # Audit ref: [UP-002] cap Pillow's pixel budget to defuse decompression
-    # bombs (e.g. a 100 KB PNG that decodes to a 100 000 × 100 000 RGBA array,
-    # ~40 GB of memory). 25M pixels ≈ 5000×5000 — well beyond any legitimate
-    # marketplace photo. Beyond this limit Pillow raises DecompressionBombError
-    # which is caught below.
     Image.MAX_IMAGE_PIXELS = 25_000_000
 
     try:

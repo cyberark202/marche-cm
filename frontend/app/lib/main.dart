@@ -29,12 +29,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Surveillance connectivité (bannière hors-ligne).
   NetworkQualityService.instance.init();
 
-  // Firebase — requires google-services.json (Android) / GoogleService-Info.plist (iOS).
-  // Skipped on web: the Firebase JS SDK loads from Google CDNs which are not
-  // reachable in this environment, and failed init would blank the web app.
   bool firebaseReady = false;
   if (!kIsWeb) {
     try {
@@ -49,7 +45,6 @@ void main() async {
 
   final sessionStore = SessionStore();
 
-  // Single Dio client — reads/writes tokens only through TokenRepository.
   await SecureDioClient.initialize(
     onTokensRefreshed: (accessToken, refreshToken) {
       sessionStore.updateTokens(
@@ -65,14 +60,11 @@ void main() async {
     ),
   );
 
-  // Restore tokens from secure storage (survives app restarts).
   await sessionStore.restoreFromStorage();
 
-  // FCM push notifications (foreground token registration + background handler).
   if (firebaseReady) {
     await PushNotificationService.initialize();
 
-    // Show foreground FCM messages as snackbars via the global scaffold.
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final notification = message.notification;
       if (notification != null) {
@@ -208,9 +200,6 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
         onRegisterRequested: _openAuthWithSplash,
       );
     }
-    // ISOLATION: the professional app only serves SUPPLIER / WHOLESALER.
-    // Any other authenticated role (buyer, driver, admin) is sent to a
-    // mismatch screen instructing them to use their dedicated app.
     if (session.role == UserRole.supplier ||
         session.role == UserRole.wholesaler) {
       return const MainShell();
@@ -234,9 +223,6 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
 
     final topic = (event['topic'] ?? '').toString();
     final type = (event['type'] ?? '').toString();
-    // "resync" est un signal interne émis par RealtimeEventsService après
-    // reconnexion pour déclencher un rechargement silencieux des pages — ce
-    // n'est jamais une notification destinée à l'utilisateur.
     if (type == 'resync') return;
     final payload = event['payload'] is Map<String, dynamic>
         ? event['payload'] as Map<String, dynamic>
@@ -326,9 +312,6 @@ class _RootEntryPointState extends State<_RootEntryPoint> {
   }
 }
 
-/// Shown when an authenticated user's role is not served by the professional
-/// app (e.g. a buyer, driver or admin logged in here). Enforces app/role
-/// partitioning at the routing layer as defense-in-depth.
 class _RoleMismatchScreen extends StatelessWidget {
   const _RoleMismatchScreen({required this.role});
 

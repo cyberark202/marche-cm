@@ -28,9 +28,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
   final CountryService _countryService = CountryService();
 
   String _countryCode = 'CM';
-  // Compte « Vendeur » unifié : un seul type de compte professionnel (SUPPLIER).
-  // Le choix Fournisseur/Grossiste a été supprimé. Les livreurs utilisent
-  // l'application Market CM Driver.
   final String _role = 'SUPPLIER';
   bool _busy = false;
   bool _obscurePass = true;
@@ -90,7 +87,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
           ? payload['user'] as Map<String, dynamic>
           : <String, dynamic>{};
       if (access.isEmpty) {
-        // Defensive fallback (backend without token issuance): back to login.
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Compte professionnel créé ! Connectez-vous.'),
@@ -100,8 +96,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
         Navigator.of(context).pop();
         return;
       }
-      // Auto-login: open the session; the root router lands the seller on the
-      // dashboard (or the pending-verification screen until KYC is approved).
       final session = context.read<SessionStore>();
       session.setSession(
         accessToken: access,
@@ -151,7 +145,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header ───────────────────────────────────────
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(8, 12, 20, 16),
@@ -191,7 +184,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                 ],
               ),
             ),
-            // ── Form ─────────────────────────────────────────
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
@@ -203,7 +195,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                       const SizedBox(height: 12),
                     ],
 
-                    // Personal info
                     const _SectionLabel(label: 'Informations personnelles'),
                     const SizedBox(height: 8),
                     _field(label: 'Nom complet du responsable', icon: LucideIcons.user,
@@ -213,7 +204,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                         ctrl: _companyCtrl, hint: 'Ex: Dupont SARL'),
                     const SizedBox(height: 16),
 
-                    // Contact info
                     const _SectionLabel(label: 'Coordonnées'),
                     const SizedBox(height: 8),
                     _field(label: 'Téléphone', icon: LucideIcons.phone,
@@ -268,7 +258,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Security
                     const _SectionLabel(label: 'Sécurité'),
                     const SizedBox(height: 8),
                     _passField(label: 'Mot de passe', ctrl: _passCtrl,
@@ -400,7 +389,6 @@ class _SellerRegisterPageState extends State<SellerRegisterPage> {
       );
 }
 
-// ── Sub-widgets ───────────────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
   final String label;

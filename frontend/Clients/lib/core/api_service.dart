@@ -10,9 +10,6 @@ import 'package:http_parser/http_parser.dart' show MediaType;
 import 'app_config.dart';
 import 'auth_token_manager.dart';
 
-/// Derives a safe (filename, MIME) pair for a multipart upload. The backend
-/// rejects a missing/octet-stream Content-Type (UP-001) and unknown
-/// extensions, so we declare a concrete type and ensure the name carries one.
 ({String name, MediaType type}) _normalizeUpload(String filename) {
   final n = filename.toLowerCase();
   if (n.endsWith(".png")) return (name: filename, type: MediaType("image", "png"));
@@ -24,7 +21,6 @@ import 'auth_token_manager.dart';
   if (n.endsWith(".pdf")) {
     return (name: filename, type: MediaType("application", "pdf"));
   }
-  // Notes vocales.
   if (n.endsWith(".m4a")) return (name: filename, type: MediaType("audio", "mp4"));
   if (n.endsWith(".aac")) return (name: filename, type: MediaType("audio", "aac"));
   if (n.endsWith(".mp3")) return (name: filename, type: MediaType("audio", "mpeg"));
@@ -32,7 +28,6 @@ import 'auth_token_manager.dart';
     return (name: filename, type: MediaType("audio", "ogg"));
   }
   if (n.endsWith(".wav")) return (name: filename, type: MediaType("audio", "wav"));
-  // No recognized extension (e.g. a raw camera capture) — assume JPEG.
   return (name: "$filename.jpg", type: MediaType("image", "jpeg"));
 }
 
@@ -83,10 +78,6 @@ class ApiService {
     return _guarded(() => send(refreshed));
   }
 
-  /// Runs a network call and converts any transport-level failure into a
-  /// generic, user-safe exception. Raw [SocketException]/[http.ClientException]
-  /// strings embed the host:port (e.g. "Failed host lookup: 'api.…'") and must
-  /// never reach the UI. Security: masks server address on connection errors.
   Future<T> _guarded<T>(Future<T> Function() call) async {
     try {
       return await call().timeout(_timeout);
@@ -114,10 +105,6 @@ class ApiService {
         s.contains("xmlhttprequest");
   }
 
-  /// Single choke point for non-2xx responses. Extracts the server's
-  /// already-sanitized `detail` message (the Django exception handler never
-  /// leaks internals) and NEVER echoes the request path, full URL or raw body.
-  /// Security: prevents endpoint/route disclosure via error messages.
   Never _throwHttpError(int status, String body) {
     String message = "";
     try {

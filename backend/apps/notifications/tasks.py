@@ -81,18 +81,12 @@ def _send_websocket(user_id: int, notification) -> str:
 
         payload = {
             "id": notification.pk,
-            # Le client (main.dart) lit notification_id pour la déduplication et
-            # le mark-as-read ; on l'expose en plus de `id` pour rester compatible.
             "notification_id": notification.pk,
             "title": notification.title,
             "body": notification.body,
             "created_at": notification.created_at.isoformat(),
         }
 
-        # Canal canonique : les apps Flutter écoutent /ws/events/ et rejoignent le
-        # groupe user_<id> (cf. EventsConsumer). Sans cette diffusion, la cloche de
-        # notification ne remontait jamais en live — seul le NotificationConsumer
-        # (groupe notification_<id>), auquel aucun client ne se connecte, était servi.
         broadcast_user_event(
             user_id=user_id,
             topic="notifications",
@@ -100,8 +94,6 @@ def _send_websocket(user_id: int, notification) -> str:
             payload=payload,
         )
 
-        # Rétrocompat : on continue d'alimenter notification_<id> pour tout client
-        # branché sur le NotificationConsumer historique.
         layer = get_channel_layer()
         if layer:
             async_to_sync(layer.group_send)(

@@ -7,11 +7,7 @@ import '../../../core/theme/driver_theme.dart';
 import '../../../features/auth/application/auth_notifier.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// ── Providers ────────────────────────────────────────────────────────────────
 
-// Audit ref: [Front-Driver] no /api/wallets/driver/earnings/ exists.
-// Aggregate from wallet transactions feed (kind=DELIVERY_PAYOUT) — same
-// rollup logic as the earnings page to keep the two views consistent.
 final _dashboardProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final res = await DriverDioClient.dio.get(
@@ -49,7 +45,6 @@ final _dashboardProvider =
   };
 });
 
-// ── Page ─────────────────────────────────────────────────────────────────────
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -73,7 +68,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         onRefresh: () => ref.refresh(_dashboardProvider.future),
         child: CustomScrollView(
           slivers: [
-            // ── Header amber ───────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Container(
                 decoration: const BoxDecoration(
@@ -99,7 +93,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Top row: avatar + name + bell
                             Row(children: [
                               _Avatar(name: name, size: 42),
                               const SizedBox(width: 12),
@@ -134,7 +127,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             ]),
                             const SizedBox(height: 16),
 
-                            // Online toggle
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 10),
@@ -226,7 +218,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Gains du jour
                             Text("Gains · aujourd'hui",
                                 style: TextStyle(
                                     fontSize: 11,
@@ -278,7 +269,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
             ),
 
-            // ── KPI grid (overlaps header) ─────────────────────────────────
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
               sliver: SliverToBoxAdapter(
@@ -330,7 +320,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
             ),
 
-            // ── Demandes proches ───────────────────────────────────────────
             SliverToBoxAdapter(
               child: _SectionHeader(
                 title: 'Demandes près de vous',
@@ -377,7 +366,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
             ),
 
-            // ── Courses en cours ───────────────────────────────────────────
             SliverToBoxAdapter(
               child: _SectionHeader(
                 title: 'Courses en cours',
@@ -429,7 +417,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 }
 
-// ── Widgets locaux ────────────────────────────────────────────────────────────
 
 class _Avatar extends StatelessWidget {
   final String name;
@@ -772,7 +759,6 @@ class _CourseCard extends StatelessWidget {
                       fontFamily: 'monospace')),
             ]),
             const SizedBox(height: 10),
-            // Route progress
             Row(children: [
               Container(
                   width: 10, height: 10,

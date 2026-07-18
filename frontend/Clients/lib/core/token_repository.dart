@@ -1,16 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-// Shared storage keys — never change these; they're persisted on-device.
 const kTokenKeyAccess = 'sec.access_token';
 const kTokenKeyRefresh = 'sec.refresh_token';
 
-/// Persistent token storage for the Clients (buyer) app — backed by the
-/// Android Keystore / iOS Keychain (encrypted localStorage on web).
-///
-/// Token *refresh* is handled by [AuthTokenManager] (http-based), so this class
-/// is intentionally storage-only: it survives app restarts so a returning user
-/// is not forced to log in again. SessionStore reads/writes through here.
 class TokenRepository {
   TokenRepository._();
 
@@ -28,9 +21,6 @@ class TokenRepository {
   static Future<String?> getAccessToken() => _read(kTokenKeyAccess);
   static Future<String?> getRefreshToken() => _read(kTokenKeyRefresh);
 
-  // Web: a localStorage ciphertext that no longer matches the WebCrypto key
-  // (key regenerated, port reused by another app) throws OperationError on
-  // every read, blocking boot and all requests. Purge and treat as logged out.
   static Future<String?> _read(String key) async {
     try {
       return await _storage.read(key: key);

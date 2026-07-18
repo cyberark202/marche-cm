@@ -8,12 +8,9 @@ import '../auth/session_store.dart';
 import 'product_request_model.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Éditer / créer un produit fournisseur (PDF 16).
 class SupplierProductEditPage extends StatefulWidget {
   const SupplierProductEditPage({super.key, this.product});
 
-  /// `null` → mode création. Sinon, contient les champs venant de
-  /// `/api/products/mine/` pour pré-remplir le formulaire.
   final Map<String, dynamic>? product;
 
   @override
@@ -83,10 +80,6 @@ class _SupplierProductEditPageState extends State<SupplierProductEditPage> {
 
   Future<void> _save() async {
     if (_busy) return;
-    // C-1: build the canonical payload via the shared ProductRequestModel.
-    // Price mapping follows the form labels: "_priceMin" is the bulk/high-volume
-    // price (=> price_for_max_qty) and "_priceMax" is the low-volume price
-    // (=> price_for_min_qty).
     final stock = int.tryParse(_stockAvailable.text.trim());
     final model = ProductRequestModel(
       title: _title.text,

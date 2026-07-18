@@ -81,13 +81,10 @@ def _is_safe_webhook_url(raw_url: str) -> bool:
     hostname = (parsed.hostname or "").strip().lower()
     if parsed.scheme != "https" or not hostname:
         return False
-    # Bloque les noms d'hote qui revelent une cible interne meme avant DNS.
     if hostname in {"localhost", "metadata.google.internal", "metadata"} or hostname.endswith(".local") or hostname.endswith(".internal"):
         return False
-    # Bloque les ports inhabituels (autoriser uniquement 443 + 80 fallback).
     if parsed.port not in (None, 80, 443):
         return False
-    # Cas 1: hostname est deja une IP litterale -> validation directe.
     try:
         ip = ipaddress.ip_address(hostname)
         return not (
@@ -100,9 +97,6 @@ def _is_safe_webhook_url(raw_url: str) -> bool:
         )
     except ValueError:
         pass
-    # Cas 2: hostname est un FQDN -> resolution DNS et verification de TOUTES
-    # les IP retournees pour bloquer le DNS rebinding (evil.com -> 127.0.0.1
-    # ou 169.254.169.254 metadata cloud AWS/GCP).
     try:
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
         infos = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
@@ -546,7 +540,6 @@ class WebhookSubscriptionViewSet(viewsets.ModelViewSet):
 
     @decorators.action(detail=True, methods=["post"], throttle_classes=[ScopedRateThrottle])
     def send_test(self, request, pk=None):
-        # Throttle scope dynamique pour cette action.
         self.throttle_scope = "webhook_test"
         sub = self.get_object()
         if not sub.is_active:
@@ -578,10 +571,6 @@ class WebhookSubscriptionViewSet(viewsets.ModelViewSet):
             method="POST",
         )
         try:
-            # H4 — SSRF redirect blocking: never follow HTTP redirects.
-            # A legitimate endpoint that redirects to 169.254.169.254 or a
-            # private address would bypass _is_safe_webhook_url() validation.
-            # Use a no-redirect opener so the caller's URL is the final destination.
             class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
                 def redirect_request(self, *args, **kwargs):
                     raise urllib.error.HTTPError(
@@ -595,8 +584,6 @@ class WebhookSubscriptionViewSet(viewsets.ModelViewSet):
             _opener = urllib.request.build_opener(_NoRedirectHandler)
             with _opener.open(req, timeout=6) as resp:
                 status_code = getattr(resp, "status", 200)
-                # H4 — Response size limit: read at most 4 KB to prevent
-                # memory exhaustion via a slow/large response body.
                 resp.read(4096)
             sub.last_delivery_status = f"HTTP_{status_code}"
             sub.last_delivered_at = timezone.now()

@@ -68,7 +68,6 @@ _EVIDENCE_MAX_MB = 50
 
 
 _DELIVERY_OTP_TTL = timedelta(minutes=30)
-# Doc 03 R7 : le code de collecte est valable 5 minutes.
 _PICKUP_OTP_TTL = timedelta(minutes=5)
 
 
@@ -99,7 +98,6 @@ def _compute_file_sha256(file_obj) -> str:
 
 
 def _compute_chat_integrity_hash(shipment_id: int) -> str:
-    # ChatRoom has no order FK — hash over stable Shipment fields instead.
     try:
         s = Shipment.objects.filter(id=shipment_id).values(
             "id", "order_id", "buyer_id", "seller_id", "created_at"
@@ -170,9 +168,6 @@ def _is_dispute_participant(user, dispute):
     return user.id in {shipment.buyer_id, shipment.seller_id, shipment.transit_agent_id}
 
 
-# ---------------------------------------------------------------------------
-# Dispute type–specific security side-effects
-# ---------------------------------------------------------------------------
 
 def _invalidate_user_sessions_bulk(user_ids):
     """Delete all active Django sessions for the given user IDs."""
@@ -191,8 +186,6 @@ def _invalidate_user_sessions_bulk(user_ids):
         if to_delete:
             Session.objects.filter(session_key__in=to_delete).delete()
     except Exception:
-        # Action de securite (revocation de sessions apres DATA_BREACH) :
-        # un echec silencieux laisserait des sessions compromises actives.
         logger.exception("session_bulk_invalidation_failed users=%s", sorted(u for u in user_ids if u))
 
 
@@ -341,10 +334,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         if user.role in {UserRole.SUPPLIER, UserRole.WHOLESALER}:
             return self.queryset.filter(seller=user)
         if user.role == UserRole.TRANSIT_AGENT:
-            # A transit agent sees the shipments assigned to them, plus shipments
-            # still open for bidding (no agent assigned and not terminal) so they
-            # can discover and quote them. Without this, get_object() 404'd on any
-            # unassigned shipment and post_quote was unreachable.
             open_for_bidding = Q(transit_agent__isnull=True) & ~Q(
                 status__in=[ShipmentStatus.DELIVERED, ShipmentStatus.CANCELLED]
             )
@@ -372,7 +361,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         """
         from apps.chat.models import ChatRoom
 
-        shipment = self.get_object()  # get_queryset already scopes visibility
+        shipment = self.get_object()
         user = request.user
         if shipment.transit_agent_id is None:
             return response.Response(
@@ -478,11 +467,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             )
         if not _can_update_status(request.user, shipment, new_status):
             return response.Response({"detail": "Action non autorisee."}, status=status.HTTP_403_FORBIDDEN)
-        # Audit ref: [C-3] Cancellation must be atomic: the order CANCELLED
-        # transition, the escrow refund and the shipment status change either all
-        # commit or none do. Previously the order was flipped to CANCELLED and
-        # saved before the refund ran, so a refund failure left the order
-        # CANCELLED with escrow still LOCKED (buyer funds stuck).
         try:
             with transaction.atomic():
                 if new_status == ShipmentStatus.CANCELLED:
@@ -632,7 +616,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             return response.Response({"detail": "Code expire. Demandez un nouveau code."}, status=status.HTTP_400_BAD_REQUEST)
         if not check_password(otp, shipment.pickup_otp_hash):
             return response.Response({"detail": "Code invalide. Verifiez aupres du vendeur."}, status=status.HTTP_400_BAD_REQUEST)
-        # OTP à usage unique : consommé puis détruit.
         shipment.pickup_otp_hash = ""
         shipment.pickup_otp_expires_at = None
         shipment.status = ShipmentStatus.IN_TRANSIT
@@ -749,7 +732,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         now = timezone.now()
         proof.validated = True
         proof.save(update_fields=["validated"])
-        # OTP is single-use: burn it once consumed.
         shipment.delivery_otp_hash = ""
         shipment.delivery_otp_expires_at = None
         shipment.status = ShipmentStatus.DELIVERED
@@ -761,7 +743,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         ])
         order.status = OrderStatus.DELIVERED
         order.save(update_fields=["status", "updated_at"])
-        # Funds are released on behalf of the buyer (OTP possession = consent).
         try:
             OrderFinanceService.release_escrows_after_buyer_confirmation(order=order, actor=shipment.buyer)
         except (ValidationError, FraudRiskError) as exc:
@@ -796,7 +777,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         if dispute_type not in valid_types:
             return response.Response({"detail": "Type de litige invalide."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Enforce 48-hour contest window for product-quality disputes
         if dispute_type in DISPUTE_TYPES_CONTEST_WINDOW:
             if shipment.contest_deadline and timezone.now() > shipment.contest_deadline:
                 if not _is_general_admin(user):
@@ -814,14 +794,11 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         is_critical = dispute_type in DISPUTE_TYPES_CRITICAL
         is_multi = dispute_type == DisputeType.MULTI_ACTOR
 
-        # Resolve last custody holder from chain
         last_event = CustodyEvent.objects.filter(shipment=shipment).order_by("-scanned_at").first()
         last_holder = last_event.actor if last_event else None
 
         chat_hash = _compute_chat_integrity_hash(shipment.id)
 
-        # Automatically resolve the accused party from opener role + dispute type.
-        # Platform-level types never have an individual accused — platform is responsible.
         accused_party = None
         opener_role = getattr(user, "role", None)
         from apps.accounts.models import UserRole as _Role
@@ -851,11 +828,9 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 is_multi_actor=is_multi,
                 last_custody_holder=last_holder,
             )
-            # Freeze escrow immediately
             OrderFinanceService.freeze_order_escrows(
                 order=shipment.order, actor=user, reason=f"Litige {dispute_type} ouvert"
             )
-            # Mark shipment as disputed
             shipment.status = ShipmentStatus.DISPUTED
             shipment.save(update_fields=["status", "updated_at"])
             ShipmentEvent.objects.create(
@@ -863,7 +838,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 note=f"Litige {dispute_type} ouvert"
             )
 
-        # Critical disputes: immediately suspend seller for COUNTERFEIT/FAKE_DOCUMENTS
         if dispute_type in {DisputeType.COUNTERFEIT, DisputeType.FAKE_DOCUMENTS}:
             from django.contrib.auth import get_user_model
             User = get_user_model()
@@ -875,7 +849,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 metadata={"seller_id": shipment.seller_id, "dispute_type": dispute_type, "dispute_id": dispute.id},
             )
 
-        # Type-specific security / compliance side-effects
         _run_dispute_type_security_actions(dispute_type, shipment, dispute, user)
 
         write_audit_log(
@@ -898,8 +871,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             return response.Response({"detail": "Action reservee au livreur."}, status=status.HTTP_403_FORBIDDEN)
         if request.user.id not in {shipment.transit_agent_id, shipment.seller_id} and not _is_general_admin(request.user):
             return response.Response({"detail": "Vous n'etes pas associe a cette expedition."}, status=status.HTTP_403_FORBIDDEN)
-        # [D-02] KYC gate applies to the transit agent only (the seller logging a
-        # handover is already KYC-verified through the seller onboarding flow).
         if request.user.id == shipment.transit_agent_id:
             _require_driver_kyc(request.user)
 
@@ -930,7 +901,6 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 location=location,
                 notes=notes,
             )
-            # Compute and store integrity hash post-save (now that scanned_at is set)
             event.integrity_hash = CustodyEvent.compute_hash(
                 shipment.id, event_type, request.user.id, event.scanned_at.isoformat()
             )
@@ -1064,9 +1034,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Seul l'administrateur peut supprimer un litige.")
         instance.delete()
 
-    # ------------------------------------------------------------------
-    # Admin: decide
-    # ------------------------------------------------------------------
     @decorators.action(detail=True, methods=["post"])
     def decide(self, request, pk=None):
         if not has_action_permission(request.user, "admin.disputes.decide"):
@@ -1123,9 +1090,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         broadcast_event("logistics", "dispute_decided", {"dispute_id": dispute.id, "status": dispute.status})
         return response.Response(ShipmentDisputeSerializer(dispute).data, status=status.HTTP_200_OK)
 
-    # ------------------------------------------------------------------
-    # All participants: add evidence
-    # ------------------------------------------------------------------
     @decorators.action(detail=True, methods=["post"], url_path="add-evidence")
     def add_evidence(self, request, pk=None):
         dispute = self.get_object()
@@ -1177,9 +1141,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         broadcast_event("logistics", "dispute_evidence_added", {"dispute_id": dispute.id, "evidence_id": evidence.id})
         return response.Response(DisputeEvidenceSerializer(evidence).data, status=status.HTTP_201_CREATED)
 
-    # ------------------------------------------------------------------
-    # Participants: request appeal (within 48h of resolution)
-    # ------------------------------------------------------------------
     @decorators.action(detail=True, methods=["post"])
     def appeal(self, request, pk=None):
         dispute = self.get_object()
@@ -1196,7 +1157,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
             )
         if dispute.appeal_requested:
             return response.Response({"detail": "Un appel est deja en cours."}, status=status.HTTP_400_BAD_REQUEST)
-        # 48-hour appeal window after resolution
         if dispute.decided_at and timezone.now() > dispute.decided_at + timedelta(hours=48):
             if not _is_general_admin(user):
                 return response.Response(
@@ -1229,9 +1189,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         broadcast_event("logistics", "dispute_appeal_requested", {"dispute_id": dispute.id, "user_id": user.id})
         return response.Response(ShipmentDisputeSerializer(dispute).data, status=status.HTTP_200_OK)
 
-    # ------------------------------------------------------------------
-    # Admin: resolve appeal — must be a DIFFERENT admin than the decider
-    # ------------------------------------------------------------------
     @decorators.action(detail=True, methods=["post"], url_path="resolve-appeal")
     def resolve_appeal(self, request, pk=None):
         if not has_action_permission(request.user, "admin.dispute.appeal.resolve"):
@@ -1239,7 +1196,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         dispute = self.get_object()
         if dispute.status != DisputeStatus.APPEAL_REQUESTED:
             return response.Response({"detail": "Aucun appel en cours sur ce litige."}, status=status.HTTP_400_BAD_REQUEST)
-        # Separation of duties: the original decider cannot also resolve the appeal
         if dispute.decided_by_id and dispute.decided_by_id == request.user.id:
             return response.Response(
                 {"detail": "L'admin ayant rendu la decision initiale ne peut pas traiter l'appel."},
@@ -1290,9 +1246,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         broadcast_event("logistics", "dispute_appeal_resolved", {"dispute_id": dispute.id})
         return response.Response(ShipmentDisputeSerializer(dispute).data, status=status.HTTP_200_OK)
 
-    # ------------------------------------------------------------------
-    # Admin: request physical inspection
-    # ------------------------------------------------------------------
     @decorators.action(detail=True, methods=["post"], url_path="request-inspection")
     def request_inspection(self, request, pk=None):
         if not has_action_permission(request.user, "admin.dispute.inspect.request"):
@@ -1309,7 +1262,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         dispute.save(update_fields=[
             "inspection_required", "inspection_requested_at", "status", "resolution_note", "updated_at"
         ])
-        # Extend SLA by 5 days for inspection
         if dispute.sla_due_at:
             dispute.sla_due_at = dispute.sla_due_at + timedelta(days=5)
             dispute.save(update_fields=["sla_due_at"])
@@ -1323,9 +1275,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         broadcast_event("logistics", "dispute_inspection_requested", {"dispute_id": dispute.id})
         return response.Response(ShipmentDisputeSerializer(dispute).data, status=status.HTTP_200_OK)
 
-    # ------------------------------------------------------------------
-    # Admin: upload inspection report
-    # ------------------------------------------------------------------
     @decorators.action(detail=True, methods=["post"], url_path="inspection-report")
     def upload_inspection_report(self, request, pk=None):
         if not has_action_permission(request.user, "admin.dispute.inspection.upload"):
@@ -1350,7 +1299,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         dispute.status = DisputeStatus.UNDER_REVIEW
         dispute.save(update_fields=["inspector_report", "inspector_report_uploaded_at", "status", "updated_at"])
 
-        # Also save as DisputeEvidence for the unified evidence gallery
         file_hash = _compute_file_sha256(report_file)
         DisputeEvidence.objects.create(
             dispute=dispute,
@@ -1370,9 +1318,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         broadcast_event("logistics", "dispute_inspection_report_uploaded", {"dispute_id": dispute.id})
         return response.Response(ShipmentDisputeSerializer(dispute).data, status=status.HTTP_200_OK)
 
-    # ------------------------------------------------------------------
-    # Admin: activate guarantee fund (multi-actor / custody chain broken)
-    # ------------------------------------------------------------------
     @decorators.action(detail=True, methods=["post"], url_path="guarantee-fund")
     def activate_guarantee_fund(self, request, pk=None):
         if not has_action_permission(request.user, "admin.guarantee_fund.activate"):
@@ -1418,9 +1363,6 @@ class ShipmentDisputeViewSet(viewsets.ModelViewSet):
         broadcast_event("logistics", "guarantee_fund_activated", {"dispute_id": dispute.id})
         return response.Response(ShipmentDisputeSerializer(dispute).data, status=status.HTTP_200_OK)
 
-    # ------------------------------------------------------------------
-    # All participants: view custody chain for the dispute's shipment
-    # ------------------------------------------------------------------
     @decorators.action(detail=True, methods=["get"], url_path="custody-chain")
     def custody_chain(self, request, pk=None):
         dispute = self.get_object()

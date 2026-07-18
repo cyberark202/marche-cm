@@ -37,7 +37,6 @@ class RegisterAutoLoginTests(TestCase):
         self.assertIsInstance(data.get("user"), dict, "missing user object")
         self.assertEqual(data["user"].get("role"), expected_role)
         self.assertTrue(data["user"].get("id"), "missing user id")
-        # The issued access token must authenticate immediately.
         me = self.client.get(
             "/api/auth/me/",
             HTTP_AUTHORIZATION=f"Bearer {data['access']}",

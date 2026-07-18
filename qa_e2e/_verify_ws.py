@@ -27,12 +27,10 @@ async def main():
     sup = Client("sup"); sup.login("supplier@marche-cm.local", PWD)
     print("buyer token:", bool(buy.access), "supplier token:", bool(sup.access))
 
-    # create a chat room buyer<->supplier (supplier id = 5)
     r = buy.req("POST", "/api/chat/rooms/", json_body={"name": "WS verify", "participants": [5]}, note="room")
     room_id = r.json().get("id") if r is not None and r.status_code == 201 else None
     print("room_id:", room_id, "status:", (r.status_code if r else None))
 
-    # 1) /ws/notifications/ with Origin + subprotocol bearer
     try:
         async with websockets.connect(f"{WS}/ws/notifications/", subprotocols=["bearer", buy.access],
                                        origin=ORIGIN, open_timeout=10) as ws:
@@ -40,7 +38,6 @@ async def main():
     except Exception as e:
         print("NOTIF WS: FAIL", repr(e))
 
-    # 2) same but WITHOUT origin (to prove the origin is what was blocking)
     try:
         async with websockets.connect(f"{WS}/ws/notifications/", subprotocols=["bearer", buy.access],
                                        open_timeout=10) as ws:
@@ -48,7 +45,6 @@ async def main():
     except Exception as e:
         print("NOTIF WS no-origin: rejected ->", type(e).__name__)
 
-    # 3) /ws/chat/{room}/ participant with Origin + subprotocol
     if room_id:
         try:
             async with websockets.connect(f"{WS}/ws/chat/{room_id}/", subprotocols=["bearer", buy.access],
@@ -57,7 +53,6 @@ async def main():
         except Exception as e:
             print("CHAT WS participant: FAIL", repr(e))
 
-    # 4) realtime delivery: supplier listens on /ws/notifications/, buyer sends a chat message -> supplier should get an event
     if room_id:
         try:
             async with websockets.connect(f"{WS}/ws/notifications/", subprotocols=["bearer", sup.access],

@@ -24,33 +24,15 @@ class ProductSerializer(serializers.ModelSerializer):
     )
     category_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     category_label = serializers.CharField(source="category.name", read_only=True)
-    # Audit ref: [C-2] `is_active` is SERVER-controlled, never client-writable.
-    # Two reasons: (1) a DRF BooleanField absent from a multipart/form-data body
-    # is coerced to False, which silently created every image-upload product as
-    # inactive (invisible in the catalogue); (2) it stops a manipulated payload
-    # from publishing/forcing an arbitrary activation state. New products are
-    # active by default (set in create()), identically for JSON and multipart.
     is_active = serializers.BooleanField(read_only=True)
-    # Machine a etats (docs 12/22) : pilotee par le serveur (creation=PUBLISHED,
-    # soft-delete=ARCHIVED, moderation admin=SUSPENDED/REJECTED). Jamais client.
     status = serializers.CharField(read_only=True)
-    # Audit ref: [M-4] These are model-required (non-null DecimalField), which
-    # made DRF mark them required at field level — so the wholesaler flow 400'd
-    # before validate() could derive them from `unit_price`. Mark them optional
-    # here; validate() fills them server-side for WHOLESALER and still enforces
-    # their presence for SUPPLIER.
     price_for_min_qty = serializers.DecimalField(
         max_digits=12, decimal_places=2, required=False, allow_null=True
     )
     price_for_max_qty = serializers.DecimalField(
         max_digits=12, decimal_places=2, required=False, allow_null=True
     )
-    # Audit ref: [BUG-S1] Galerie multi-images. `images` est en lecture seule
-    # (liste {id,url,position}). L'upload se fait via le champ multipart repete
-    # `gallery_images` lu directement depuis request.FILES (cf. _collect_gallery_files).
     images = serializers.SerializerMethodField()
-    # Compteurs + états utilisateur du feed vidéo (annotations posées par
-    # ProductViewSet._with_feed_annotations ; défauts sûrs hors liste/détail).
     video_likes_count = serializers.SerializerMethodField()
     video_comments_count = serializers.SerializerMethodField()
     video_views_count = serializers.SerializerMethodField()
@@ -108,23 +90,17 @@ class ProductSerializer(serializers.ModelSerializer):
             return any(d.status == "APPROVED" for d in seller.compliance_documents.all())
         return bool(seller.is_verified)
 
-    # Audit ref: [C-1] Backward-compatible field aliases. Older mobile builds
-    # POST `category` (a name string), `min_qty`, `max_qty` instead of the
-    # canonical `category_name`, `min_order_qty`, `max_order_qty`. Translate them
-    # here BEFORE field validation so those clients keep working without an app
-    # update. Canonical payloads are untouched.
     _LEGACY_QTY_ALIASES = {"min_qty": "min_order_qty", "max_qty": "max_order_qty"}
 
     @classmethod
     def _apply_legacy_aliases(cls, data):
         try:
-            mutable = data.copy()  # QueryDict.copy() -> mutable, or dict.copy()
+            mutable = data.copy()
         except (AttributeError, TypeError):
-            return data  # Payload non copiable : les alias legacy ne s'appliquent pas.
+            return data
         for legacy, canonical in cls._LEGACY_QTY_ALIASES.items():
             if mutable.get(legacy) not in (None, "") and not mutable.get(canonical):
                 mutable[canonical] = mutable.get(legacy)
-        # `category` carrying a non-numeric string is a legacy category *name*.
         cat = mutable.get("category")
         if cat not in (None, "") and not str(cat).isdigit() and not mutable.get("category_name"):
             mutable["category_name"] = cat
@@ -145,10 +121,6 @@ class ProductSerializer(serializers.ModelSerializer):
         if not category and not category_name:
             raise serializers.ValidationError("La categorie est obligatoire.")
 
-        # Compte « Vendeur » unifié (clé SUPPLIER ; WHOLESALER déprécié migré) :
-        # formulaire simple — montant (unit_price) + quantité disponible
-        # (available_qty). On dérive les gammes internes min/max pour rester
-        # compatible avec le moteur de commande (prix unique, pas de dégressif).
         if role in UserRole.seller_roles():
             available_qty = attrs.get("available_qty", getattr(self.instance, "available_qty", None))
             unit_price = attrs.get("unit_price", getattr(self.instance, "unit_price", None))
@@ -192,12 +164,9 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Pour publier une video, ajoutez une description et des tags."
             )
-        # Audit ref: [BUG-S1] valider et scruber la galerie AVANT toute ecriture
-        # DB, pour qu'une galerie invalide renvoie 400 sans creer le produit.
         self._gallery_files = self._collect_gallery_files()
         return attrs
 
-    # Audit ref: [BUG-S1] limite dure d'images par produit, alignee sur le modele.
     MAX_GALLERY_IMAGES = ProductImage.MAX_IMAGES_PER_PRODUCT
 
     def _collect_gallery_files(self):
@@ -237,13 +206,10 @@ class ProductSerializer(serializers.ModelSerializer):
             ProductImage.objects.create(product=product, image=uploaded, position=start + idx)
             for idx, uploaded in enumerate(files)
         ]
-        # Backfill de l'image principale (vignette) si absente.
         if not product.image and created:
             product.image = created[0].image
             product.save(update_fields=["image"])
 
-    # Anti-désintermédiation : neutraliser tout lien/e-mail dans les champs libres
-    # visibles par l'acheteur (contournement de l'escrow / hameçonnage).
     def validate_title(self, value):
         return redact_links(value)
 
@@ -274,9 +240,6 @@ class ProductSerializer(serializers.ModelSerializer):
                 "application/octet-stream",
             },
         )
-        # Defense en profondeur : refuser un conteneur sans piste video lisible
-        # (ex. fichier dummy ftyp + mdat tout-a-zero). Renvoie la duree detectee
-        # pour alimenter `video_duration_seconds` dans create()/update().
         self._probed_video_duration = validate_video_stream(value)
         return value
 
@@ -285,8 +248,6 @@ class ProductSerializer(serializers.ModelSerializer):
         if category_name and not validated_data.get("category"):
             category, _ = ProductCategory.objects.get_or_create(name=category_name)
             validated_data["category"] = category
-        # Audit ref: [C-2] server controls activation — always publish on create,
-        # regardless of request content type (JSON or multipart).
         validated_data["is_active"] = True
         product = super().create(validated_data)
         self._save_gallery(product)
@@ -359,8 +320,6 @@ class SavedProductFilterSerializer(serializers.ModelSerializer):
 
 class VideoCommentSerializer(serializers.ModelSerializer):
     author = serializers.CharField(source="user.username", read_only=True)
-    # Fil TikTok : compteurs annotés par VideoCommentViewSet.get_queryset et
-    # badge « Vendeur » quand l'auteur du commentaire est le vendeur du produit.
     likes_count = serializers.SerializerMethodField()
     replies_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()

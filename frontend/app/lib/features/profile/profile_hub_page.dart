@@ -310,7 +310,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
           ? const Center(child: CircularProgressIndicator())
           : CustomScrollView(
               slivers: [
-                // ── Hero sombre vert ────────────────────────────────────────
                 SliverToBoxAdapter(
                   child: Container(
                     decoration: const BoxDecoration(
@@ -325,7 +324,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                         child: Column(
                           children: [
-                            // Avatar + nom + badge + refresh
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
@@ -412,7 +410,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                               ],
                             ),
                             const SizedBox(height: 20),
-                            // Stats
                             Row(
                               children: [
                                 const Expanded(
@@ -444,12 +441,10 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                   ),
                 ),
 
-                // ── Corps ───────────────────────────────────────────────────
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
                   sliver: SliverList.list(
                     children: [
-                      // Section COMPTE
                       const _SectionLabel('COMPTE'),
                       _ProfileTile(
                         icon: LucideIcons.pencil,
@@ -486,7 +481,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Section COMMERCE
                       const _SectionLabel('COMMERCE'),
                       if (canAccessCompliance)
                         _ProfileTile(
@@ -553,7 +547,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Section SUPPORT
                       const _SectionLabel('SUPPORT'),
                       _ProfileTile(
                         icon: LucideIcons.helpCircle,
@@ -579,7 +572,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Déconnexion
                       Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
@@ -614,7 +606,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
   }
 }
 
-// ── Local widgets ────────────────────────────────────────────────────────────
 
 class _StatBadge extends StatelessWidget {
   const _StatBadge({required this.value, required this.label});

@@ -1,8 +1,3 @@
-/// Secure Dio HTTP client — correlation IDs, replay nonce, device binding,
-/// HTTPS enforcement, reactive token refresh, and structured error handling.
-///
-/// Mirrors the consumer-app security stack so the admin console enjoys the
-/// same network hardening (OWASP MASVS-NETWORK-1, MASVS-AUTH-2).
 library;
 
 import 'dart:async';
@@ -74,7 +69,6 @@ class SecureDioClient {
   }
 }
 
-// ── Security Headers Interceptor ─────────────────────────────────────────────
 
 class _SecurityHeadersInterceptor extends Interceptor {
   final String deviceId;
@@ -110,7 +104,6 @@ class _SecurityHeadersInterceptor extends Interceptor {
   }
 }
 
-// ── Auth Interceptor — token injection + reactive refresh on 401 ─────────────
 
 class _AuthInterceptor extends Interceptor {
   final Dio dio;
@@ -193,7 +186,6 @@ class _AuthInterceptor extends Interceptor {
   }
 }
 
-// ── Error Sanitizer — never surface raw server errors to UI ──────────────────
 
 class _ErrorSanitizerInterceptor extends Interceptor {
   @override
@@ -203,10 +195,6 @@ class _ErrorSanitizerInterceptor extends Interceptor {
     handler.next(response);
   }
 
-  // Transport-level failures never carry an HTTP response (DNS, TLS, timeout,
-  // connection refused). Their toString() / underlying SocketException embed
-  // the server host:port. Replace the exception wholesale so no server address
-  // can surface in the UI or logs.
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     handler.reject(DioException(

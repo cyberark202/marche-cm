@@ -5,7 +5,6 @@ from playwright.sync_api import sync_playwright
 URL = "http://127.0.0.1:5000"
 OUT = Path(__file__).parent / "artifacts" / "pw"; OUT.mkdir(parents=True, exist_ok=True)
 
-# Dump shadow-piercant : capture aria/role/input + feuilles de texte (labels boutons).
 DUMP = r"""
 () => {
   const out=[];
@@ -54,7 +53,7 @@ with sync_playwright() as p:
     page.goto(URL, wait_until="domcontentloaded", timeout=60000)
     time.sleep(3)
     enable_sem(page)
-    time.sleep(7)  # laisser le splash s'auto-completer -> PublicHomePage
+    time.sleep(7)
     page.screenshot(path=str(OUT / "clients_01_home.png"))
     dump(page, "HOME")
 
@@ -63,7 +62,7 @@ with sync_playwright() as p:
         page.get_by_text("Se connecter", exact=True).first.click(timeout=8000, force=True)
     except Exception as e:
         print("tap login err:", e)
-    time.sleep(6)  # splash + AuthPage
+    time.sleep(6)
     enable_sem(page)
     time.sleep(1.5)
     page.screenshot(path=str(OUT / "clients_02_authpage.png"))

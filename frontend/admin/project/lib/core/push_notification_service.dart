@@ -5,23 +5,14 @@ import 'package:flutter/foundation.dart';
 
 import 'security/secure_dio_client.dart';
 
-/// Must be a top-level function — the FCM background isolate cannot access
-/// class state. Firebase is initialized by the system before this runs.
 @pragma('vm:entry-point')
 Future<void> _fcmBackgroundHandler(RemoteMessage message) async {}
 
-/// FCM push notifications for the Admin console.
-///
-/// The admin console is web-first; Firebase web core initializes for the
-/// shared marche-cm project. Web push requires a VAPID key + service worker
-/// (not configured yet), so token retrieval is skipped on web. Native
-/// platforms are not registered for the admin app (see firebase_options.dart).
 class PushNotificationService {
   PushNotificationService._();
 
   static String? _lastRegistered;
 
-  /// Call once after Firebase.initializeApp() and SecureDioClient.initialize().
   static Future<void> initialize() async {
     if (kIsWeb) return;
 

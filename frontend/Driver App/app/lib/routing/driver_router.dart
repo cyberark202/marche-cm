@@ -48,16 +48,12 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
 
       if (!isAuth && !isAuthRoute) return '/login';
       if (isAuth && !isOnboarded && loc != '/onboarding') return '/onboarding';
-      // Une fois le KYC soumis (isOnboarded=true), quitter les écrans d'auth ET
-      // l'onboarding. Sans le cas `/onboarding`, la page restait montée après
-      // completeKyc() — le bouton « Envoyer » tournait indéfiniment.
       if (isAuth && isOnboarded && (isAuthRoute || loc == '/onboarding')) {
         return '/dashboard';
       }
       return null;
     },
     routes: [
-      // ── Auth ─────────────────────────────────────────────
       GoRoute(
         path: '/login',
         pageBuilder: (_, state) =>
@@ -79,7 +75,6 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
             MaterialPage(key: state.pageKey, child: const OnboardingPage()),
       ),
 
-      // ── Chat plein écran (coordination livraison, hors bottom-nav) ────────
       GoRoute(
         path: '/chat/:roomId',
         pageBuilder: (_, state) => MaterialPage(
@@ -91,7 +86,6 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // ── Main shell ────────────────────────────────────────
       ShellRoute(
         builder: (context, state, child) => DriverShell(child: child),
         routes: [

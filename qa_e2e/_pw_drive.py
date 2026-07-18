@@ -65,7 +65,6 @@ with sync_playwright() as p:
     page.on("dialog", lambda d: d.accept())
 
     def boot_ready():
-        # Readiness = l'app a rendu des widgets ET la semantique est active.
         deadline = time.time() + 35
         while time.time() < deadline:
             enable_sem(page)
@@ -137,7 +136,6 @@ with sync_playwright() as p:
                 k, _, v = arg.partition("=")
                 page.locator("input[type=file]").nth(int(k)).set_input_files(v); print(f"  upload#{k}<-{v}")
             elif cmd == "pick":
-                # clique un bouton (par texte) qui ouvre le file_picker web, puis fournit le fichier
                 k, _, v = arg.partition("=")
                 with page.expect_file_chooser(timeout=12000) as fc:
                     try:

@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 class EntrySpec(TypedDict):
     account: LedgerAccount
-    direction: str  # DEBIT | CREDIT
+    direction: str
     amount: Decimal
     description: str
 
@@ -157,7 +157,6 @@ class LedgerService:
             )
 
         with transaction.atomic():
-            # Lock all accounts to prevent concurrent writes
             account_ids = [e["account"].pk for e in entries]
             locked_accounts = {
                 acc.pk: acc
@@ -176,10 +175,6 @@ class LedgerService:
                 metadata=metadata or {},
             )
 
-            # Audit ref: V11.3 — track the running balance per account inside
-            # this transaction. Multiple entries can hit the same account
-            # (e.g. commission split) and we must apply them in order before
-            # writing back to cached_balance.
             from django.utils import timezone as _tz
             running_per_account: dict = {}
 
@@ -214,8 +209,6 @@ class LedgerService:
 
             LedgerEntry.objects.bulk_create(entry_instances)
 
-            # Materialise the new balances on the account rows in one UPDATE
-            # per account — still under the SELECT FOR UPDATE locks above.
             now = _tz.now()
             for acc_pk, balance in running_per_account.items():
                 LedgerAccount.objects.filter(pk=acc_pk).update(

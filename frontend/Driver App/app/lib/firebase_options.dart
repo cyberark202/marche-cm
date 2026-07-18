@@ -1,11 +1,3 @@
-// Firebase configuration for the Driver app — project "marche-cm".
-//
-// Android values come from android/app/google-services.json (package
-// com.marchecm.driver). Web reuses the shared marche-cm web app config.
-// iOS is SCAFFOLDED ONLY: register an iOS app for this bundle id in the
-// Firebase console, drop ios/Runner/GoogleService-Info.plist, configure an
-// APNs key, then replace the `ios` block below with the generated values.
-//
 // ignore_for_file: type=lint
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'

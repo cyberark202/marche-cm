@@ -10,8 +10,6 @@ import '../users/users_page.dart';
 import '../wallet/reconciliation_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Bottom-nav host matching catalogue screen 32 footer:
-/// Accueil · Comptes · Litiges · Wallet · Profil.
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
 

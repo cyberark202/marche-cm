@@ -36,7 +36,6 @@ ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 
-# Les 4 applications Flutter et leur racine `lib/`.
 FLUTTER_APPS = {
     "app": FRONTEND / "app" / "lib",
     "Clients": FRONTEND / "Clients" / "lib",
@@ -47,9 +46,6 @@ FLUTTER_APPS = {
 REPORT_PATH = ROOT / "qa_e2e" / "SCREEN_BACKEND_ALIGNMENT.md"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 1) Routes backend (introspection URLconf)
-# ─────────────────────────────────────────────────────────────────────────────
 def _bootstrap_django() -> None:
     """Charge Django avec des valeurs d'env sûres pour l'introspection seule.
 
@@ -84,7 +80,6 @@ _PARAM_RE = re.compile(r"\(\?P<[^>]+>[^)]*\)|\([^)]*\)")
 def _to_template(combined_regex: str) -> str:
     """Convertit une regex d'URL combinée en gabarit lisible `/api/.../{param}/`."""
     template = _PARAM_RE.sub("{param}", combined_regex)
-    # Déséchappe les caractères regex courants présents dans les chemins.
     template = template.replace("\\/", "/").replace("\\.", ".").replace("\\-", "-")
     return "/" + template.lstrip("/")
 
@@ -103,9 +98,6 @@ def collect_backend_routes() -> list[dict]:
                 walk(entry, prefix + frag)
             elif isinstance(entry, URLPattern):
                 combined = prefix + frag
-                # Ignore les routes-suffixe de format DRF (`.json`, etc.) et la
-                # racine du routeur : ce ne sont pas des endpoints appelés par
-                # une app, juste du bruit dans la liste "non référencées".
                 if "(?P<format>" in combined or "<drf_format_suffix" in combined:
                     continue
                 template = _to_template(combined)
@@ -113,7 +105,6 @@ def collect_backend_routes() -> list[dict]:
                     continue
                 if template in ("/api", "/api/"):
                     continue
-                # Regex de correspondance : ancrée, barre finale optionnelle.
                 body = combined
                 if body.endswith("/"):
                     body = body[:-1] + "/?"
@@ -124,7 +115,6 @@ def collect_backend_routes() -> list[dict]:
                 routes.append({"template": template, "match_regex": match_regex})
 
     walk(get_resolver(), "")
-    # Déduplique par gabarit.
     seen, unique = set(), []
     for r in routes:
         if r["template"] in seen:
@@ -134,20 +124,15 @@ def collect_backend_routes() -> list[dict]:
     return unique
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 2) Endpoints référencés par les écrans Flutter
-# ─────────────────────────────────────────────────────────────────────────────
-# Capture une chaîne littérale Dart commençant par /api/ jusqu'au guillemet.
 _DART_ENDPOINT_RE = re.compile(r"""['"](/api/[^'"]*)['"]""")
 
 
 def _normalize_frontend_path(raw: str) -> str:
     """Normalise un chemin Dart en gabarit : interpolations → {param}, sans query."""
     path = raw.split("?", 1)[0].split("#", 1)[0]
-    path = re.sub(r"\$\{[^}]*\}", "{param}", path)   # ${expr}
-    path = re.sub(r"\$[A-Za-z_][A-Za-z0-9_]*", "{param}", path)  # $var
+    path = re.sub(r"\$\{[^}]*\}", "{param}", path)
+    path = re.sub(r"\$[A-Za-z_][A-Za-z0-9_]*", "{param}", path)
     if not path.endswith("/") and "{param}" not in path.split("/")[-1]:
-        # Laisse tel quel ; la correspondance gère la barre finale optionnelle.
         pass
     return path
 
@@ -169,9 +154,6 @@ def collect_frontend_endpoints() -> dict[str, list[dict]]:
             except OSError:
                 continue
             for lineno, line in enumerate(text.splitlines(), start=1):
-                # Neutralise d'abord les interpolations `${...}` (qui peuvent
-                # contenir des guillemets, ex. ${map['id']}) pour ne pas tronquer
-                # la capture du littéral d'URL.
                 line = re.sub(r"\$\{[^{}]*\}", "{param}", line)
                 for m in _DART_ENDPOINT_RE.finditer(line):
                     template = _normalize_frontend_path(m.group(1))
@@ -182,9 +164,6 @@ def collect_frontend_endpoints() -> dict[str, list[dict]]:
     return found
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 3) Croisement
-# ─────────────────────────────────────────────────────────────────────────────
 def analyze() -> dict:
     backend_routes = collect_backend_routes()
     frontend = collect_frontend_endpoints()
@@ -257,7 +236,6 @@ def main() -> int:
     write_report(result)
 
     if args.json:
-        # match_regex n'est pas sérialisable : on ne sort que les données.
         print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
     else:
         print(f"Routes backend /api/ : {result['backend_count']}")

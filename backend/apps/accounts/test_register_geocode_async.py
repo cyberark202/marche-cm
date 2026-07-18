@@ -41,7 +41,6 @@ class RegisterGeocodeAsyncTests(TestCase):
             "password": "ChangeMe123!", "city": "Douala", "country_code": "CM",
         }
 
-    # --- the dispatch helper (synchronous, deterministic) ---
     def test_dispatch_publishes_task(self):
         with mock.patch(APPLY_ASYNC) as m:
             _dispatch_geocode_task(4242)
@@ -50,9 +49,8 @@ class RegisterGeocodeAsyncTests(TestCase):
 
     def test_dispatch_swallows_broker_error(self):
         with mock.patch(APPLY_ASYNC, side_effect=RuntimeError("broker down")):
-            _dispatch_geocode_task(4242)  # must not raise
+            _dispatch_geocode_task(4242)
 
-    # --- the registration request path ---
     def test_geocoder_not_called_inline(self):
         with mock.patch("apps.accounts.location_service.update_user_location") as m_geo, \
              mock.patch(APPLY_ASYNC):
@@ -64,8 +62,6 @@ class RegisterGeocodeAsyncTests(TestCase):
 
     @override_settings(PASSWORD_HASHERS=FAST_HASHER)
     def test_register_fast_even_when_broker_unreachable(self):
-        # No mocking of the broker: apply_async will fail (no Redis), but that
-        # happens on the daemon thread — the request must still be < 500 ms.
         t0 = time.perf_counter()
         resp = self.client.post(REGISTER_URL, self._payload("perf@qa.test"),
                                 content_type="application/json")
@@ -75,7 +71,6 @@ class RegisterGeocodeAsyncTests(TestCase):
 
     @override_settings(PASSWORD_HASHERS=FAST_HASHER)
     def test_benchmark_before_after(self):
-        # BEFORE: the old inline behaviour — a slow provider blocks the caller.
         slow_user = get_user_model().objects.create_user(
             username="bench_old", email="bench_old@qa.test", password="x",
             role="BUYER", country_code="CM", city="Douala", phone_number="+237690000902")
@@ -88,7 +83,6 @@ class RegisterGeocodeAsyncTests(TestCase):
             update_user_location(slow_user, force=True)
             before = time.perf_counter() - t0
 
-        # AFTER: registration dispatches async — no inline geocode.
         with mock.patch(APPLY_ASYNC):
             t0 = time.perf_counter()
             resp = self.client.post(REGISTER_URL, self._payload("bench_new@qa.test"),

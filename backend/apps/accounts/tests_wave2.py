@@ -25,9 +25,6 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 User = get_user_model()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [WS-003] _coerce_finite_float helper
-# ─────────────────────────────────────────────────────────────────────────────
 
 class CoerceFiniteFloatTests(TestCase):
     def setUp(self):
@@ -46,16 +43,12 @@ class CoerceFiniteFloatTests(TestCase):
         self.assertIsNone(self.coerce(float("-inf")))
 
     def test_rejects_bool_and_garbage(self):
-        # bool is an int subtype — must be explicitly rejected (audit clarity)
         self.assertIsNone(self.coerce(True))
         self.assertIsNone(self.coerce(False))
         self.assertIsNone(self.coerce("not-a-number"))
         self.assertIsNone(self.coerce(None))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [WS-001] BaseAuthConsumer closes when no valid user
-# ─────────────────────────────────────────────────────────────────────────────
 
 class BaseAuthConsumerTests(TestCase):
     def test_close_called_on_anonymous_scope(self):
@@ -82,8 +75,7 @@ class BaseAuthConsumerTests(TestCase):
                 super_calls.append(True)
 
             consumer.close = fake_close
-            # Patch the parent connect via instance attribute — simpler than mocking MRO.
-            consumer._super_connect = fake_super_connect  # documented anchor
+            consumer._super_connect = fake_super_connect
             await consumer.websocket_connect({})
             return close_calls, super_calls
 
@@ -101,9 +93,6 @@ async def _async_none():
     return None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [FIN-005] DisputeService._to_decimal helper
-# ─────────────────────────────────────────────────────────────────────────────
 
 class ToDecimalTests(TestCase):
     def setUp(self):
@@ -124,9 +113,6 @@ class ToDecimalTests(TestCase):
             self.to_dec(object(), "seller_release")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [FIN-008/009] EscrowService ghost methods refuse to execute
-# ─────────────────────────────────────────────────────────────────────────────
 
 class EscrowServiceGhostMethodTests(TestCase):
     def test_create_order_escrow_raises(self):
@@ -157,9 +143,6 @@ class EscrowServiceGhostMethodTests(TestCase):
             EscrowService().refund_to_payer(hold=MagicMock(pk="x"), actor=None, reason="test")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [FIN-005] make_decision routing per outcome
-# ─────────────────────────────────────────────────────────────────────────────
 
 class MakeDecisionRoutingTests(TestCase):
     def setUp(self):
@@ -204,7 +187,6 @@ class MakeDecisionRoutingTests(TestCase):
         )
 
     def test_no_action_does_not_touch_finance(self):
-        # No mock for OrderFinanceService — if any primitive is called we explode.
         with self._patch_machine():
             decision = self._call("NO_ACTION")
         self.assertEqual(decision.outcome, "NO_ACTION")

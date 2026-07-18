@@ -42,9 +42,6 @@ logger = logging.getLogger(__name__)
 security_event_logger = logging.getLogger("security.events")
 
 
-# Audit ref: [N-005] use the canonical TRUSTED_PROXIES-aware helper.
-# The previous local copy trusted the leftmost XFF unconditionally, letting a
-# direct attacker forge their source IP and bypass rate-limiting/fraud/audit.
 from config.middleware import _client_ip  # noqa: E402, F401
 
 
@@ -56,10 +53,8 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return Wallet.objects.filter(owner=self.request.user).select_related("owner")
 
-    # M5 — Minimum transaction amount (100 XAF). Prevents micro-flood attacks
-    # and aligns with NotchPay's practical minimums for Mobile Money.
     _MIN_TX_AMOUNT = Decimal("100")
-    _MAX_TX_AMOUNT = Decimal("100000000")  # 100M XAF hard cap
+    _MAX_TX_AMOUNT = Decimal("100000000")
 
     def _parse_amount(self, raw):
         try:
@@ -164,9 +159,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             if ";tx_ref:" in raw:
                 raw = raw.split(";tx_ref:", 1)[0]
             candidate = raw.strip() or None
-        # Strip any query-string parameters that may carry internal metadata.
         if candidate and ("://" in candidate):
-            # Enforce HTTPS in production; allow HTTP only in DEBUG for local dev.
             if not candidate.startswith("https://") and not getattr(settings, "DEBUG", False):
                 return None
             return candidate
@@ -184,7 +177,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 "data": raw_data,
             }
 
-        # Legacy PayDunya-style payload support (transitional compatibility).
         if isinstance(raw_data, dict):
             return {
                 "id": str(raw_data.get("event_id") or payload.get("event_id") or "").strip(),
@@ -213,17 +205,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             "data": parsed,
         }
 
-    # -------------------------------------------------------------------------
-    # Webhook signature verification — OWASP ASVS V9.2 / PCI-DSS Req. 6.4
-    #
-    # Design rules (fintech-grade):
-    #   1. HMAC-SHA256 is ALWAYS required — no debug bypass, no token-only fallback.
-    #   2. If the secret is absent the webhook is rejected unconditionally.
-    #      This prevents forged payments when the server is misconfigured.
-    #   3. Token header is an optional second factor (defense-in-depth).
-    #      It is validated from HTTP headers ONLY — never from request body.
-    #   4. Both comparisons use hmac.compare_digest to prevent timing attacks.
-    # -------------------------------------------------------------------------
 
     @staticmethod
     def _compute_hmac(secret: str, body: bytes) -> str:
@@ -297,7 +278,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             )
             return False, "Signature HMAC invalide."
 
-        # Optional token — second factor, headers only (never body/query-string).
         expected_token = str(getattr(settings, "NOTCHPAY_WEBHOOK_TOKEN", "") or "").strip()
         if expected_token:
             incoming_token = (
@@ -318,11 +298,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             return response.Response({"detail": "Action non autorisee."}, status=status.HTTP_403_FORBIDDEN)
         return None
 
-    # Audit ref: [FIN-004] fraud engine fail-open.
-    # Actions that move money OUT of the platform OR out of the user's wallet
-    # MUST fail-closed: an unavailable fraud engine cannot become an attacker's
-    # escape hatch under a DoS / Redis outage. Pure-inbound actions (topup =
-    # credit) keep fail-open semantics to avoid blocking legitimate funding.
     _DEBIT_ACTIONS = frozenset({"withdraw", "transfer", "payout", "release", "order", "escrow_lock"})
 
     def _check_fraud(self, request, amount, action: str):
@@ -340,8 +315,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception:
             logger.exception("fraud_engine_error user=%d action=%s", request.user.id, action)
             if action in self._DEBIT_ACTIONS:
-                # Fail-closed for any value-out action. Surface a 503 so clients
-                # can retry, and emit an audit trail for ops triage.
                 try:
                     from apps.accounts.security import write_audit_log
                     write_audit_log(
@@ -406,7 +379,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         level = str(getattr(request.user, "kyc_level", 0))
         profile = limits_map.get(level)
         if profile is None:
-            # Niveau au-dessus du registre → limites du niveau max configuré.
             profile = limits_map[max(limits_map, key=int)]
         per_tx_key = "deposit_per_tx" if kind == "deposit" else "withdraw_per_tx"
         per_tx_limit = Decimal(str(profile[per_tx_key]))
@@ -417,9 +389,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             )
         day_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
         wallet, _ = Wallet.objects.get_or_create(owner=request.user)
-        # M4 — Include PENDING and SUCCESS to prevent parallel-request KYC bypass.
-        # A user cannot initiate N concurrent requests each under the limit and
-        # get them all confirmed — the PENDING sum closes the window.
         day_total = (
             wallet.transactions.filter(
                 status__in=[TransactionStatus.SUCCESS, TransactionStatus.PENDING],
@@ -454,10 +423,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         return fee.quantize(Decimal("1"), rounding=ROUND_UP)
 
     def _validate_wallet_security(self, request, amount, purpose):
-        # Wallet PIN removed (product decision). Withdrawals stay protected by an
-        # INDEPENDENT second factor: the one-time code emailed via the
-        # "wallet.withdraw" sensitive-action challenge. Top-ups no longer require
-        # any PIN. The legacy wallet_pin_* columns are retained but unused.
         if purpose == "WITHDRAW":
             verified, message = verify_sensitive_action_challenge(
                 user=request.user,
@@ -508,10 +473,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         limit_error = self._enforce_kyc_limits(request, amount, kind="deposit")
         if limit_error:
             return limit_error
-        # Audit ref: [FIN-006] PIN/fraud order inversion.
-        # PIN must be validated BEFORE fraud. Otherwise an attacker can DoS the
-        # fraud engine (Redis outage) to skip the brute-force lockout counter
-        # written by register_wallet_pin_failure() and grind the 4-digit PIN.
         security_error = self._validate_wallet_security(request, amount, "TOPUP")
         if security_error:
             return security_error
@@ -520,7 +481,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             return fraud_error
 
         idempotency_key = request.headers.get("Idempotency-Key") or str(request.data.get("idempotency_key") or "").strip()
-        # Phase 1 — enhanced idempotency: request-body hash + response snapshot.
         idem_record = None
         if idempotency_key:
             try:
@@ -551,9 +511,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                         },
                         status=status.HTTP_200_OK,
                     )
-            # H5 — Use a savepoint so that an IntegrityError on the unique
-            # idempotency_key constraint doesn't invalidate the outer wallet lock
-            # transaction. Lost races return the already-created transaction.
             try:
                 with transaction.atomic():
                     tx = wallet.transactions.create(
@@ -592,7 +549,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
         if checkout.get("error"):
-            # H1 — Log full provider error internally, never expose to client.
             _raw_error = str(checkout["error"])
             logger.error(
                 "notchpay_checkout_error tx=%s provider_error=%.500s",
@@ -631,11 +587,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             tx.reference = ref
             tx.save(update_fields=update_fields)
 
-            # In-app Direct Charge for mobile money: rather than redirecting the
-            # buyer to NotchPay's hosted page, charge the initialized payment
-            # directly so NotchPay pushes a USSD/OTP prompt to their phone — the
-            # buyer validates without leaving the app. Cards/PayPal have no
-            # direct-charge channel and keep the hosted-redirect flow.
             if NotchPayCheckoutService.supports_direct_charge(provider):
                 charge_result = NotchPayCheckoutService.charge(
                     reference=checkout_reference,
@@ -644,7 +595,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                     client_ip=_client_ip(request),
                 )
                 if charge_result.get("error"):
-                    # H1 — log full provider error internally, never expose it.
                     _raw_error = str(charge_result["error"])
                     logger.error(
                         "notchpay_charge_error tx=%s provider_error=%.500s",
@@ -658,7 +608,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                         status=status.HTTP_502_BAD_GATEWAY,
                     )
                 payment_mode = "direct_charge"
-                # In-app flow: never hand a hosted URL back to the client.
                 checkout["checkout_url"] = None
 
         write_audit_log(
@@ -714,7 +663,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         limit_error = self._enforce_kyc_limits(request, amount, kind="withdraw")
         if limit_error:
             return limit_error
-        # Audit ref: [FIN-006] PIN/fraud order inversion — PIN first.
         security_error = self._validate_wallet_security(request, amount, "WITHDRAW")
         if security_error:
             return security_error
@@ -722,9 +670,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         if fraud_error:
             return fraud_error
 
-        # Frais de retrait (docs 01/05) : pourcentage avec plancher, configurables
-        # à chaud. Le wallet est débité du montant demandé ; le Mobile Money
-        # reçoit le net. Les frais deviennent une écriture COMMISSION au succès.
         fee = self._withdrawal_fee(amount)
         net_amount = amount - fee
         if net_amount < self._MIN_TX_AMOUNT:
@@ -777,8 +722,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 created_by=request.user,
                 metadata={"provider": provider},
             )
-            # H5 — Savepoint guards against IntegrityError on the unique
-            # idempotency_key constraint without rolling back the wallet debit.
             try:
                 with transaction.atomic():
                     tx = wallet.transactions.create(
@@ -816,7 +759,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             account_name=request.user.get_full_name() or request.user.username,
         )
         if transfer.get("error"):
-            # H1 — Log full provider error internally, never expose to client.
             _raw_error = str(transfer["error"])
             logger.error(
                 "notchpay_disburse_error tx=%s provider_error=%.500s",
@@ -879,9 +821,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                     created_by=wallet.owner,
                     metadata={"provider_payload": payload},
                 )
-                # Frais de retrait (doc 05) : le wallet a été débité du brut, le
-                # Mobile Money a reçu le net — l'écart est la commission
-                # plateforme, tracée pour la réconciliation quotidienne.
                 fee = Decimal(str((tx.metadata or {}).get("fee") or "0"))
                 if fee > 0:
                     WalletAccountingService.mutate_wallet(
@@ -917,7 +856,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 tx.cinetpay_transfered = mark_payout
                 update_fields.append("cinetpay_transfered")
             tx.save(update_fields=update_fields)
-            # Phase 2 — immutable state transition audit log.
             self._log_state_transition(
                 tx,
                 from_status=TransactionStatus.PENDING,
@@ -932,7 +870,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             action_key="wallet.transaction.success",
             metadata={"transaction_id": tx.external_transaction_id, "kind": tx.kind},
         )
-        # Notify the wallet owner with a user-specific event (shows popup on frontend).
         try:
             _kind_label = {"TOPUP": "Recharge", "WITHDRAWAL": "Retrait"}.get(tx.kind, tx.kind)
             _amount = abs(tx.amount)
@@ -992,11 +929,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                     created_by=wallet.owner,
                     metadata={"reason": reason},
                 )
-                # Sans cette ligne le retrait restait bloque a PENDING ("en
-                # attente"): le decaissement a echoue, les fonds ont ete
-                # recredites, mais le statut n'etait jamais passe a FAILED. Le
-                # client voyait "Echec initialisation retrait" pendant que
-                # l'historique affichait toujours "en attente".
                 tx.status = TransactionStatus.FAILED
             elif tx.kind.startswith("PAYOUT_"):
                 retry_job = enqueue_payout_retry(tx=tx, error=reason, delay_seconds=180)
@@ -1013,7 +945,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 tx.reconciled_at = timezone.now()
                 update_fields.append("reconciled_at")
             tx.save(update_fields=update_fields)
-            # Phase 2 — immutable state transition audit log.
             self._log_state_transition(
                 tx,
                 from_status=TransactionStatus.PENDING,
@@ -1097,8 +1028,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
     @decorators.action(detail=False, methods=["post"], permission_classes=[permissions.AllowAny], url_path="notchpay/checkout/webhook")
     def notchpay_checkout_webhook(self, request):
-        # Auth MUST happen before request.data is accessed: reading request.data
-        # consumes the raw body stream, making request.body unavailable for HMAC.
         is_valid, auth_error = self._verify_webhook_auth(request, "checkout", "NOTCHPAY_CHECKOUT_WEBHOOK_SECRET")
         if not is_valid:
             return response.Response({"detail": auth_error}, status=status.HTTP_403_FORBIDDEN)
@@ -1162,9 +1091,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         raw_amount = event_data.get("amount")
         if raw_amount in {None, ""}:
             raw_amount = invoice_data.get("total_amount")
-        # Defense en profondeur: le montant doit toujours etre present et
-        # correspondre exactement au montant de la transaction. On refuse les
-        # webhooks sans champ amount pour prevenir la falsification.
         if raw_amount in {None, ""}:
             event.processed = True
             event.processed_at = timezone.now()
@@ -1294,7 +1220,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         is_success = event_type == "transfer.complete" or raw_status in {"complete", "completed", "success", "00"}
         is_failure = event_type == "transfer.failed" or raw_status in {"failed", "error", "canceled", "cancelled"}
         if external_tx.startswith("WITHDRAW-"):
-            # Le montant décaissé attendu est le NET (brut - frais de retrait).
             expected_amount = abs(tx.amount)
             _net_meta = (tx.metadata or {}).get("net_amount")
             if _net_meta not in {None, ""}:
@@ -1303,9 +1228,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 except (InvalidOperation, TypeError):
                     pass
             if is_success:
-                # H2 — Validate disbursed amount matches the transaction record
-                # before crediting/debiting. A forged or misrouted webhook with a
-                # wrong amount must never trigger a state transition.
                 raw_amount = data.get("amount") or payload.get("amount")
                 if raw_amount in {None, ""}:
                     event.processed = True
@@ -1398,9 +1320,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         if not has_action_permission(request.user, "wallet.reconcile"):
             return response.Response({"detail": "Action reservee aux administrateurs."}, status=status.HTTP_403_FORBIDDEN)
 
-        # M7 — Step-up authentication: reconciliation directly credits/debits wallets.
-        # A compromised admin JWT must not allow immediate financial fraud.
-        # Requires a valid TOTP code (or OTP challenge) before any state change.
         verified, step_up_message = verify_sensitive_action_challenge(
             user=request.user,
             action_key="wallet.reconcile",
@@ -1446,9 +1365,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
     @decorators.action(detail=False, methods=["get"])
     def transactions(self, request):
-        # Auto-provision the per-user wallet (consistent with the rest of the
-        # wallet API, which uses get_or_create) so a brand-new authenticated
-        # user sees an empty list instead of a spurious 404.
         wallet, _ = Wallet.objects.get_or_create(owner=request.user)
         queryset = wallet.transactions.all().order_by("-created_at")
 
@@ -1460,13 +1376,8 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         if kind_filter:
             queryset = queryset.filter(kind=kind_filter)
 
-        # Cursor pagination — `before` is a created_at ISO timestamp.
-        # Enables efficient infinite-scroll on mobile without COUNT(*) cost.
-        # M6 — Strict cursor validation: bounds check + timezone-aware only +
-        # log-injection prevention (strip control characters before logging).
         before_raw = str(request.query_params.get("before") or "").strip()
         if before_raw:
-            # Reject strings containing control characters (log injection guard).
             if any(ord(c) < 0x20 for c in before_raw):
                 return response.Response(
                     {"detail": "Curseur invalide."},
@@ -1474,7 +1385,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
                 )
             from django.utils.dateparse import parse_datetime
             before_dt = parse_datetime(before_raw)
-            # Only accept timezone-aware datetimes within a sane range.
             if before_dt is None or not timezone.is_aware(before_dt):
                 return response.Response(
                     {"detail": "Curseur invalide: format ISO-8601 avec fuseau requis."},
@@ -1499,7 +1409,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
         rows = rows[:page_size]
 
         resp = response.Response(WalletTransactionSerializer(rows, many=True).data)
-        # Phase 4 — pagination headers (backward-compatible: body unchanged).
         resp["X-Has-More"] = "true" if has_more else "false"
         resp["X-Page-Size"] = str(page_size)
         if rows:
@@ -1532,7 +1441,6 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             .first()
         )
         if not tx:
-            # Also try idempotency_key lookup (frontend may not have the external_id yet).
             tx = (
                 WalletTransaction.objects
                 .filter(wallet=wallet, idempotency_key=external_id)

@@ -69,7 +69,6 @@ class ApiService {
 
     if (file != null) {
       final fileName = file.name.isEmpty ? 'upload.bin' : file.name;
-      // Declare a concrete MIME — the backend refuses octet-stream (UP-001).
       final up = normalizeUpload(fileName);
       MultipartFile multipartFile;
 
@@ -104,10 +103,6 @@ class ApiService {
     return {'ok': true};
   }
 
-  /// BUG-S1 — multipart avec une galerie de fichiers envoyes sous une cle
-  /// repetee (`fileFieldName`, defaut `gallery_images`). Le backend lit
-  /// `request.FILES.getlist(...)`. `method` permet POST (creation) ou PATCH
-  /// (ajout d'images a un produit existant).
   Future<Map<String, dynamic>> sendMultipartFiles(
     String path, {
     required Map<String, String> fields,

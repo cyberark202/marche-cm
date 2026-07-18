@@ -27,7 +27,6 @@ from .models import RentalBooking, RentalBookingStatus, RentalStateEvent
 
 ZERO = Decimal("0.00")
 
-# Transitions autorisées (doc 22). Une transition hors table est refusée.
 BOOKING_TRANSITIONS = {
     RentalBookingStatus.REQUESTED: {RentalBookingStatus.PAID, RentalBookingStatus.CANCELLED},
     RentalBookingStatus.PAID: {RentalBookingStatus.ACCEPTED, RentalBookingStatus.REFUSED, RentalBookingStatus.CANCELLED},
@@ -253,7 +252,6 @@ class RentalService:
         net_owner_rental = quantize_money(rental_amount - commission)
         owner_credit = quantize_money(net_owner_rental + deposit_to_owner)
 
-        # 1) Retirer loyer + part caution proprietaire du locked du locataire.
         owner_from_locked = quantize_money(rental_amount + deposit_to_owner)
         if owner_from_locked > ZERO:
             WalletAccountingService.mutate_wallet(
@@ -268,7 +266,6 @@ class RentalService:
                 created_by=actor,
                 metadata={"commission": str(commission), "deposit_to_owner": str(deposit_to_owner)},
             )
-        # 2) Crediter le proprietaire (loyer net + part caution eventuelle).
         if owner_credit > ZERO:
             WalletAccountingService.mutate_wallet(
                 wallet=owner_wallet,
@@ -282,7 +279,6 @@ class RentalService:
                 created_by=actor,
                 metadata={"net_rental": str(net_owner_rental), "deposit_to_owner": str(deposit_to_owner)},
             )
-        # 3) Commission plateforme (trace comptable, sans double debit).
         if commission > ZERO:
             WalletAccountingService.mutate_wallet(
                 wallet=renter_wallet,
@@ -294,7 +290,6 @@ class RentalService:
                 created_by=actor,
                 metadata={"rate": str(commission_rate)},
             )
-        # 4) Restituer la part de caution due au locataire (locked -> available).
         if deposit_to_renter > ZERO:
             WalletAccountingService.unlock_to_available(
                 wallet=renter_wallet,

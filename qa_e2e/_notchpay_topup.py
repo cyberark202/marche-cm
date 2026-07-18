@@ -16,7 +16,6 @@ AMOUNT = os.environ.get("MOMO_AMOUNT", "500")
 
 buy = Client("buyer"); buy.login(BUY, PWD)
 
-# balance before
 django_setup()
 from apps.accounts.models import User
 from apps.wallets.models import Wallet

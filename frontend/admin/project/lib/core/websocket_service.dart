@@ -4,9 +4,6 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class WebSocketService {
-  /// Audit ref: [WS-002] tokens must NEVER ride in the query string.
-  /// The bearer token is forwarded via Sec-WebSocket-Protocol — the backend
-  /// (config/websocket_auth.py) reads the `bearer, <token>` subprotocol pair.
   WebSocketService(this.url, {this.token});
 
   final String url;
@@ -24,8 +21,6 @@ class WebSocketService {
       protocols: protocols.isEmpty ? null : protocols,
     );
 
-    // Keep-alive ping every 25 s — prevents load-balancer/NAT idle timeouts that
-    // silently kill the socket. The backend ignores unknown message types.
     _pingTimer?.cancel();
     _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) {
       try {

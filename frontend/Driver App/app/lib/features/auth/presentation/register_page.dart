@@ -70,12 +70,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       );
       if (!mounted) return;
       if (ref.read(authProvider).isAuthenticated) {
-        // Auto-login succeeded — the router redirects to /onboarding (KYC).
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Compte créé ! Vérifions votre identité.')),
         );
       } else {
-        // Defensive fallback (backend without token issuance).
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Compte créé ! Connectez-vous.')),
         );
@@ -122,7 +120,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Brand header
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -176,7 +173,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 hint: 'vous@email.com', type: TextInputType.emailAddress),
             const SizedBox(height: 12),
 
-            // Country
             GestureDetector(
               onTap: _pickCountry,
               child: Container(
@@ -206,7 +202,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             ),
             const SizedBox(height: 20),
 
-            // Vehicle type
             _label('Type de véhicule'),
             const SizedBox(height: 8),
             GridView.count(

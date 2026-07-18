@@ -10,7 +10,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 enum _StatsRange { d7, d30, d90, m12 }
 
-/// Statistiques vendeur — CA & top produits (PDF 21).
 class SupplierStatsPage extends StatefulWidget {
   const SupplierStatsPage({super.key});
 

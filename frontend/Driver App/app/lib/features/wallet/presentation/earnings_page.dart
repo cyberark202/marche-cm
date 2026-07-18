@@ -7,10 +7,6 @@ import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// Audit ref: [Front-Driver] no /api/wallets/driver/earnings/ endpoint exists
-// server-side. Earnings are now aggregated client-side from the wallet
-// transactions feed (kind=DELIVERY_PAYOUT). A dedicated backend endpoint
-// can be added later for performance.
 final _earningsProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final res = await DriverDioClient.dio.get(
@@ -81,7 +77,6 @@ class EarningsPage extends ConsumerWidget {
 
           return CustomScrollView(
             slivers: [
-              // ── Amber gradient hero ─────────────────────────────────────
               SliverToBoxAdapter(
                 child: Container(
                   decoration: const BoxDecoration(
@@ -98,7 +93,6 @@ class EarningsPage extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Back + title
                           Row(children: [
                             GestureDetector(
                               onTap: () => context.pop(),
@@ -122,7 +116,6 @@ class EarningsPage extends ConsumerWidget {
                                     color: Colors.white)),
                           ]),
                           const SizedBox(height: 20),
-                          // Total ce mois
                           Text("Ce mois-ci",
                               style: TextStyle(
                                   fontSize: 11,
@@ -152,7 +145,6 @@ class EarningsPage extends ConsumerWidget {
                 ),
               ),
 
-              // ── Stats grid ──────────────────────────────────────────────
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
                 sliver: SliverToBoxAdapter(
@@ -180,7 +172,6 @@ class EarningsPage extends ConsumerWidget {
                 ),
               ),
 
-              // ── History header ──────────────────────────────────────────
               const SliverPadding(
                 padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
                 sliver: SliverToBoxAdapter(
@@ -193,7 +184,6 @@ class EarningsPage extends ConsumerWidget {
                 ),
               ),
 
-              // ── History list ────────────────────────────────────────────
               if (history.isEmpty)
                 const SliverFillRemaining(
                   hasScrollBody: false,

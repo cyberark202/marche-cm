@@ -7,12 +7,7 @@ import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// ── Providers ─────────────────────────────────────────────────────────────────
 
-// Audit ref: [Front-Driver] backend exposes /api/shipments/ and
-// /api/transport-quotes/ (config/urls.py). The /api/logistics/* prefix does
-// not exist server-side. The ShipmentViewSet filters by current user
-// (buyer/seller/transit_agent) automatically — no extra param needed.
 
 final _activeProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
@@ -42,7 +37,6 @@ final _completedProvider =
 
 final _myBidsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  // TransportQuoteViewSet auto-filters to the current user's bids.
   final res = await DriverDioClient.dio.get('/api/transport-quotes/');
   final data = res.data;
   if (data is List) return data.cast<Map<String, dynamic>>();
@@ -52,7 +46,6 @@ final _myBidsProvider =
   return [];
 });
 
-// ── Page ──────────────────────────────────────────────────────────────────────
 
 class ActiveDeliveryPage extends ConsumerWidget {
   const ActiveDeliveryPage({super.key});
@@ -67,7 +60,6 @@ class ActiveDeliveryPage extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ───────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Row(children: [
@@ -89,7 +81,6 @@ class ActiveDeliveryPage extends ConsumerWidget {
                   ),
                 ]),
               ),
-              // ── Tabs ─────────────────────────────────────────────────────
               Container(
                 color: T.surface,
                 child: const TabBar(
@@ -110,7 +101,6 @@ class ActiveDeliveryPage extends ConsumerWidget {
                   ],
                 ),
               ),
-              // ── Tab views ────────────────────────────────────────────────
               Expanded(
                 child: TabBarView(
                   children: [
@@ -128,7 +118,6 @@ class ActiveDeliveryPage extends ConsumerWidget {
   }
 }
 
-// ── Tabs ─────────────────────────────────────────────────────────────────────
 
 class _ActiveTab extends ConsumerWidget {
   const _ActiveTab({required this.ref});
@@ -223,14 +212,11 @@ class _BidsTab extends ConsumerWidget {
   }
 }
 
-// ── Cards ─────────────────────────────────────────────────────────────────────
 
 class _DeliveryCard extends StatelessWidget {
   final Map<String, dynamic> shipment;
   const _DeliveryCard({required this.shipment});
 
-  /// Get-or-create the driver↔buyer coordination room (backend action) then
-  /// open the conversation.
   Future<void> _contactBuyer(BuildContext context, String id) async {
     try {
       final res = await DriverDioClient.dio
@@ -283,7 +269,6 @@ class _DeliveryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Status + ID
                 Row(children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -310,7 +295,6 @@ class _DeliveryCard extends StatelessWidget {
                           fontFamily: 'monospace')),
                 ]),
                 const SizedBox(height: 10),
-                // Route
                 Row(children: [
                   Container(
                       width: 9,
@@ -510,7 +494,6 @@ class _BidCard extends StatelessWidget {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 class _HeaderBtn extends StatelessWidget {
   final IconData icon;

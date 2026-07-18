@@ -108,7 +108,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
     final walletBalance =
         _wallets.isEmpty ? null : (_wallets.first["balance"] ?? "0").toString();
 
-    // Initiales
     final parts = name.trim().split(RegExp(r'\s+'));
     final initials = parts.length >= 2
         ? "${parts[0][0]}${parts[1][0]}".toUpperCase()
@@ -118,15 +117,12 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
 
     return CustomScrollView(
       slivers: [
-        // Hero vert
         SliverToBoxAdapter(
           child: _buildHero(context, session, name, initials, avatarUrl),
         ),
-        // Stats card
         SliverToBoxAdapter(
           child: _buildStatsCard(walletBalance),
         ),
-        // Section COMPTE
         SliverToBoxAdapter(
           child: _buildSectionHeader("COMPTE"),
         ),
@@ -172,7 +168,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
             ),
           ]),
         ),
-        // Section COMMERCE
         SliverToBoxAdapter(
           child: _buildSectionHeader("COMMERCE"),
         ),
@@ -231,7 +226,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
             ),
           ]),
         ),
-        // Section SUPPORT
         SliverToBoxAdapter(
           child: _buildSectionHeader("SUPPORT"),
         ),
@@ -283,7 +277,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // AppBar transparent
           Row(
             children: [
               const Text(
@@ -302,7 +295,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
             ],
           ),
           const SizedBox(height: 16),
-          // Avatar + infos
           Row(
             children: [
               CircleAvatar(
@@ -342,7 +334,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    // Badge KYC
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
@@ -668,7 +659,6 @@ class _ProfileHubPageState extends State<ProfileHubPage> {
   }
 }
 
-// ── Widgets helpers ───────────────────────────────────────────────────────────
 
 class _SettingsItem extends StatelessWidget {
   const _SettingsItem({

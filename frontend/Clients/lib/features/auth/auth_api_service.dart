@@ -11,9 +11,6 @@ class AuthApiService {
 
   Uri _uri(String path) => Uri.parse("${AppConfig.apiBaseUrl}$path");
 
-  /// Registers a buyer and returns the authenticated session payload
-  /// `{access, refresh, user}` so the caller can log the user in immediately
-  /// (no separate login round-trip).
   Future<Map<String, dynamic>> register({
     required String name,
     required String phoneNumber,
@@ -84,9 +81,6 @@ class AuthApiService {
     throw Exception("Reponse Google invalide.");
   }
 
-  /// Forgot-password step 1 — request an emailed reset code. The backend always
-  /// responds 200 (anti-enumeration), so success here just means "code sent if
-  /// the account exists".
   Future<void> requestPasswordReset({required String email}) async {
     final response = await _client.post(
       _uri("/api/auth/password/reset/request/"),
@@ -98,7 +92,6 @@ class AuthApiService {
     }
   }
 
-  /// Forgot-password step 2 — confirm the emailed code and set a new password.
   Future<void> confirmPasswordReset({
     required String email,
     required String code,

@@ -5,9 +5,6 @@ import '../../core/ui_kit.dart';
 import 'auth_api_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Forgot-password flow for the admin console (2 steps):
-///   1. enter the account email → a 6-digit code is emailed;
-///   2. enter the code + a new password.
 class AdminResetPasswordPage extends StatefulWidget {
   const AdminResetPasswordPage({super.key, this.initialEmail = ''});
 

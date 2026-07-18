@@ -13,7 +13,6 @@ class OrderStatus(models.TextChoices):
     SHIPPING = "SHIPPING", "En expédition"
     DISPUTED = "DISPUTED", "En litige"
     REFUNDED = "REFUNDED", "Remboursee"
-    # Legacy statuses kept for compatibility with existing features/tests.
     CONFIRMED = "CONFIRMED", "Confirmee"
     DELIVERED = "DELIVERED", "Livree"
     COMPLETED = "COMPLETED", "Finalisee"
@@ -54,8 +53,6 @@ class Order(models.Model):
     order_type = models.CharField(max_length=20, choices=OrderType.choices, default=OrderType.LOCAL)
     status = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING)
     escrow_status = models.CharField(max_length=20, choices=EscrowStatus.choices, default=EscrowStatus.HELD)
-    # Validation vendeur (doc 13) : le vendeur accepte/refuse avant la deadline,
-    # sinon la commande expire automatiquement et l'acheteur est rembourse.
     seller_response_deadline = models.DateTimeField(null=True, blank=True)
     seller_accepted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -76,8 +73,6 @@ class EscrowLifecycleStatus(models.TextChoices):
     READY = "READY", "Pret a etre libere"
     PAYOUT_PENDING = "PAYOUT_PENDING", "Payout en attente"
     RELEASED = "RELEASED", "Libere"
-    # Split litige : une partie versée au bénéficiaire, le reste remboursé à
-    # l'acheteur. Distinct de REFUNDED (tout remboursé) pour une compta exacte.
     PARTIALLY_RELEASED = "PARTIALLY_RELEASED", "Partiellement libere"
     FROZEN = "FROZEN", "Gele"
     REFUNDED = "REFUNDED", "Rembourse"
@@ -206,7 +201,6 @@ class OrderReview(models.Model):
     rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
     comment = models.TextField(blank=True)
     photo = models.ImageField(upload_to="reviews/", blank=True, null=True)
-    # Reponse publique du vendeur a l'avis (droit de reponse, renforce la confiance).
     seller_reply = models.TextField(blank=True)
     seller_reply_at = models.DateTimeField(null=True, blank=True)
     is_verified_purchase = models.BooleanField(default=True)

@@ -36,7 +36,6 @@ class KYCDocumentExpiryTests(TestCase):
         self.assertTrue(
             Notification.objects.filter(user=self.user, category=NotificationCategory.KYC).exists()
         )
-        # Second run: no duplicate warning.
         self.assertEqual(check_kyc_document_expiry()["warned"], 0)
 
     def test_expired_document_downgrades_account(self):

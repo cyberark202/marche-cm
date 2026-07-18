@@ -83,8 +83,6 @@ class GroupCampaignAccessTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_supplier_can_access_campaigns(self):
-        # Compte « Vendeur » unifié : le regroupage n'est plus réservé au
-        # grossiste. Le vendeur accède (et ne voit que ses propres campagnes).
         self._auth_as(self.supplier)
         res = self.client.get(reverse("campaign-list"))
         self.assertEqual(res.status_code, status.HTTP_200_OK)

@@ -1,7 +1,3 @@
-/// Secure Dio HTTP client — request signing, replay nonce, correlation IDs,
-/// HTTPS enforcement, device binding, and structured error handling.
-///
-/// OWASP MASVS-NETWORK-1, MASVS-AUTH-2
 library;
 
 import 'dart:async';
@@ -17,8 +13,6 @@ import '../token_repository.dart';
 typedef TokensRefreshedCallback = void Function(String accessToken, String? refreshToken);
 typedef AuthFailedCallback = void Function();
 
-/// Singleton Dio client with full security interceptor stack.
-/// Call [initialize] once at app startup before any [dio] usage.
 class SecureDioClient {
   SecureDioClient._();
   static final SecureDioClient _instance = SecureDioClient._();
@@ -52,7 +46,6 @@ class SecureDioClient {
       validateStatus: (_) => true,
     ));
 
-    // Order: security headers → auth (inject + refresh) → error sanitiser
     d.interceptors.add(_SecurityHeadersInterceptor(deviceId: deviceId));
     d.interceptors.add(_AuthInterceptor(
       dio: d,
@@ -74,7 +67,6 @@ class SecureDioClient {
   }
 }
 
-// ── Security Headers Interceptor ─────────────────────────────────────────────
 
 class _SecurityHeadersInterceptor extends Interceptor {
   final String deviceId;
@@ -120,17 +112,12 @@ class _SecurityHeadersInterceptor extends Interceptor {
   }
 }
 
-// ── Auth Interceptor — token injection + reactive refresh on 401 ─────────────
 
 class _AuthInterceptor extends Interceptor {
   final Dio dio;
   final TokensRefreshedCallback? onTokensRefreshed;
   final AuthFailedCallback? onAuthFailed;
 
-  // Completer pattern: concurrent 401 responses all piggyback on a single
-  // in-flight refresh instead of each triggering an independent refresh or
-  // clearing tokens prematurely. Eliminates spurious logouts on wallet pages
-  // that fire multiple parallel requests (Future.wait / TabBarView rebuilds).
   Completer<String?>? _refreshCompleter;
 
   _AuthInterceptor({
@@ -173,8 +160,6 @@ class _AuthInterceptor extends Interceptor {
     }
   }
 
-  /// Returns a fresh access token. If a refresh is already in flight, waits
-  /// for it instead of issuing a second concurrent refresh request.
   Future<String?> _refreshToken() async {
     if (_refreshCompleter != null) {
       return _refreshCompleter!.future;
@@ -210,7 +195,6 @@ class _AuthInterceptor extends Interceptor {
   }
 }
 
-// ── Error Sanitizer — never surface raw server errors to UI ──────────────────
 
 class _ErrorSanitizerInterceptor extends Interceptor {
   @override
@@ -220,10 +204,6 @@ class _ErrorSanitizerInterceptor extends Interceptor {
     handler.next(response);
   }
 
-  // Transport-level failures never carry an HTTP response (DNS, TLS, timeout,
-  // connection refused). Their toString() / underlying SocketException embed
-  // the server host:port (e.g. "Failed host lookup: 'marche-cm…'"). Replace the
-  // exception wholesale so no server address can surface in the UI or logs.
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     handler.reject(DioException(
@@ -255,7 +235,6 @@ class _ErrorSanitizerInterceptor extends Interceptor {
     final status = response.statusCode ?? 500;
     final body = response.data;
 
-    // 401: always use fixed message for security (never expose server details).
     if (status == 401) {
       return Response(
         requestOptions: response.requestOptions,
@@ -266,8 +245,6 @@ class _ErrorSanitizerInterceptor extends Interceptor {
       );
     }
 
-    // For all other errors: prefer the server-supplied message (already
-    // user-friendly from Django), fall back to a generic one only when absent.
     String? userMessage;
     if (body is Map) {
       userMessage = (body['detail'] ?? body['message'] ?? body['error'])

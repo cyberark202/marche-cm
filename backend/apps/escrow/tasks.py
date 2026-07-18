@@ -21,8 +21,6 @@ def process_auto_releases() -> dict:
     from .services import escrow_service
 
     try:
-        # retry_count=0 — we want INSTANT skip if another beat is running,
-        # not queuing. Next tick (every 300s) will catch what we miss.
         with acquire_lock("escrow:auto_release_beat", ttl_seconds=290, retry_count=0):
             count = escrow_service.process_auto_releases()
             logger.info("escrow_auto_releases", extra={"count": count})

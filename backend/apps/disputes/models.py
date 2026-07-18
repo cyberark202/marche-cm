@@ -88,7 +88,7 @@ class DisputeCase(models.Model):
     A dispute case. Event-sourced: history is in DisputeEvent.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    reference = models.CharField(max_length=20, unique=True)  # e.g. DSP-20240523-001
+    reference = models.CharField(max_length=20, unique=True)
     category = models.CharField(max_length=20, choices=DisputeCategory.choices, db_index=True)
     dispute_type = models.CharField(max_length=40, db_index=True)
     state = models.CharField(
@@ -111,13 +111,10 @@ class DisputeCase(models.Model):
     entity_id = models.CharField(max_length=80)
     title = models.CharField(max_length=200)
     description = models.TextField()
-    # Escrow reference — frozen escrow during dispute
     escrow_hold_id = models.UUIDField(null=True, blank=True)
     escrow_frozen_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
-    # SLA
     sla_due_at = models.DateTimeField(null=True, blank=True)
     sla_breached = models.BooleanField(default=False)
-    # Resolution
     resolution_outcome = models.CharField(max_length=30, blank=True)
     resolution_note = models.TextField(blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
@@ -125,7 +122,6 @@ class DisputeCase(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="resolved_dispute_cases",
     )
-    # Appeal
     appeal_deadline = models.DateTimeField(null=True, blank=True)
     is_critical = models.BooleanField(default=False)
     guarantee_fund_used = models.BooleanField(default=False)
@@ -202,8 +198,8 @@ class DisputeEvidence(models.Model):
         related_name="uploaded_case_evidences",
     )
     evidence_type = models.CharField(max_length=20, choices=EvidenceType.choices)
-    file_key = models.CharField(max_length=300)  # S3 key or storage path
-    file_hash = models.CharField(max_length=64)  # SHA-256 for tamper detection
+    file_key = models.CharField(max_length=300)
+    file_hash = models.CharField(max_length=64)
     file_size_bytes = models.PositiveIntegerField(default=0)
     description = models.CharField(max_length=400, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -220,7 +216,7 @@ class DisputeDecision(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
         related_name="made_dispute_decisions",
     )
-    outcome = models.CharField(max_length=30)  # REFUND_BUYER | RELEASE_SELLER | SPLIT | NO_ACTION
+    outcome = models.CharField(max_length=30)
     buyer_refund_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     seller_release_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     reasoning = models.TextField()

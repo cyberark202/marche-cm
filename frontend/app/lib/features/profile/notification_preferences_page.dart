@@ -5,10 +5,6 @@ import '../../core/api_service.dart';
 import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
 
-/// Préférences de notifications (doc 10).
-///
-/// Les alertes de sécurité et les notifications critiques restent toujours
-/// actives : seuls les canaux librement désactivables sont exposés.
 class NotificationPreferencesPage extends StatefulWidget {
   const NotificationPreferencesPage({super.key});
 

@@ -8,7 +8,6 @@ import '../auth/session_store.dart';
 import 'rental_bookings_page.dart';
 import 'rental_listing_edit_page.dart';
 
-/// Mes annonces de location (côté propriétaire, doc 14).
 class RentalListingsPage extends StatefulWidget {
   const RentalListingsPage({super.key});
 
@@ -40,8 +39,6 @@ class _RentalListingsPageState extends State<RentalListingsPage> {
       final rows = await _api.getList('/api/rental-listings/', token: token);
       if (!mounted) return;
       setState(() {
-        // L'endpoint liste aussi les annonces publiées des autres :
-        // on ne garde ici que les miennes.
         _listings = rows
             .where((l) => '${l['owner']}' == '$userId')
             .toList(growable: false);

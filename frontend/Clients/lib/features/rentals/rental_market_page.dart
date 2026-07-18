@@ -7,10 +7,6 @@ import '../../core/ui_state_widgets.dart';
 import '../auth/session_store.dart';
 import 'my_rentals_page.dart';
 
-/// Marché de la location (doc 14) : biens à louer publiés par les vendeurs.
-///
-/// La réservation séquestre loyer + caution ; la caution est restituée au
-/// retour conforme du bien.
 class RentalMarketPage extends StatefulWidget {
   const RentalMarketPage({super.key});
 

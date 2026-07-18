@@ -35,9 +35,6 @@ def _make_user(username="u9") -> User:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [FIN-001-bis] LedgerTransaction.idempotency_key scoped by (user, entry_type)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class LedgerIdempotencyScopedTests(TestCase):
     def test_idempotency_key_includes_user_and_entry_type(self):
@@ -56,9 +53,6 @@ class LedgerIdempotencyScopedTests(TestCase):
             self.assertIn(f"wle:{u.id}:DEPOSIT:shared-key", kwargs["idempotency_key"])
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [NEW-001] Replay path re-posts mirror only if missing
-# ─────────────────────────────────────────────────────────────────────────────
 
 class LedgerMirrorReplaySafetyTests(TestCase):
     def test_mirror_re_posted_when_ledger_tx_missing(self):
@@ -77,9 +71,6 @@ class LedgerMirrorReplaySafetyTests(TestCase):
                 )
             self.assertEqual(mock_topup.call_count, 1)
 
-        # Replay — same idempotency_key. The wallet entry already exists, so
-        # mutate_wallet should return it WITHOUT a second mirror post, because
-        # LedgerTransaction.objects.filter(idempotency_key=...).exists() is True.
         from apps.ledger.models import LedgerTransaction
         with patch.object(
             LedgerTransaction.objects, "filter",
@@ -94,8 +85,6 @@ class LedgerMirrorReplaySafetyTests(TestCase):
                 )
             self.assertEqual(mock_topup_2.call_count, 0)
 
-        # Replay with the previous LedgerTransaction MISSING — the mirror MUST
-        # be re-posted so the two ledgers converge.
         with patch.object(
             LedgerTransaction.objects, "filter",
             return_value=MagicMock(exists=lambda: False),
@@ -111,9 +100,6 @@ class LedgerMirrorReplaySafetyTests(TestCase):
             self.assertEqual(mock_topup_3.call_count, 1)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [NEW-002] Webhook timestamp window
-# ─────────────────────────────────────────────────────────────────────────────
 
 class WebhookTimestampTests(TestCase):
     def setUp(self):
@@ -151,9 +137,6 @@ class WebhookTimestampTests(TestCase):
         self.assertTrue(ok)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [N-002] MessageSerializer length + type validation
-# ─────────────────────────────────────────────────────────────────────────────
 
 class MessageSerializerValidationTests(TestCase):
     def test_oversized_content_rejected(self):
@@ -175,9 +158,6 @@ class MessageSerializerValidationTests(TestCase):
         self.assertEqual(s.validate_type("TEXT"), "TEXT")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [N-005] _client_ip refuses XFF from untrusted REMOTE_ADDR
-# ─────────────────────────────────────────────────────────────────────────────
 
 class ClientIpTrustedProxyTests(TestCase):
     def setUp(self):
@@ -205,22 +185,17 @@ class ClientIpTrustedProxyTests(TestCase):
         req = self.factory.get(
             "/",
             HTTP_X_FORWARDED_FOR="8.8.8.8",
-            REMOTE_ADDR="9.9.9.9",  # NOT in TRUSTED_PROXIES
+            REMOTE_ADDR="9.9.9.9",
         )
         self.assertEqual(_client_ip(req), "9.9.9.9")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [NEW-003] process_auto_releases skips on lock contention
-# ─────────────────────────────────────────────────────────────────────────────
 
 class AutoReleaseSingleBeatTests(TestCase):
     def test_skipped_when_lock_held(self):
         from apps.escrow.tasks import process_auto_releases
         from core.locks import LockAcquisitionError
 
-        # acquire_lock is imported lazily inside the task body, so we patch
-        # it at its source module rather than on apps.escrow.tasks.
         with patch("core.locks.acquire_lock") as mock_acq:
             mock_acq.side_effect = LockAcquisitionError("held elsewhere")
             result = process_auto_releases()
@@ -228,15 +203,9 @@ class AutoReleaseSingleBeatTests(TestCase):
         self.assertIn("skipped", result)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# [N-001] PIN verify path accepts 6-digit PINs
-# ─────────────────────────────────────────────────────────────────────────────
 
 class WalletPinVerifyAcceptsSixDigitsTests(TestCase):
     def test_verify_4_digit_still_accepted_backwards_compat(self):
-        # Cosmetic: ensure the rejection on the verify endpoint accepts 4 digit
-        # (backwards compat) — we just check string handling. Real wallet PIN
-        # presence is mocked.
         u = _make_user("verify_u4")
         u.set_wallet_pin("1234")
         u.save()

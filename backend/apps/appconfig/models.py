@@ -21,30 +21,22 @@ class AppRelease(models.Model):
     se fait via broadcast_event("system", "app_config_changed", ...).
     """
 
-    # Nom court de l'app : "app" (buyer/seller), "clients", "driver", "admin".
     app = models.CharField(max_length=32)
     platform = models.CharField(max_length=16, choices=AppPlatform.choices, default=AppPlatform.ANDROID)
 
-    # Dernière version publiée et version minimale encore autorisée (semver "x.y.z").
     latest_version = models.CharField(max_length=32, default="0.0.0")
     min_supported_version = models.CharField(max_length=32, default="0.0.0")
 
-    # Où récupérer la mise à jour (APK direct via le site vitrine, ou lien store).
     download_url = models.URLField(blank=True)
 
-    # Messages localisés {"fr": "...", "en": "..."}.
     update_message = models.JSONField(default=dict, blank=True)
     maintenance_message = models.JSONField(default=dict, blank=True)
 
     maintenance = models.BooleanField(default=False)
-    # Coupe l'app (incident sécurité). Fail-closed côté client une fois reçu.
     kill_switch = models.BooleanField(default=False)
 
-    # Drapeaux d'activation de fonctionnalités déjà livrées (dark launch).
     feature_flags = models.JSONField(default=dict, blank=True)
 
-    # Incrémenté à chaque changement significatif — le client compare pour savoir
-    # s'il doit ré-appliquer la config (notifié via WebSocket).
     config_version = models.PositiveIntegerField(default=1)
 
     is_active = models.BooleanField(default=True)
@@ -61,9 +53,6 @@ class AppRelease(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # Diffusion temps réel : les clients connectés au topic "system" refetch
-        # leur config et appliquent (kill switch / maintenance / flags) sans
-        # redémarrage. Best-effort — broadcast_event avale toute panne du layer.
         try:
             from apps.notifications.realtime import broadcast_event
 
@@ -80,50 +69,30 @@ class AppRelease(models.Model):
             logger.exception("app_config_broadcast_failed app=%s platform=%s", self.app, self.platform)
 
 
-# ---------------------------------------------------------------------------
-# Paramètres plateforme configurables à chaud (docs 01/05/16)
-# Le doc métier exige que commissions, frais, seuils et pénalités soient
-# modifiables par l'administration sans redéploiement, et historisés.
-# ---------------------------------------------------------------------------
 
-# Registre des clés autorisées et de leurs valeurs par défaut. Toute clé hors
-# registre est refusée à l'écriture — la config reste un ensemble fermé,
-# validé, et non un fourre-tout.
 PLATFORM_SETTING_DEFAULTS: dict[str, object] = {
-    # Commission plateforme sur les ventes (taux 0..0.5). Le doc 01 prévoit un
-    # taux par catégorie : category_rates = {"<category_id>": 0.08, ...}.
     "commission.default_rate": 0.10,
     "commission.category_rates": {},
-    # Commission prélevée sur le payout livreur.
     "commission.logistics_rate": 0.10,
-    # Commission de location (doc 01) — indépendante de la commission de vente.
     "commission.rental_rate": 0.10,
-    # Frais de retrait wallet (doc 05) : pourcentage + plancher FCFA.
     "withdrawal.fee_percent": 1.5,
     "withdrawal.fee_min": 100,
-    # Limites financières par niveau KYC (docs 03/05/06), par opération.
-    # Niveau 0 aligné sur le doc : dépôt <= 50 000, retrait <= 100 000 FCFA.
     "kyc.limits": {
         "0": {"deposit_per_tx": 50000, "withdraw_per_tx": 100000, "per_day": 150000},
         "1": {"deposit_per_tx": 200000, "withdraw_per_tx": 200000, "per_day": 500000},
         "2": {"deposit_per_tx": 1500000, "withdraw_per_tx": 1500000, "per_day": 5000000},
         "3": {"deposit_per_tx": 5000000, "withdraw_per_tx": 5000000, "per_day": 20000000},
     },
-    # Solde dormant (doc 05) : détection > seuil pendant N jours. La pénalité
-    # reste DÉSACTIVÉE (0 %) tant que la base légale n'est pas validée — seule
-    # la notification est émise.
     "wallet.dormancy_threshold": 2000000,
     "wallet.dormancy_delay_days": 7,
     "wallet.dormancy_penalty_percent": 0,
     "wallet.dormancy_enabled": False,
-    # Délai de validation vendeur avant expiration + remboursement (doc 13).
     "orders.seller_validation_hours": 24,
-    # Fenêtre d'acceptation d'une offre de mission livreur (doc 07).
     "logistics.dispatch_offer_minutes": 15,
 }
 
 _SETTING_CACHE_PREFIX = "platform_setting:"
-_SETTING_CACHE_TTL = 60  # secondes — un changement admin est visible en <1 min.
+_SETTING_CACHE_TTL = 60
 
 
 class PlatformSetting(models.Model):

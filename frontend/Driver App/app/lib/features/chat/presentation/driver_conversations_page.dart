@@ -9,9 +9,6 @@ import '../../../core/network/driver_dio_client.dart';
 import '../../../core/realtime_events_service.dart';
 import '../../../core/theme/driver_theme.dart';
 
-/// Boîte de réception du livreur : liste des discussions de coordination
-/// livraison. Réutilise l'API chat partagée (`/api/chat/rooms/`) et ouvre la
-/// conversation plein écran existante (`/chat/:roomId`).
 class DriverConversationsPage extends StatefulWidget {
   const DriverConversationsPage({super.key});
 
@@ -74,7 +71,6 @@ class _DriverConversationsPageState extends State<DriverConversationsPage> {
     return peerName.isNotEmpty ? peerName : 'Discussion #${room['id']}';
   }
 
-  /// Horodatage compact du dernier message (HH:MM aujourd'hui, sinon date).
   String _timeLabel(Map<String, dynamic> room) {
     final last = room['last_message'];
     if (last is! Map) return '';

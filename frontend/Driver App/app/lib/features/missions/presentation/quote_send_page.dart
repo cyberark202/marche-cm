@@ -8,7 +8,6 @@ import '../../../core/network/driver_dio_client.dart';
 import '../../../core/theme/driver_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Envoyer un devis — driver bid sur une mission (PDF 25).
 class QuoteSendPage extends ConsumerStatefulWidget {
   const QuoteSendPage({super.key, required this.mission});
   final Map<String, dynamic> mission;

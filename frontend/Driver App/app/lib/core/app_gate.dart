@@ -5,13 +5,6 @@ import 'package:flutter/material.dart';
 import 'runtime_config.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Porte de démarrage : intercale forced-update / maintenance / kill switch
-/// AVANT toute UI applicative. Non bloquante par défaut (fail-open) tant que le
-/// serveur ne demande rien.
-///
-/// [systemEvents] (optionnel) : flux d'évènements temps réel ; si un évènement de
-/// topic "system" arrive, la config est rafraîchie immédiatement (kill switch /
-/// maintenance instantanés). Les apps sans canal realtime passent `null`.
 class AppGate extends StatefulWidget {
   const AppGate({super.key, required this.child, this.systemEvents});
 
@@ -30,7 +23,6 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Cache d'abord (fail-closed), puis réseau.
     RuntimeConfigService.instance
         .loadCached()
         .then((_) => RuntimeConfigService.instance.refresh());
@@ -41,7 +33,6 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
       }
     });
 
-    // Filet de sécurité si le WebSocket est absent/coupé.
     _poll = Timer.periodic(
       const Duration(minutes: 15),
       (_) => RuntimeConfigService.instance.refresh(),
@@ -91,7 +82,6 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
             onRetry: RuntimeConfigService.instance.refresh,
           );
         }
-        // update_required
         return _GateScreen(
           icon: LucideIcons.download,
           title: lang == 'en' ? 'Update required' : 'Mise à jour requise',

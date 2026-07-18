@@ -9,8 +9,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 final _missionDetailProvider =
     FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) async {
-  // Audit ref: [Front-Driver] /api/logistics/missions/<id>/ does not exist.
-  // Missions == Shipments backend-side.
   final res = await DriverDioClient.dio.get('/api/shipments/$id/');
   return res.data as Map<String, dynamic>;
 });
@@ -29,8 +27,6 @@ class _MissionDetailPageState extends ConsumerState<MissionDetailPage> {
   Future<void> _accept() async {
     setState(() => _accepting = true);
     try {
-      // Audit ref: [Front-Driver] backend exposes ShipmentViewSet.accept_quote
-      // (logistics/views.py:357). The previous /accept/ path was a 404.
       await DriverDioClient.dio.post(
           '/api/shipments/${widget.missionId}/accept_quote/');
       if (!mounted) return;
@@ -104,7 +100,6 @@ class _MissionDetail extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Fee banner
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),

@@ -54,13 +54,11 @@ class DriverFixesTests(TestCase):
             role="SUPPLIER", is_verified=True, kyc_level=2, trust_score=Decimal("4.20"),
             country_code="CN", phone_number="+237690000111",
         )
-        # The agent who actually carries the parcel (assigned via accepted quote).
         self.transit = User.objects.create_user(
             username="tr_d", email="tr_d@test.local", password="TestPassword123!",
             role="TRANSIT_AGENT", is_verified=True, kyc_level=2, trust_score=Decimal("3.40"),
             country_code="CM", phone_number="+237690000222",
         )
-        # A different, stale "preferred" agent picked at order creation time.
         self.decoy = User.objects.create_user(
             username="dec_d", email="dec_d@test.local", password="TestPassword123!",
             role="TRANSIT_AGENT", is_verified=True, kyc_level=2, trust_score=Decimal("3.10"),
@@ -108,7 +106,6 @@ class DriverFixesTests(TestCase):
         OrderFinanceService.admin_validate_supplier(order=order, actor=self.admin, approve=True, note="OK")
         order.refresh_from_db()
 
-    # ── D-02 ────────────────────────────────────────────────────────────────
     def test_unverified_driver_cannot_quote(self):
         unverified = get_user_model().objects.create_user(
             username="nokyc", email="nokyc@test.local", password="TestPassword123!",
@@ -127,70 +124,57 @@ class DriverFixesTests(TestCase):
         ok = client.post(f"/api/shipments/{shipment.id}/post_quote/", payload)
         self.assertEqual(ok.status_code, 201)
 
-    # ── D-01 ────────────────────────────────────────────────────────────────
     def test_delivery_otp_is_real_and_driver_can_confirm(self):
         order, shipment = self._make_international_order(preferred=self.transit, assigned=self.transit)
         self._drive_to_shipping(order)
         client = APIClient()
         client.force_authenticate(user=self.transit)
 
-        # Issue: the buyer receives a code; only its hash is stored.
         issued = client.post(f"/api/shipments/{shipment.id}/issue_delivery_otp/")
         self.assertEqual(issued.status_code, 200)
         shipment.refresh_from_db()
         self.assertTrue(shipment.delivery_otp_hash)
         self.assertIsNotNone(shipment.delivery_otp_expires_at)
 
-        # The plaintext code is never returned to the driver — recover it for the
-        # test from the buyer's notification (where it is legitimately delivered).
         import re
         from apps.notifications.models import Notification
         note = Notification.objects.filter(user=self.buyer, title="Code de livraison").latest("created_at")
         code = re.search(r"\b(\d{4})\b", note.body).group(1)
         self.assertTrue(check_password(code, shipment.delivery_otp_hash))
 
-        # Wrong code is rejected (OTP is enforced, not cosmetic).
         bad = client.post(f"/api/shipments/{shipment.id}/confirm_delivery/", {"otp": "0000" if code != "0000" else "1111"})
         self.assertEqual(bad.status_code, 400)
 
-        # Correct code but no photo proof yet → blocked.
         no_proof = client.post(f"/api/shipments/{shipment.id}/confirm_delivery/", {"otp": code})
         self.assertEqual(no_proof.status_code, 400)
 
-        # Add proof, then confirm with the correct code → DELIVERED + payout.
         DeliveryProof.objects.create(shipment=shipment, signed_by="Client", validated=False)
         good = client.post(f"/api/shipments/{shipment.id}/confirm_delivery/", {"otp": code})
         self.assertEqual(good.status_code, 200)
         shipment.refresh_from_db()
         self.assertEqual(shipment.status, ShipmentStatus.DELIVERED)
-        self.assertEqual(shipment.delivery_otp_hash, "")  # single-use, burned
+        self.assertEqual(shipment.delivery_otp_hash, "")
 
         transit_wallet = Wallet.objects.get(owner=self.transit)
         payout = transit_wallet.transactions.filter(kind="PAYOUT_LOGISTICS").first()
         self.assertIsNotNone(payout)
-        # Commission plateforme de 10% sur le payout livreur : 100000 -> 90000 net.
         self.assertEqual(abs(payout.amount), Decimal("90000.00"))
 
     def test_driver_confirm_is_not_a_buyer_only_403(self):
-        # Regression for the old trap: the driver hitting the delivery endpoint
-        # must not get an authorization 403 (it used to call validate_delivery).
         order, shipment = self._make_international_order(preferred=self.transit, assigned=self.transit)
         client = APIClient()
         client.force_authenticate(user=self.transit)
         resp = client.post(f"/api/shipments/{shipment.id}/confirm_delivery/", {"otp": "1234"})
         self.assertNotEqual(resp.status_code, 403)
-        self.assertEqual(resp.status_code, 400)  # no active OTP → business 400, not auth 403
+        self.assertEqual(resp.status_code, 400)
 
-    # ── D-03 ────────────────────────────────────────────────────────────────
     def test_release_pays_actual_carrier_not_stale_preferred(self):
-        # preferred (decoy) != assigned (transit) — money must follow the carrier.
         order, shipment = self._make_international_order(preferred=self.decoy, assigned=self.transit)
         self._drive_to_shipping(order)
         OrderFinanceService.release_logistics_escrow_after_buyer_confirmation(order=order, actor=self.buyer)
 
         carrier_payout = Wallet.objects.get(owner=self.transit).transactions.filter(kind="PAYOUT_LOGISTICS").first()
         self.assertIsNotNone(carrier_payout)
-        # Commission plateforme de 10% sur le payout livreur : 100000 -> 90000 net.
         self.assertEqual(abs(carrier_payout.amount), Decimal("90000.00"))
 
         decoy_wallet = Wallet.objects.filter(owner=self.decoy).first()

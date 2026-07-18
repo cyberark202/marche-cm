@@ -2,28 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
-/// Lightweight mutex preventing concurrent execution of async actions.
-///
-/// Designed for fintech / checkout flows on low-end Android (Tecno Spark,
-/// Infinix Hot) where tap events can queue before the first call returns.
-/// Prevents:
-///   - Double checkout / payment submissions
-///   - Multi-submit forms
-///   - Spam tap races on slow devices
-///
-/// Usage:
-///   final _mutex = ActionMutex();
-///   onTap: () => _mutex.run(_submitCheckout),
 class ActionMutex {
   bool _locked = false;
   DateTime? _lastCompleted;
 
   bool get isLocked => _locked;
 
-  /// Runs [action] exclusively. Returns null if already locked or in cooldown.
-  ///
-  /// [cooldown] prevents rapid re-triggering after unlock (default 800ms).
-  /// [haptic] triggers a light vibration on first accepted tap (default true).
   Future<T?> run<T>(
     Future<T> Function() action, {
     Duration cooldown = const Duration(milliseconds: 800),
@@ -44,7 +28,6 @@ class ActionMutex {
     }
   }
 
-  /// Resets all state. Use after navigation away from a form.
   void reset() {
     _locked = false;
     _lastCompleted = null;

@@ -4,19 +4,7 @@ import 'app_theme.dart';
 import 'network_quality_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-/// Market CM — branded atoms ported faithfully from the authoritative
-/// design source (`central-market-ui-design/project/theme.jsx`).
-///
-/// These complement the existing rich kit in `app_ui.dart` with the small
-/// building blocks the mockups rely on: Pill, Avatar, image placeholder,
-/// star rating, product card, branded bottom navigation and screen header.
-///
-/// Everything pulls from [AppPalette] so the Cameroonian palette stays the
-/// single source of truth.
 
-// ─────────────────────────────────────────────────────────────
-// Pill — small status/label chip (theme.jsx `Pill`)
-// ─────────────────────────────────────────────────────────────
 enum CmPillVariant { neutral, success, warn, danger, info, dark, accent }
 
 class CmPill extends StatelessWidget {
@@ -87,9 +75,6 @@ class CmPill extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Avatar — gradient initials (theme.jsx `Avatar`)
-// ─────────────────────────────────────────────────────────────
 enum CmAvatarVariant { primary, accent, coral, info, dark }
 
 class CmAvatar extends StatelessWidget {
@@ -172,10 +157,6 @@ class CmAvatar extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Image placeholder — soft gradient + watermark icon (theme.jsx `Ph`).
-// Renders [imageUrl] when provided, falling back to the gradient tone.
-// ─────────────────────────────────────────────────────────────
 enum CmTone { primary, accent, cream, coral, sky }
 
 class CmImagePlaceholder extends StatelessWidget {
@@ -296,9 +277,6 @@ class CmImagePlaceholder extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Stars — rating row (theme.jsx `Stars`)
-// ─────────────────────────────────────────────────────────────
 class CmStars extends StatelessWidget {
   const CmStars({super.key, required this.value, this.size = 12});
 
@@ -322,9 +300,6 @@ class CmStars extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Branded screen header (theme.jsx `ScreenHeader`)
-// ─────────────────────────────────────────────────────────────
 class CmScreenHeader extends StatelessWidget {
   const CmScreenHeader({
     super.key,
@@ -433,9 +408,6 @@ class _HeaderIconBtn extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Product card — catalog/featured tile (theme.jsx shop product card)
-// ─────────────────────────────────────────────────────────────
 class CmProductCard extends StatelessWidget {
   const CmProductCard({
     super.key,
@@ -680,10 +652,6 @@ class _SquareIconBtn extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Branded bottom navigation (theme.jsx `BottomNav`)
-// Pill-highlighted active icon + label + optional badge.
-// ─────────────────────────────────────────────────────────────
 class CmNavItem {
   const CmNavItem({required this.icon, required this.label, this.badge = 0});
   final IconData icon;
@@ -791,8 +759,6 @@ class CmBottomNav extends StatelessWidget {
     );
   }
 }
-/// Helpers responsive partages (web/tablette/desktop). Ajoute par le rollout
-/// responsive 2026-06-27 — voir RAPPORT_AMELIORATIONS_20260627.md.
 class CmResponsive {
   CmResponsive._();
   static const double phoneMax = 600;
@@ -820,8 +786,6 @@ class CmResponsive {
     return w < max ? w : max;
   }
 
-  /// Enveloppe globale a brancher sur MaterialApp.builder : centre/borne toute
-  /// l'app (ecrans, routes, dialogs) sur grand ecran, no-op sur mobile.
   static Widget appWrap(
     BuildContext context,
     Widget? child, {
@@ -843,9 +807,6 @@ class CmResponsive {
   }
 }
 
-/// Slim banner shown when connectivity drops. Place it at the top of a Scaffold
-/// body (above the content) so the admin knows why data may be stale. Collapses
-/// to zero height when online, so it costs nothing on the happy path.
 class CmOfflineBanner extends StatelessWidget {
   const CmOfflineBanner({super.key});
 

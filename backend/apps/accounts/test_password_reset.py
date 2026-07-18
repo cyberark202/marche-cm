@@ -32,7 +32,7 @@ class PasswordResetFlowTests(TestCase):
         field_crypto.clear_crypto_cache()
 
     def setUp(self):
-        cache.clear()  # reset sliding-window throttle counters between tests
+        cache.clear()
         mail.outbox = []
         self.user = get_user_model().objects.create_user(
             username="resetme", email="resetme@qa.test", password="OldPass123!",
@@ -55,7 +55,6 @@ class PasswordResetFlowTests(TestCase):
         )
         code = self._code_from_mail()
 
-        # Wrong code increments attempts but does not reset the password.
         bad = self.client.post(
             CONFIRM_URL,
             {"email": "resetme@qa.test", "code": "000000", "new_password": "BrandNew123!"},
@@ -74,7 +73,6 @@ class PasswordResetFlowTests(TestCase):
         self.assertTrue(self.user.check_password("BrandNew123!"))
         self.assertFalse(self.user.check_password("OldPass123!"))
 
-        # The code is single-use — replaying it fails.
         replay = self.client.post(
             CONFIRM_URL,
             {"email": "resetme@qa.test", "code": code, "new_password": "Another123!"},
@@ -85,7 +83,7 @@ class PasswordResetFlowTests(TestCase):
     def test_unknown_email_is_indistinguishable(self):
         resp = self._request("ghost@nowhere.test")
         self.assertEqual(resp.status_code, 200, resp.content)
-        self.assertEqual(len(mail.outbox), 0)  # no email sent
+        self.assertEqual(len(mail.outbox), 0)
         self.assertFalse(PasswordResetChallenge.objects.exists())
 
     def test_short_password_rejected(self):

@@ -19,12 +19,6 @@ class DriverAuthApi {
     return data;
   }
 
-  /// Driver self-registration — dedicated, role-isolated endpoint.
-  ///
-  /// ISOLATION: `/api/auth/register/driver/` forces the role to TRANSIT_AGENT
-  /// server-side (HiddenField) and provisions a TransportProfile. This app can
-  /// therefore never create a buyer, seller or admin account. The agent is
-  /// activated after KYC documents are reviewed; pricing is completed later.
   static Future<Map<String, dynamic>> register({
     required String name,
     required String phoneNumber,
@@ -55,8 +49,6 @@ class DriverAuthApi {
     return resp.data as Map<String, dynamic>;
   }
 
-  /// Forgot-password step 1 — request an emailed reset code (always 200,
-  /// anti-enumeration). Errors are sanitized by the Dio interceptor.
   static Future<void> requestPasswordReset({required String email}) async {
     await DriverDioClient.dio.post(
       '/api/auth/password/reset/request/',
@@ -64,7 +56,6 @@ class DriverAuthApi {
     );
   }
 
-  /// Forgot-password step 2 — confirm the code and set a new password.
   static Future<void> confirmPasswordReset({
     required String email,
     required String code,
